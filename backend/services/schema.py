@@ -1,6 +1,6 @@
 from sqlalchemy import inspect, text
 
-from models import db
+from models import AIConversation, AIMessage, db
 
 
 AI_SCHEMA_COLUMNS = {
@@ -23,9 +23,14 @@ AI_SCHEMA_COLUMNS = {
 
 
 def ensure_runtime_schema():
-    """Add backward-compatible AI columns to databases created before chat streaming."""
+    """Create or upgrade the additive AI schema without touching existing data."""
     inspector = inspect(db.engine)
     tables = set(inspector.get_table_names())
+    if "users" in tables:
+        AIConversation.__table__.create(bind=db.engine, checkfirst=True)
+        AIMessage.__table__.create(bind=db.engine, checkfirst=True)
+        inspector = inspect(db.engine)
+        tables = set(inspector.get_table_names())
     for table_name, definitions in AI_SCHEMA_COLUMNS.items():
         if table_name not in tables:
             continue

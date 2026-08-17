@@ -44,6 +44,7 @@ class Config:
     )
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     AUTO_CREATE_DB = _as_bool("AUTO_CREATE_DB", True)
+    MIGRATE_RUNTIME_SCHEMA = _as_bool("MIGRATE_RUNTIME_SCHEMA", True)
     SEED_DEMO_DATA = _as_bool("SEED_DEMO_DATA", True)
 
     CORS_ORIGINS = _cors_origins()

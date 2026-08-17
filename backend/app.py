@@ -91,11 +91,13 @@ def create_app(config_object=None):
     register_jwt_callbacks(jwt)
     register_cli_commands(app)
 
-    if app.config["AUTO_CREATE_DB"]:
+    if app.config["AUTO_CREATE_DB"] or app.config["MIGRATE_RUNTIME_SCHEMA"]:
         with app.app_context():
-            db.create_all()
-            from services.schema import ensure_runtime_schema
-            ensure_runtime_schema()
+            if app.config["AUTO_CREATE_DB"]:
+                db.create_all()
+            if app.config["MIGRATE_RUNTIME_SCHEMA"]:
+                from services.schema import ensure_runtime_schema
+                ensure_runtime_schema()
             if app.config["SEED_DEMO_DATA"]:
                 from services.seed import seed_demo_data
                 seed_demo_data()

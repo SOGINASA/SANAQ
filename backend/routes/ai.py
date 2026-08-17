@@ -111,6 +111,7 @@ def conversation_details(conversationId):
 def _stream_model_answer(conversation_id, locale, orchestrator, model_messages, safety_answer=None):
     started_at = time.monotonic()
     chunks = []
+    has_visible_content = False
     generated_by_ai = safety_answer is None
     model_version = current_app.config["AI_MODEL"] if generated_by_ai else "safety-policy-v1"
 
@@ -118,12 +119,20 @@ def _stream_model_answer(conversation_id, locale, orchestrator, model_messages, 
         source = [safety_answer] if safety_answer else orchestrator.stream_messages(model_messages)
         for chunk in source:
             chunks.append(chunk)
+            has_visible_content = has_visible_content or bool(chunk.strip())
             yield _sse("token", {"text": chunk})
         content = "".join(chunks).strip()
         if not content:
             raise OllamaError("Ollama returned an empty response")
-    except Exception as error:
-        current_app.logger.exception("AI stream fallback used", exc_info=error)
+    except OllamaError as error:
+        if has_visible_content:
+            current_app.logger.warning("AI stream interrupted after partial response: %s", error)
+            yield _sse("error", {
+                "code": "AI_STREAM_INTERRUPTED",
+                "message": "Ответ SANA прервался. Попробуй отправить сообщение ещё раз.",
+            })
+            return
+        current_app.logger.warning("AI stream fallback used: %s", error)
         content = fallback_answer(locale)
         generated_by_ai = False
         model_version = "deterministic-fallback-v1"
