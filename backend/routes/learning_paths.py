@@ -8,13 +8,13 @@ from models import (
     LearningPath,
     LearningStep,
     PrerequisiteEdge,
-    Skill,
     Subject,
     Topic,
     db,
 )
 from services.learning import (
     MASTERY_THRESHOLD,
+    available_learning_skills,
     build_or_recalculate_path,
     mastery_status,
     prerequisite_ids,
@@ -133,12 +133,7 @@ def update_learning_path(pathId):
 @roles_required("student")
 def knowledge_map():
     subject_id = request.args.get("subject_id", "mathematics")
-    skills = db.session.scalars(
-        db.select(Skill)
-        .join(Topic, Skill.topic_id == Topic.id)
-        .where(Topic.subject_id == subject_id)
-        .order_by(Skill.order_index)
-    ).all()
+    skills = available_learning_skills(subject_id)
     if not skills:
         return api_error("SUBJECT_NOT_FOUND", "Предмет не найден", 404)
     states = db.session.scalars(
@@ -186,4 +181,3 @@ def knowledge_map():
             for edge in edges
         ],
     })
-

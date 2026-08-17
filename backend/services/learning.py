@@ -19,6 +19,27 @@ MASTERY_THRESHOLD = 0.75
 ALGORITHM_VERSION = "prerequisite-gap-v1"
 
 
+def available_learning_skills(subject_id):
+    """Return only skills that already have publishable learning content.
+
+    The curriculum catalog is broader than the current lesson library. Keeping
+    this boundary explicit prevents learning paths and knowledge maps from
+    exposing empty steps while content is being authored.
+    """
+    return db.session.scalars(
+        db.select(Skill)
+        .join(Topic, Skill.topic_id == Topic.id)
+        .where(
+            Topic.subject_id == subject_id,
+            db.exists().where(
+                Task.skill_id == Skill.id,
+                Task.is_published.is_(True),
+            ),
+        )
+        .order_by(Skill.order_index)
+    ).all()
+
+
 def normalize_answer(value):
     return (
         str(value)
@@ -107,12 +128,7 @@ def build_or_recalculate_path(student_id, subject_id, goal_id, diagnostic_id=Non
     else:
         db.session.execute(db.delete(LearningStep).where(LearningStep.path_id == path.id))
 
-    skills = db.session.scalars(
-        db.select(Skill)
-        .join(Topic, Skill.topic_id == Topic.id)
-        .where(Topic.subject_id == subject_id)
-        .order_by(Skill.order_index)
-    ).all()
+    skills = available_learning_skills(subject_id)
     states = db.session.scalars(
         db.select(KnowledgeState).where(
             KnowledgeState.student_id == student_id,

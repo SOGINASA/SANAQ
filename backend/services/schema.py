@@ -1,6 +1,12 @@
 from sqlalchemy import inspect, text
 
-from models import AIConversation, AIMessage, db
+from models import (
+    AIConversation,
+    AIMessage,
+    CurriculumTopicMetadata,
+    SkillPlanningMetadata,
+    db,
+)
 
 
 AI_SCHEMA_COLUMNS = {
@@ -23,12 +29,14 @@ AI_SCHEMA_COLUMNS = {
 
 
 def ensure_runtime_schema():
-    """Create or upgrade the additive AI schema without touching existing data."""
+    """Create additive runtime tables and columns without touching existing data."""
     inspector = inspect(db.engine)
     tables = set(inspector.get_table_names())
     if "users" in tables:
         AIConversation.__table__.create(bind=db.engine, checkfirst=True)
         AIMessage.__table__.create(bind=db.engine, checkfirst=True)
+        CurriculumTopicMetadata.__table__.create(bind=db.engine, checkfirst=True)
+        SkillPlanningMetadata.__table__.create(bind=db.engine, checkfirst=True)
         inspector = inspect(db.engine)
         tables = set(inspector.get_table_names())
     for table_name, definitions in AI_SCHEMA_COLUMNS.items():

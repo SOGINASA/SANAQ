@@ -146,6 +146,15 @@ def register_cli_commands(app):
         seed_demo_data()
         print("SANAQ demo content seeded")
 
+    @app.cli.command("seed-curriculum")
+    def seed_curriculum():
+        from services.curriculum import seed_math_curriculum
+        result = seed_math_curriculum()
+        print(
+            f"SANAQ mathematics curriculum {result['version']} seeded: "
+            f"{result['topics']} topics, {result['skills']} skills"
+        )
+
     @app.cli.command("create-admin")
     def create_admin():
         email = input("Email: ").strip().lower()

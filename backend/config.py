@@ -70,6 +70,8 @@ class TestingConfig(Config):
     JWT_SECRET_KEY = "sanaq-testing-jwt-secret-key-32-bytes"
     AUTO_CREATE_DB = False
     SEED_DEMO_DATA = False
+    AI_BASE_URL = "http://127.0.0.1:1"
+    AI_TIMEOUT_SECONDS = 0.1
 
 
 class ProductionConfig(Config):

@@ -185,6 +185,28 @@ class PrerequisiteEdge(db.Model):
     prerequisite_skill_id = db.Column(db.String(64), db.ForeignKey("skills.id"), primary_key=True)
 
 
+class CurriculumTopicMetadata(db.Model):
+    __tablename__ = "curriculum_topic_metadata"
+
+    topic_id = db.Column(db.String(64), db.ForeignKey("topics.id"), primary_key=True)
+    strand = db.Column(db.String(40), nullable=False, index=True)
+    curriculum_version = db.Column(db.String(40), nullable=False, index=True)
+    source_scope = db.Column(db.String(40), nullable=False, default="kz_core")
+    estimated_total_minutes = db.Column(db.Integer, nullable=False)
+
+
+class SkillPlanningMetadata(db.Model):
+    __tablename__ = "skill_planning_metadata"
+
+    skill_id = db.Column(db.String(64), db.ForeignKey("skills.id"), primary_key=True)
+    grade = db.Column(db.Integer, nullable=False, index=True)
+    learning_minutes = db.Column(db.Integer, nullable=False)
+    practice_minutes = db.Column(db.Integer, nullable=False)
+    difficulty = db.Column(db.Float, nullable=False)
+    importance = db.Column(db.Float, nullable=False)
+    curriculum_version = db.Column(db.String(40), nullable=False, index=True)
+
+
 class LearningModule(db.Model):
     __tablename__ = "learning_modules"
 

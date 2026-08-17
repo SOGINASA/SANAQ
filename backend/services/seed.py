@@ -11,6 +11,7 @@ from models import (
     Topic,
     db,
 )
+from services.curriculum import seed_math_curriculum
 
 
 def _upsert(model, identity, **values):
@@ -24,6 +25,7 @@ def _upsert(model, identity, **values):
 
 
 def seed_demo_data():
+    seed_math_curriculum(commit=False)
     _upsert(
         Subject,
         "mathematics",
@@ -215,4 +217,3 @@ def seed_demo_data():
         )
 
     db.session.commit()
-

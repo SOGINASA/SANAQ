@@ -6,8 +6,9 @@ from flask_jwt_extended import get_jwt, get_jwt_identity
 
 from models import (
     Assignment, Attempt, ClassEnrollment, Classroom, KnowledgeState, LearningModule, LearningPath,
-    LearningStep, Notification, Skill, StudentProfile, Task, TeacherComment, Topic, User, db,
+    LearningStep, Notification, StudentProfile, Task, TeacherComment, User, db,
 )
+from services.learning import available_learning_skills
 from utils.decorators import roles_required
 from utils.localization import localized
 from utils.responses import api_error, success
@@ -45,10 +46,7 @@ def _student_rows(classroom):
         db.select(User).join(ClassEnrollment, ClassEnrollment.student_id == User.id)
         .where(ClassEnrollment.class_id == classroom.id).order_by(User.name)
     ).all()
-    skills = db.session.scalars(
-        db.select(Skill).join(Topic, Skill.topic_id == Topic.id)
-        .where(Topic.subject_id == classroom.subject_id).order_by(Skill.order_index)
-    ).all()
+    skills = available_learning_skills(classroom.subject_id)
     result = []
     for user in users:
         states = db.session.scalars(

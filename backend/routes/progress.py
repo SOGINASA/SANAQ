@@ -1,8 +1,14 @@
 from flask import Blueprint, request
 from flask_jwt_extended import get_jwt_identity
 
-from models import KnowledgeState, LearningPath, LearningStep, Skill, Topic, db
-from services.learning import MASTERY_THRESHOLD, mastery_status, prerequisite_ids, serialize_step
+from models import KnowledgeState, LearningPath, LearningStep, Topic, db
+from services.learning import (
+    MASTERY_THRESHOLD,
+    available_learning_skills,
+    mastery_status,
+    prerequisite_ids,
+    serialize_step,
+)
 from utils.decorators import roles_required
 from utils.localization import localized
 from utils.responses import api_error, success
@@ -12,12 +18,7 @@ progress_bp = Blueprint("progress", __name__)
 
 
 def _skills_and_states(subject_id):
-    skills = db.session.scalars(
-        db.select(Skill)
-        .join(Topic, Skill.topic_id == Topic.id)
-        .where(Topic.subject_id == subject_id)
-        .order_by(Skill.order_index)
-    ).all()
+    skills = available_learning_skills(subject_id)
     states = db.session.scalars(
         db.select(KnowledgeState).where(
             KnowledgeState.student_id == get_jwt_identity(),
@@ -107,4 +108,3 @@ def weak_skills():
         })
     items.sort(key=lambda item: item["mastery"])
     return success({"items": items})
-

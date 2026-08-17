@@ -6,9 +6,14 @@ from flask_jwt_extended import get_jwt, get_jwt_identity, jwt_required
 
 from models import (
     AIReport, AuditLog, ClassEnrollment, Classroom, KnowledgeState, LearningModule,
-    MaterialUpload, PrerequisiteEdge, ProductEvent, Skill, StudentGoal, Topic, db,
+    MaterialUpload, PrerequisiteEdge, ProductEvent, StudentGoal, Topic, db,
 )
-from services.learning import MASTERY_THRESHOLD, mastery_status, prerequisite_ids
+from services.learning import (
+    MASTERY_THRESHOLD,
+    available_learning_skills,
+    mastery_status,
+    prerequisite_ids,
+)
 from utils.decorators import admin_required, roles_required
 from utils.localization import localized
 from utils.responses import api_error, success
@@ -105,10 +110,7 @@ def archive_goal(goalId):
 
 
 def _student_map(student_id, subject_id):
-    skills = db.session.scalars(
-        db.select(Skill).join(Topic, Skill.topic_id == Topic.id)
-        .where(Topic.subject_id == subject_id).order_by(Skill.order_index)
-    ).all()
+    skills = available_learning_skills(subject_id)
     states = db.session.scalars(
         db.select(KnowledgeState).where(
             KnowledgeState.student_id == student_id,
