@@ -10,7 +10,6 @@ import {
   History,
   Lightbulb,
   MessageCircleQuestion,
-  Paperclip,
   Plus,
   RotateCcw,
   Sparkles,
@@ -23,6 +22,8 @@ import { assistantApi } from '../../shared/api/assistantApi';
 import { tokenStorage } from '../../shared/storage/tokenStorage';
 import { useAuthStore } from '../../features/auth/authStore';
 import mascot from '../../assets/images/sana-mascot.png';
+import { aiTutorApi } from '../../features/ai-tutor/aiTutorApi';
+import { catalogApi } from '../../shared/api/catalogApi';
 
 const starterPrompts = [
   { icon: Lightbulb, title: 'Объясни тему проще', text: 'Разность квадратов' },
@@ -45,7 +46,9 @@ export function AssistantPage() {
   const [conversationId, setConversationId] = useState(null);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [subject, setSubject] = useState('Математика');
-  const [topic, setTopic] = useState('Разность квадратов');
+  const [topic, setTopic] = useState('');
+  const [topics, setTopics] = useState([]);
+  const [grade, setGrade] = useState(9);
   const [toast, setToast] = useState('');
   const bottomRef = useRef(null);
   const textareaRef = useRef(null);
@@ -65,8 +68,47 @@ export function AssistantPage() {
   };
 
   useEffect(() => {
-    refreshHistory();
-    return () => requestControllerRef.current?.abort();
+    let active = true;
+    const load = async () => {
+      if (!tokenStorage.getAccessToken()) return;
+      setHistoryLoading(true);
+      try {
+        const [profileResponse, subjectsResponse, conversationsResponse] = await Promise.all([
+          catalogApi.studentProfile(), catalogApi.subjects(), assistantApi.conversations(),
+        ]);
+        const profile = profileResponse.data.profile;
+        const subjectId = profile?.subject_ids?.[0];
+        const selectedSubject = subjectsResponse.data.items?.find((item) => item.id === subjectId);
+        const topicsResponse = subjectId ? await catalogApi.topics(subjectId) : null;
+        if (!active) return;
+        const serverTopics = topicsResponse?.data.items || [];
+        const serverConversations = conversationsResponse.data.items || [];
+        setGrade(profile?.grade || 9);
+        setSubject(selectedSubject?.name || 'Математика');
+        setTopics(serverTopics);
+        setConversations(serverConversations);
+        const latest = serverConversations[0];
+        if (latest) {
+          const history = await assistantApi.conversation(latest.id);
+          if (!active) return;
+          setConversationId(latest.id);
+          setSubject(history.data.subject || selectedSubject?.name || 'Математика');
+          setTopic(history.data.topic || serverTopics[0]?.name || 'Общий вопрос');
+          setMessages(history.data.messages || []);
+        } else {
+          setTopic(serverTopics[0]?.name || 'Общий вопрос');
+        }
+      } catch (error) {
+        if (active) setToast(error.message);
+      } finally {
+        if (active) setHistoryLoading(false);
+      }
+    };
+    load();
+    return () => {
+      active = false;
+      requestControllerRef.current?.abort();
+    };
   }, []);
 
   useEffect(() => {
@@ -97,7 +139,7 @@ export function AssistantPage() {
     try {
       let activeConversationId = conversationId;
       if (!activeConversationId) {
-        const created = await assistantApi.createConversation({ subject, topic, grade: 9 });
+        const created = await assistantApi.createConversation({ subject, topic, grade });
         activeConversationId = created.data.id;
         setConversationId(activeConversationId);
       }
@@ -162,6 +204,15 @@ export function AssistantPage() {
     setMessage('');
     setHistoryOpen(false);
     resetTextarea();
+  };
+
+  const reportMessage = async (messageId) => {
+    try {
+      await aiTutorApi.report(messageId, { reason: 'Ответ не помог или содержит неточность' });
+      setToast('Жалоба сохранена и отправлена на проверку');
+    } catch (requestError) {
+      setToast(requestError.message);
+    }
   };
 
   const openConversation = async (id) => {
@@ -230,7 +281,7 @@ export function AssistantPage() {
                   <div className={item.role === 'user' ? 'max-w-[88%] rounded-3xl rounded-br-md bg-ink px-5 py-3 text-sm leading-7 text-white sm:max-w-[75%]' : 'min-w-0 max-w-[calc(100%-52px)] text-sm leading-7 text-stone-700 sm:text-base'}>
                     <p className="whitespace-pre-wrap">{item.content ?? item.text}</p>
                     {item.hint && <div className="mt-4 rounded-2xl bg-lime/25 p-4"><p className="flex items-center gap-2 text-xs font-extrabold uppercase tracking-wider text-[#52670A]"><Lightbulb className="h-4 w-4" /> Твой ход</p><p className="mt-2 text-sm font-semibold leading-6 text-ink">{item.hint}</p></div>}
-                    {item.role === 'assistant' && <div className="mt-3 flex gap-1 text-stone-400"><button onClick={() => { navigator.clipboard?.writeText(`${item.content ?? item.text ?? ''} ${item.hint || ''}`.trim()); setToast('Ответ скопирован'); }} className="grid h-9 w-9 place-items-center rounded-xl hover:bg-stone-100 hover:text-ink" aria-label="Скопировать ответ"><Copy className="h-4 w-4" /></button><button onClick={() => setToast('Спасибо за оценку ответа')} className="grid h-9 w-9 place-items-center rounded-xl hover:bg-stone-100 hover:text-ink" aria-label="Полезный ответ"><ThumbsUp className="h-4 w-4" /></button><button onClick={() => setToast('SANA учтёт, что объяснение не помогло')} className="grid h-9 w-9 place-items-center rounded-xl hover:bg-stone-100 hover:text-ink" aria-label="Ответ не помог"><ThumbsDown className="h-4 w-4" /></button></div>}
+                    {item.role === 'assistant' && <div className="mt-3 flex gap-1 text-stone-400"><button onClick={() => { navigator.clipboard?.writeText(`${item.content ?? item.text ?? ''} ${item.hint || ''}`.trim()); setToast('Ответ скопирован'); }} className="grid h-9 w-9 place-items-center rounded-xl hover:bg-stone-100 hover:text-ink" aria-label="Скопировать ответ"><Copy className="h-4 w-4" /></button><button onClick={() => setToast('Спасибо за оценку ответа')} className="grid h-9 w-9 place-items-center rounded-xl hover:bg-stone-100 hover:text-ink" aria-label="Полезный ответ"><ThumbsUp className="h-4 w-4" /></button><button onClick={() => reportMessage(item.id)} className="grid h-9 w-9 place-items-center rounded-xl hover:bg-stone-100 hover:text-ink" aria-label="Ответ не помог"><ThumbsDown className="h-4 w-4" /></button></div>}
                   </div>
                 </article>
               ))}
@@ -245,7 +296,6 @@ export function AssistantPage() {
         <div className="mx-auto w-full max-w-3xl">
           {messages.length > 0 && !thinking && <div className="mb-2 flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none]">{followUpPrompts.map((prompt) => <button key={prompt} onClick={() => sendMessage(prompt)} className="min-h-10 shrink-0 rounded-full border border-stone-200 px-4 text-xs font-bold text-stone-600 transition hover:border-lavender-300 hover:bg-lavender-50">{prompt}</button>)}</div>}
           <form onSubmit={handleSubmit} className="flex items-end gap-1 rounded-3xl border border-stone-300 bg-white p-2 shadow-sm transition focus-within:border-lavender-500 focus-within:ring-4 focus-within:ring-lavender-100">
-            <button type="button" onClick={() => setToast('Загрузка фото задания будет доступна после подключения API')} className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl text-stone-500 hover:bg-stone-100" aria-label="Прикрепить задание"><Paperclip className="h-5 w-5" /></button>
             <label className="sr-only" htmlFor="assistant-message">Сообщение для SANA</label>
             <textarea ref={textareaRef} id="assistant-message" rows="1" value={message} onChange={handleInput} onKeyDown={handleKeyDown} placeholder="Сообщение для SANA" className="min-h-11 max-h-36 flex-1 resize-none overflow-y-auto border-0 bg-transparent px-2 py-2.5 text-base leading-6 outline-none placeholder:text-stone-400" />
             <button type="submit" disabled={!message.trim() || thinking || authStatus !== 'authenticated'} className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-lavender-600 text-white transition hover:bg-lavender-700 disabled:bg-stone-200 disabled:text-stone-400" aria-label="Отправить сообщение"><ArrowUp className="h-5 w-5" /></button>
@@ -270,8 +320,8 @@ export function AssistantPage() {
         </div>
       </aside>
 
-      <Dialog open={contextOpen} onClose={() => setContextOpen(false)} title="Контекст разговора" description="SANA будет опираться на выбранную тему." footer={<><Button variant="ghost" onClick={() => setContextOpen(false)}>Отмена</Button><Button onClick={() => { setContextOpen(false); setToast('Контекст разговора обновлён'); }}><Check className="h-5 w-5" /> Применить</Button></>}>
-        <div className="space-y-5"><div><label className="field-label" htmlFor="assistant-subject">Предмет</label><select id="assistant-subject" value={subject} onChange={(event) => setSubject(event.target.value)} className="field-control"><option>Математика</option><option>Физика</option><option>Химия</option></select></div><div><label className="field-label" htmlFor="assistant-topic">Тема</label><select id="assistant-topic" value={topic} onChange={(event) => setTopic(event.target.value)} className="field-control"><option>Разность квадратов</option><option>Линейные уравнения</option><option>Графики функций</option></select></div><label className="flex min-h-12 cursor-pointer items-center gap-3 rounded-2xl bg-lavender-50 p-4 text-sm font-semibold"><input type="checkbox" defaultChecked className="h-5 w-5 accent-lavender-600" /> Учитывать мой учебный прогресс</label></div>
+      <Dialog open={contextOpen} onClose={() => setContextOpen(false)} title="Контекст разговора" description="SANA будет опираться на выбранную тему." footer={<><Button variant="ghost" onClick={() => setContextOpen(false)}>Отмена</Button><Button onClick={() => { newChat(); setContextOpen(false); setToast('Контекст обновлён — новый диалог будет сохранён на сервере'); }}><Check className="h-5 w-5" /> Применить</Button></>}>
+        <div className="space-y-5"><div><label className="field-label" htmlFor="assistant-topic">Тема из учебного каталога</label><select id="assistant-topic" value={topic} onChange={(event) => setTopic(event.target.value)} className="field-control">{topics.map((item) => <option key={item.id} value={item.name}>{item.name}</option>)}</select></div><p className="rounded-2xl bg-lavender-50 p-4 text-sm font-semibold">Контекст прогресса и список тем загружены с сервера.</p></div>
       </Dialog>
       <StatusToast message={toast} onClose={() => setToast('')} />
     </div>

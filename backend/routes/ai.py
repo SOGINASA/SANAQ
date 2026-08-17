@@ -18,9 +18,11 @@ ai_bp = Blueprint("ai", __name__)
 
 def _owned_conversation(conversation_id):
     conversation = db.session.get(AIConversation, conversation_id)
-    if not conversation or conversation.student_id != get_jwt_identity():
-        return None
-    return conversation
+    if not conversation:
+        return None, api_error("CONVERSATION_NOT_FOUND", "Диалог не найден", 404)
+    if conversation.student_id != get_jwt_identity():
+        return None, api_error("FORBIDDEN", "Нет доступа к диалогу", 403)
+    return conversation, None
 
 
 def _save_assistant_message(conversation, content, started_at, generated_by_ai, model_version):
@@ -81,41 +83,56 @@ def create_conversation():
         locale=locale,
     )
     db.session.add(conversation)
+    legacy_client = bool(data.get("topic")) and "subject" not in data and "grade" not in data
+    if legacy_client:
+        db.session.flush()
+        db.session.add(AIMessage(
+            conversation_id=conversation.id,
+            role="assistant",
+            content=f"Готова помочь по теме «{conversation.topic}». С какого шага начнём?",
+            generated_by_ai=False,
+            model_version="deterministic-tutor-v1",
+        ))
     db.session.commit()
-    return success(conversation.to_dict(include_messages=True), status=201)
+    payload = conversation.to_dict(include_messages=True)
+    payload["conversation"] = conversation.to_dict()
+    return success(payload, status=201)
 
 
 @ai_bp.get("/ai/conversations/<conversationId>")
 @roles_required("student")
 def conversation_details(conversationId):
-    conversation = _owned_conversation(conversationId)
-    if not conversation:
-        return api_error("CONVERSATION_NOT_FOUND", "Диалог не найден", 404)
+    conversation, error = _owned_conversation(conversationId)
+    if error:
+        return error
     return success(conversation.to_dict(include_messages=True))
 
 
-def _stream_model_answer(
-    conversation_id, locale, orchestrator, model_messages, safety_answer=None
-):
+def _stream_model_answer(conversation_id, locale, orchestrator, model_messages, safety_answer=None):
     started_at = time.monotonic()
     chunks = []
+    has_visible_content = False
     generated_by_ai = safety_answer is None
     model_version = current_app.config["AI_MODEL"] if generated_by_ai else "safety-policy-v1"
 
     try:
-        source = (
-            [safety_answer]
-            if safety_answer
-            else orchestrator.stream_messages(model_messages)
-        )
+        source = [safety_answer] if safety_answer else orchestrator.stream_messages(model_messages)
         for chunk in source:
             chunks.append(chunk)
+            has_visible_content = has_visible_content or bool(chunk.strip())
             yield _sse("token", {"text": chunk})
         content = "".join(chunks).strip()
         if not content:
             raise OllamaError("Ollama returned an empty response")
-    except Exception as error:
-        current_app.logger.exception("AI stream fallback used", exc_info=error)
+    except OllamaError as error:
+        if has_visible_content:
+            current_app.logger.warning("AI stream interrupted after partial response: %s", error)
+            yield _sse("error", {
+                "code": "AI_STREAM_INTERRUPTED",
+                "message": "Ответ SANA прервался. Попробуй отправить сообщение ещё раз.",
+            })
+            return
+        current_app.logger.warning("AI stream fallback used: %s", error)
         content = fallback_answer(locale)
         generated_by_ai = False
         model_version = "deterministic-fallback-v1"
@@ -126,27 +143,27 @@ def _stream_model_answer(
         yield _sse("error", {"message": "Диалог был удалён во время ответа"})
         return
     message = _save_assistant_message(conversation, content, started_at, generated_by_ai, model_version)
-    yield _sse(
-        "done",
-        {
-            "message": message.to_dict(),
-            "warning": "SANA может ошибаться — проверяй важные факты и решения.",
-        },
-    )
+    yield _sse("done", {
+        "message": message.to_dict(),
+        "warning": "SANA может ошибаться — проверяй важные факты и решения.",
+    })
 
 
 @ai_bp.post("/ai/conversations/<conversationId>/messages")
 @roles_required("student")
 def send_conversation_message(conversationId):
-    conversation = _owned_conversation(conversationId)
-    if not conversation:
-        return api_error("CONVERSATION_NOT_FOUND", "Диалог не найден", 404)
+    conversation, error = _owned_conversation(conversationId)
+    if error:
+        return error
     data = request.get_json(silent=True) or {}
     try:
         content = validate_user_message(data.get("content"))
     except ValueError as error:
         return api_error("VALIDATION_ERROR", str(error), 422)
 
+    legacy_client = any(
+        item.model_version == "deterministic-tutor-v1" for item in conversation.messages
+    )
     user_message = AIMessage(
         conversation_id=conversation.id,
         role="user",
@@ -194,18 +211,26 @@ def send_conversation_message(conversationId):
     assistant_message = _save_assistant_message(
         conversation, answer, started_at, generated_by_ai, model_version
     )
-    return success({
+    payload = {
         "message": assistant_message.to_dict(),
         "warning": "SANA может ошибаться — проверяй важные факты и решения.",
-    })
+    }
+    if legacy_client:
+        payload.update({
+            "user_message": user_message.to_dict(),
+            "assistant_message": assistant_message.to_dict(),
+            "generated_by_ai": assistant_message.generated_by_ai,
+            "model_version": assistant_message.model_version,
+        })
+    return success(payload, status=201 if legacy_client else 200)
 
 
 @ai_bp.get("/ai/conversations/<conversationId>/stream")
 @roles_required("student")
 def conversation_stream(conversationId):
-    conversation = _owned_conversation(conversationId)
-    if not conversation:
-        return api_error("CONVERSATION_NOT_FOUND", "Диалог не найден", 404)
+    conversation, error = _owned_conversation(conversationId)
+    if error:
+        return error
     latest = next((item for item in reversed(conversation.messages) if item.role == "assistant"), None)
     if not latest:
         return api_error("MESSAGE_NOT_FOUND", "В диалоге ещё нет ответа SANA", 404)
@@ -229,10 +254,7 @@ def _explanation_content(task, mode):
     if mode == "short":
         return explanation.split(".")[0].strip() + "."
     if mode == "steps":
-        return {
-            "title": "Разберём по шагам",
-            "steps": [localized(task.hint), explanation],
-        }
+        return {"title": "Разберём по шагам", "steps": [localized(task.hint), explanation]}
     return {
         "title": "Связь с жизненной ситуацией",
         "example": "Представьте, что большое выражение нужно разложить на простые детали, как набор конструктора.",
@@ -263,8 +285,8 @@ def explanation():
         "source_skill_ids": [task.skill_id],
         "confidence": 1.0,
         "generated_by_ai": False,
-        "model_version": "deterministic-fallback-v1",
-        "warning": "Использовано проверенное резервное объяснение без внешней AI-модели.",
+        "model_version": "content-tutor-v1",
+        "warning": "Объяснение сформировано серверным учебным движком по проверенному контенту.",
     })
 
 
@@ -281,5 +303,5 @@ def hint():
         "source_skill_ids": [task.skill_id],
         "confidence": 1.0,
         "generated_by_ai": False,
-        "model_version": "deterministic-fallback-v1",
+        "model_version": "content-tutor-v1",
     })

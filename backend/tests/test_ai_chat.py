@@ -60,6 +60,76 @@ def test_chat_uses_explicit_fallback_when_ollama_is_unavailable(
     assert "Ollama" in message["content"]
 
 
+def test_stream_uses_fallback_when_ollama_fails_before_first_token(
+    client, student_headers, monkeypatch
+):
+    def unavailable(_self, _messages):
+        raise OllamaError("offline")
+        yield  # pragma: no cover
+
+    monkeypatch.setattr(OllamaClient, "stream_chat", unavailable)
+    conversation_id = client.post(
+        "/api/v1/ai/conversations", headers=student_headers, json={}
+    ).get_json()["data"]["id"]
+    response = client.post(
+        f"/api/v1/ai/conversations/{conversation_id}/messages",
+        headers={**student_headers, "Accept": "text/event-stream"},
+        json={"content": "Помоги с задачей", "stream": True},
+    )
+
+    body = response.get_data(as_text=True)
+    assert "deterministic-fallback-v1" in body
+    assert "event: done" in body
+    assert "event: error" not in body
+
+
+def test_stream_uses_fallback_after_whitespace_only_response(
+    client, student_headers, monkeypatch
+):
+    monkeypatch.setattr(OllamaClient, "stream_chat", lambda _self, _messages: iter(["  "]))
+    conversation_id = client.post(
+        "/api/v1/ai/conversations", headers=student_headers, json={}
+    ).get_json()["data"]["id"]
+    response = client.post(
+        f"/api/v1/ai/conversations/{conversation_id}/messages",
+        headers={**student_headers, "Accept": "text/event-stream"},
+        json={"content": "Помоги с задачей", "stream": True},
+    )
+
+    body = response.get_data(as_text=True)
+    assert "deterministic-fallback-v1" in body
+    assert "event: done" in body
+    assert "event: error" not in body
+
+
+def test_partial_stream_failure_is_reported_and_not_persisted(
+    client, student_headers, monkeypatch
+):
+    def interrupted(_self, _messages):
+        yield "Незавершённый фрагмент"
+        raise OllamaError("connection lost")
+
+    monkeypatch.setattr(OllamaClient, "stream_chat", interrupted)
+    conversation_id = client.post(
+        "/api/v1/ai/conversations", headers=student_headers, json={}
+    ).get_json()["data"]["id"]
+    response = client.post(
+        f"/api/v1/ai/conversations/{conversation_id}/messages",
+        headers={**student_headers, "Accept": "text/event-stream"},
+        json={"content": "Помоги с задачей", "stream": True},
+    )
+
+    body = response.get_data(as_text=True)
+    assert "Незавершённый фрагмент" in body
+    assert "event: error" in body
+    assert "AI_STREAM_INTERRUPTED" in body
+    assert "event: done" not in body
+    history = client.get(
+        f"/api/v1/ai/conversations/{conversation_id}", headers=student_headers
+    ).get_json()["data"]
+    assert [message["role"] for message in history["messages"]] == ["user"]
+
+
 def test_teacher_cannot_access_student_chat(client, teacher_headers):
     response = client.get("/api/v1/ai/conversations", headers=teacher_headers)
     assert response.status_code == 403

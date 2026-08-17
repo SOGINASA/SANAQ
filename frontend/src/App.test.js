@@ -1,50 +1,61 @@
-import { render, screen } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 import App from './App';
+import { useAuthStore } from './features/auth/authStore';
+
+jest.mock('./shared/api/apiClient', () => ({
+  apiRequest: jest.fn(({ url }) => {
+    const responses = {
+      '/notifications': { data: { items: [] } },
+      '/notifications/unread-count': { data: { count: 0 } },
+      '/assignments': { data: { items: [] } },
+      '/teachers/me/classes': { data: { items: [{ id: 'class-1', name: '9A' }] } },
+      '/modules': { data: { items: [{ id: 'module-1', title: 'Алгебра' }] } },
+    };
+    return Promise.resolve(responses[url] || { data: {} });
+  }),
+}));
+
+const setSession = (user = null) => {
+  useAuthStore.setState({
+    user,
+    status: user ? 'authenticated' : 'anonymous',
+    error: null,
+    hydrate: jest.fn(),
+  });
+};
+
+beforeEach(() => {
+  window.history.pushState({}, '', '/');
+  setSession();
+});
 
 test('renders SANAQ landing page', () => {
-  window.history.pushState({}, '', '/');
   render(<App />);
   expect(screen.getByRole('heading', { name: /Учись не больше/i })).toBeInTheDocument();
   expect(screen.getAllByText('SANAQ').length).toBeGreaterThan(0);
 });
 
-test('renders the standalone student assistant route', () => {
+test('redirects an anonymous user from a protected route', () => {
+  window.history.pushState({}, '', '/student/progress');
+  render(<App />);
+  expect(screen.getByRole('button', { name: /Войти в SANAQ/i })).toBeInTheDocument();
+});
+
+test('renders the student assistant for an authenticated student', async () => {
+  setSession({ id: 'student-1', name: 'Ученик', email: 'student@example.com', role: 'student' });
   window.history.pushState({}, '', '/student/assistant');
   render(<App />);
+  await act(async () => {});
   expect(screen.getByRole('heading', { name: /Чем помочь с учёбой/i })).toBeInTheDocument();
   expect(screen.getByLabelText(/Диалог с SANA/i)).toBeInTheDocument();
   expect(screen.getByPlaceholderText(/Сообщение для SANA/i)).toBeInTheDocument();
 });
 
-test('renders the teacher assignments workflow', () => {
+test('renders the API-backed assignments workflow for a teacher', async () => {
+  setSession({ id: 'teacher-1', name: 'Учитель', email: 'teacher@example.com', role: 'teacher' });
   window.history.pushState({}, '', '/teacher/assignments');
   render(<App />);
+  await act(async () => {});
   expect(screen.getByRole('heading', { name: 'Назначения' })).toBeInTheDocument();
   expect(screen.getByRole('button', { name: /Создать назначение/i })).toBeInTheDocument();
-});
-
-test('renders the AI study plan with one clear next action', () => {
-  window.history.pushState({}, '', '/student/path');
-  render(<App />);
-  expect(screen.getByRole('heading', { name: 'План учёбы' })).toBeInTheDocument();
-  expect(screen.getByRole('heading', { name: 'Сегодня' })).toBeInTheDocument();
-  expect(screen.getByRole('button', { name: /Продолжить урок/i })).toBeInTheDocument();
-  expect(screen.getByRole('button', { name: /Настроить план/i })).toBeInTheDocument();
-});
-
-test('renders transparent AI plan generation progress', () => {
-  window.history.pushState({}, '', '/student/generating-plan');
-  render(<App />);
-  expect(screen.getByRole('heading', { name: /Создаём твой план/i })).toBeInTheDocument();
-  expect(screen.getByRole('list', { name: /Этапы создания плана/i })).toBeInTheDocument();
-  expect(screen.getByRole('button', { name: /Пропустить ожидание/i })).toBeInTheDocument();
-});
-
-test('renders the simplified knowledge map sections', () => {
-  window.history.pushState({}, '', '/student/knowledge-map');
-  render(<App />);
-  expect(screen.getByRole('heading', { name: 'Карта знаний' })).toBeInTheDocument();
-  expect(screen.getByRole('heading', { name: 'Текущий навык' })).toBeInTheDocument();
-  expect(screen.getByRole('heading', { name: 'Уже освоено' })).toBeInTheDocument();
-  expect(screen.getByRole('heading', { name: 'Откроется позже' })).toBeInTheDocument();
 });

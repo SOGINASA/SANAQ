@@ -51,6 +51,6 @@ def meta():
             "ai_tutor": True,
             "ai_provider": current_app.config["AI_PROVIDER"],
             "ai_model": current_app.config["AI_MODEL"],
-            "teacher_dashboard": False,
+            "teacher_dashboard": True,
         },
     })

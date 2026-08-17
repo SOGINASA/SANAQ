@@ -1,15 +1,62 @@
+import { useEffect, useState } from 'react';
 import { AlertTriangle, BookOpenCheck, Plus, TrendingUp, Users } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { Button, Card } from '../../shared/ui';
+import { Button, Card, Dialog, StatusToast } from '../../shared/ui';
 import { ClassHeatmap } from '../../features/teacher-dashboard/ClassHeatmap';
 import { StudentTable } from '../../features/teacher-dashboard/StudentTable';
+import { teacherApi } from '../../features/teacher-dashboard/teacherApi';
+import { useAuthStore } from '../../features/auth/authStore';
 
 export function TeacherDashboardPage() {
   const navigate = useNavigate();
-  return <div className="mx-auto max-w-7xl animate-rise"><div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between"><div><p className="eyebrow">Кабинет учителя</p><h1 className="mt-2 text-3xl font-extrabold sm:text-4xl">Добрый день, Алия Сериковна</h1><p className="mt-2 text-stone-600">Главное по 9A за последние 7 дней.</p></div><Button onClick={() => navigate('/teacher/content/new')}><Plus className="h-5 w-5" /> Добавить материал</Button></div><div className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">{[
-    { icon: Users, value: '24', label: 'Ученика в классе', tone: 'bg-lavender-100 text-lavender-700' },
-    { icon: TrendingUp, value: '71%', label: 'Средний прогресс', tone: 'bg-mint-100 text-mint-700' },
-    { icon: BookOpenCheck, value: '18', label: 'Активны сегодня', tone: 'bg-lime/30 text-[#52670A]' },
-    { icon: AlertTriangle, value: '3', label: 'Нужна поддержка', tone: 'bg-[#FFE8E2] text-[#A74735]' },
-  ].map(({ icon: Icon, value, label, tone }) => <Card key={label} className="p-5"><span className={`grid h-11 w-11 place-items-center rounded-2xl ${tone}`}><Icon className="h-5 w-5" /></span><p className="mt-5 font-display text-3xl font-semibold">{value}</p><p className="mt-1 text-sm text-stone-500">{label}</p></Card>)}</div><div className="mt-6 grid gap-6 xl:grid-cols-[1.1fr_0.9fr]"><Card className="p-6 sm:p-8"><div className="flex items-start justify-between gap-4"><div><p className="eyebrow">Карта класса</p><h2 className="mt-2 text-2xl font-extrabold">Где классу нужна помощь</h2></div><button onClick={() => navigate('/teacher/classes/9a')} className="min-h-11 rounded-xl px-3 text-sm font-bold text-lavender-700 hover:bg-lavender-50">Подробнее</button></div><div className="mt-7"><ClassHeatmap /></div></Card><Card className="p-6 sm:p-8"><p className="eyebrow">AI-наблюдение</p><h2 className="mt-2 text-2xl font-extrabold">Один общий пробел</h2><div className="mt-6 rounded-3xl bg-ink p-6 text-white"><p className="text-sm font-bold text-lime">14 из 24 учеников</p><h3 className="mt-3 text-xl font-bold">Путают разность квадратов и квадрат разности</h3><p className="mt-3 text-sm leading-6 text-stone-400">Рекомендуем 12-минутный разбор и два контрастных примера.</p><Button className="mt-6 w-full" onClick={() => navigate('/teacher/assignments')}>Создать назначение</Button></div></Card></div><Card className="mt-6 p-6 sm:p-8"><div className="flex items-center justify-between gap-4"><div><p className="eyebrow">Последняя активность</p><h2 className="mt-2 text-2xl font-extrabold">Ученики 9A</h2></div><button onClick={() => navigate('/teacher/classes/9a')} className="min-h-11 rounded-xl px-3 text-sm font-bold text-lavender-700">Весь класс</button></div><div className="mt-4"><StudentTable limit={4} /></div></Card></div>;
+  const user = useAuthStore((state) => state.user);
+  const [data, setData] = useState({ classes: [], assignments: [] });
+  const [students, setStudents] = useState([]);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [form, setForm] = useState({ name: '9A', grade: 9, subject_id: 'mathematics' });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [toast, setToast] = useState('');
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const response = await teacherApi.dashboard();
+      setData(response.data);
+      if (response.data.classes?.[0]) {
+        const studentResponse = await teacherApi.students(response.data.classes[0].id);
+        setStudents(studentResponse.data.items || []);
+      } else setStudents([]);
+    } catch (requestError) { setError(requestError.message); }
+    finally { setLoading(false); }
+  };
+  useEffect(() => { load(); }, []);
+
+  const createClass = async () => {
+    setLoading(true);
+    try {
+      const response = await teacherApi.createClass(form);
+      setCreateOpen(false);
+      setToast(`Класс создан. Код подключения: ${response.data.class.join_code}`);
+      await load();
+    } catch (requestError) { setError(requestError.message); setLoading(false); }
+  };
+
+  const currentClass = data.classes?.[0];
+  const cards = [
+    [Users, currentClass?.student_count || 0, 'Учеников', 'bg-lavender-100 text-lavender-700'],
+    [TrendingUp, `${currentClass?.average_mastery || 0}%`, 'Среднее освоение', 'bg-mint-100 text-mint-700'],
+    [AlertTriangle, currentClass?.risk_students || 0, 'Нужна помощь', 'bg-[#FFE8E2] text-[#A74735]'],
+    [BookOpenCheck, data.assignments?.length || 0, 'Назначений', 'bg-lime/30 text-[#52670A]'],
+  ];
+
+  return <div className="mx-auto max-w-7xl animate-rise"><div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between"><div><p className="eyebrow">Кабинет учителя</p><h1 className="mt-2 text-3xl font-extrabold sm:text-4xl">Добрый день, {user?.name || 'учитель'}</h1><p className="mt-2 text-stone-600">Данные классов и учеников загружены из backend.</p></div><div className="flex gap-2"><Button variant="outline" onClick={() => setCreateOpen(true)}><Users className="h-5 w-5" /> Новый класс</Button><Button onClick={() => navigate('/teacher/content/new')}><Plus className="h-5 w-5" /> Добавить материал</Button></div></div>
+    {error && <div className="mt-6 rounded-2xl border border-red-200 bg-red-50 p-4 text-red-900">{error}</div>}
+    {loading && !data.classes.length ? <Card className="mt-8 p-10 text-center">Загружаем кабинет…</Card> : <>
+      <div className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">{cards.map(([Icon, value, label, tone]) => <Card key={label} className="p-5"><span className={`grid h-11 w-11 place-items-center rounded-2xl ${tone}`}><Icon className="h-5 w-5" /></span><p className="mt-5 font-display text-3xl font-semibold">{value}</p><p className="mt-1 text-sm text-stone-500">{label}</p></Card>)}</div>
+      {!currentClass ? <Card className="mt-6 p-10 text-center"><h2 className="text-2xl font-extrabold">Создайте первый класс</h2><p className="mt-3 text-stone-500">Backend сгенерирует код, по которому ученики смогут присоединиться.</p><Button className="mt-6" onClick={() => setCreateOpen(true)}>Создать класс</Button></Card> : <><div className="mt-6 grid gap-6 xl:grid-cols-[1.1fr_0.9fr]"><Card className="p-6 sm:p-8"><div className="flex items-start justify-between gap-4"><div><p className="eyebrow">{currentClass.name}</p><h2 className="mt-2 text-2xl font-extrabold">Карта навыков класса</h2></div><button onClick={() => navigate(`/teacher/classes/${currentClass.id}`)} className="min-h-11 rounded-xl px-3 text-sm font-bold text-lavender-700">Подробнее</button></div><div className="mt-7"><ClassHeatmap students={students} /></div></Card><Card className="p-6 sm:p-8"><p className="eyebrow">Подключение</p><h2 className="mt-2 text-2xl font-extrabold">Код класса</h2><div className="mt-6 rounded-3xl bg-ink p-6 text-white"><p className="font-display text-4xl font-semibold tracking-widest">{currentClass.join_code}</p><p className="mt-3 text-sm text-stone-400">Передайте этот код ученикам.</p><Button className="mt-6 w-full" onClick={() => navigate('/teacher/assignments')}>Создать назначение</Button></div></Card></div><Card className="mt-6 p-6 sm:p-8"><div className="flex items-center justify-between gap-4"><div><p className="eyebrow">Участники</p><h2 className="mt-2 text-2xl font-extrabold">Ученики {currentClass.name}</h2></div><button onClick={() => navigate(`/teacher/classes/${currentClass.id}`)} className="min-h-11 rounded-xl px-3 text-sm font-bold text-lavender-700">Весь класс</button></div><div className="mt-4"><StudentTable students={students} limit={4} /></div></Card></>}
+    </>}
+    <Dialog open={createOpen} onClose={() => setCreateOpen(false)} title="Новый класс" description="Название, программа и класс сохранятся в backend." footer={<><Button variant="ghost" onClick={() => setCreateOpen(false)}>Отмена</Button><Button loading={loading} onClick={createClass}>Создать</Button></>}><div className="grid gap-4"><label className="field-label">Название<input className="field-control mt-2" value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} /></label><label className="field-label">Класс<input className="field-control mt-2" type="number" min="1" max="12" value={form.grade} onChange={(event) => setForm({ ...form, grade: Number(event.target.value) })} /></label></div></Dialog>
+    <StatusToast message={toast} onClose={() => setToast('')} />
+  </div>;
 }

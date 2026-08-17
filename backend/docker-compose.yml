@@ -15,6 +15,7 @@ services:
       DATABASE_URL: sqlite:////app/database/sanaq.db
       CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
       AUTO_CREATE_DB: "true"
+      MIGRATE_RUNTIME_SCHEMA: "true"
       SEED_DEMO_DATA: "true"
       JWT_COOKIE_SECURE: "false"
       AI_PROVIDER: ollama

@@ -37,16 +37,28 @@ class OllamaClient:
             method="POST",
         )
         try:
+            completed = False
             with urllib.request.urlopen(request, timeout=self.timeout) as response:
                 for raw_line in response:
                     if not raw_line.strip():
                         continue
                     event = json.loads(raw_line.decode("utf-8"))
+                    if not isinstance(event, dict):
+                        raise OllamaError("Ollama returned an invalid stream event")
                     if event.get("error"):
                         raise OllamaError(event["error"])
-                    content = event.get("message", {}).get("content", "")
+                    message = event.get("message", {})
+                    if not isinstance(message, dict):
+                        raise OllamaError("Ollama returned an invalid message payload")
+                    content = message.get("content", "")
+                    if not isinstance(content, str):
+                        raise OllamaError("Ollama returned non-text content")
                     if content:
                         yield content
+                    if event.get("done") is True:
+                        completed = True
+            if not completed:
+                raise OllamaError("Ollama stream ended before the done event")
         except (urllib.error.URLError, TimeoutError, json.JSONDecodeError, OSError) as error:
             raise OllamaError(f"Ollama unavailable: {error}") from error
 

@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { BookOpen, ChartNoAxesColumnIncreasing, ClipboardCheck, LayoutDashboard, Map, MessageCircleQuestion, Settings, Users, LibraryBig, ListChecks } from 'lucide-react';
+import { BookOpen, ChartNoAxesColumnIncreasing, ClipboardCheck, LayoutDashboard, Map, MessageCircleQuestion, Settings, LibraryBig, ListChecks } from 'lucide-react';
 import { Brand } from '../layout/Header';
 import { cn } from '../../shared/lib/cn';
 
@@ -15,7 +15,6 @@ const studentItems = [
 
 const teacherItems = [
   { label: 'Обзор класса', to: '/teacher/dashboard', icon: LayoutDashboard },
-  { label: 'Мои классы', to: '/teacher/classes/9a', icon: Users },
   { label: 'Материалы', to: '/teacher/content', icon: LibraryBig },
   { label: 'Назначения', to: '/teacher/assignments', icon: ListChecks },
 ];

@@ -132,6 +132,8 @@
 | POST | `/lessons` | teacher/admin | Создать урок |
 | PATCH | `/lessons/:lessonId` | author/admin | Изменить урок |
 | POST | `/materials/upload-url` | teacher/admin | Получить signed URL для загрузки файла |
+| PUT | `/materials/:materialId/content` | signed token | Загрузить содержимое файла по одноразовой ссылке |
+| GET | `/materials/:materialId/content` | owner/admin | Получить загруженный материал |
 
 Контент имеет статусы `draft`, `review`, `published`, `archived`, автора, язык и версию.
 
@@ -154,8 +156,8 @@
 
 | Метод | Маршрут | Доступ | Назначение |
 |---|---|---|---|
-| GET | `/ai/conversations` | student | Список диалогов ученика |
 | POST | `/ai/conversations` | student | Создать диалог в контексте темы/задания |
+| GET | `/ai/conversations` | student | Последние сохранённые диалоги ученика |
 | GET | `/ai/conversations/:conversationId` | owner | История диалога |
 | POST | `/ai/conversations/:conversationId/messages` | owner | Задать вопрос; обычный JSON-ответ |
 | GET | `/ai/conversations/:conversationId/stream` | owner | SSE-поток ответа для интерфейса |
@@ -210,11 +212,13 @@
 | GET | `/classes/:classId` | linked teacher/admin | Карточка класса |
 | PATCH | `/classes/:classId` | owner/admin | Изменить группу |
 | POST | `/classes/:classId/join` | student | Вступить по коду |
+| POST | `/classes/join` | student | Вступить в класс только по коду подключения |
 | DELETE | `/classes/:classId/students/:studentId` | owner/admin | Удалить связь с группой |
 | GET | `/classes/:classId/students` | linked teacher | Ученики и краткий прогресс |
 | GET | `/classes/:classId/analytics` | linked teacher | Тепловая карта навыков класса |
 | GET | `/classes/:classId/weak-skills` | linked teacher | Общие затруднения и группы риска |
 | GET | `/teachers/students/:studentId/progress` | linked teacher | Детальный прогресс ученика |
+| POST | `/teachers/students/:studentId/comments` | linked teacher | Сохранить комментарий ученику |
 
 Учитель видит только учеников своих групп. Доступ к персональным данным проверяется на каждом запросе, а не только в UI.
 
@@ -294,7 +298,7 @@ Backend полезно разделить на модули, но для хак�
 
 ### P0 — обязательный вертикальный срез
 
-`health`, auth, профиль ученика, справочники, диагностика, результат, learning path, 2–3 модуля, попытка задания, AI-объяснение с fallback, прогресс, один класс и teacher dashboard.
+`health`, auth, профиль ученика, справочники, диагностика, результат, learning path, модули, попытка задания, серверное объяснение, прогресс, классы и teacher dashboard.
 
 ### P1 — усиливает демо
 
@@ -315,4 +319,4 @@ Backend полезно разделить на модули, но для хак�
 - Индексы по `user_id`, `student_id`, `class_id`, `subject_id`, `next_review_at`.
 - Seed-данные для одного предмета, 2–3 тем, ученика, учителя и класса.
 - Тесты критического пути: диагностика → маршрут → попытка → прогресс → кабинет учителя.
-- AI timeout, retry и детерминированный fallback для стабильного живого демо.
+- timeout и retry для серверного учебного движка и внешнего AI-провайдера при его подключении.

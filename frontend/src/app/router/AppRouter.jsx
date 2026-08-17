@@ -26,6 +26,8 @@ import { ContentLibraryPage } from '../../pages/teacher/ContentLibraryPage';
 import { ContentEditorPage } from '../../pages/teacher/ContentEditorPage';
 import { TeacherAssignmentsPage } from '../../pages/teacher/TeacherAssignmentsPage';
 import { NotFoundPage } from '../../pages/shared/NotFoundPage';
+import { ProtectedRoute } from '../../components/common/ProtectedRoute';
+import { RoleRoute } from '../../components/common/RoleRoute';
 
 export function AppRouter() {
   return <Routes>
@@ -36,27 +38,33 @@ export function AppRouter() {
     </Route>
     <Route path="/login" element={<LoginPage />} />
     <Route path="/register" element={<RegisterPage />} />
-    <Route path="/student" element={<StudentLayout />}>
-      <Route path="onboarding" element={<OnboardingPage />} />
-      <Route path="diagnostic" element={<DiagnosticPage />} />
-      <Route path="generating-plan" element={<PlanGenerationPage />} />
-      <Route path="dashboard" element={<StudentDashboardPage />} />
-      <Route path="path" element={<LearningPathPage />} />
-      <Route path="knowledge-map" element={<KnowledgeMapPage />} />
-      <Route path="learn/:moduleId" element={<LessonPage />} />
-      <Route path="task/:taskId" element={<TaskPage />} />
-      <Route path="progress" element={<ProgressPage />} />
-      <Route path="achievements" element={<AchievementsPage />} />
-      <Route path="assistant" element={<AssistantPage />} />
-      <Route path="settings" element={<SettingsPage />} />
-    </Route>
-    <Route path="/teacher" element={<TeacherLayout />}>
-      <Route path="dashboard" element={<TeacherDashboardPage />} />
-      <Route path="classes/:classId" element={<ClassDetailsPage />} />
-      <Route path="students/:studentId" element={<StudentDetailsPage />} />
-      <Route path="content" element={<ContentLibraryPage />} />
-      <Route path="content/new" element={<ContentEditorPage />} />
-      <Route path="assignments" element={<TeacherAssignmentsPage />} />
+    <Route element={<ProtectedRoute />}>
+      <Route element={<RoleRoute role="student" />}>
+        <Route path="/student" element={<StudentLayout />}>
+          <Route path="onboarding" element={<OnboardingPage />} />
+          <Route path="diagnostic" element={<DiagnosticPage />} />
+          <Route path="generating-plan" element={<PlanGenerationPage />} />
+          <Route path="dashboard" element={<StudentDashboardPage />} />
+          <Route path="path" element={<LearningPathPage />} />
+          <Route path="knowledge-map" element={<KnowledgeMapPage />} />
+          <Route path="learn/:moduleId" element={<LessonPage />} />
+          <Route path="task/:taskId" element={<TaskPage />} />
+          <Route path="progress" element={<ProgressPage />} />
+          <Route path="achievements" element={<AchievementsPage />} />
+          <Route path="assistant" element={<AssistantPage />} />
+          <Route path="settings" element={<SettingsPage />} />
+        </Route>
+      </Route>
+      <Route element={<RoleRoute role="teacher" />}>
+        <Route path="/teacher" element={<TeacherLayout />}>
+          <Route path="dashboard" element={<TeacherDashboardPage />} />
+          <Route path="classes/:classId" element={<ClassDetailsPage />} />
+          <Route path="students/:studentId" element={<StudentDetailsPage />} />
+          <Route path="content" element={<ContentLibraryPage />} />
+          <Route path="content/new" element={<ContentEditorPage />} />
+          <Route path="assignments" element={<TeacherAssignmentsPage />} />
+        </Route>
+      </Route>
     </Route>
     <Route path="*" element={<NotFoundPage />} />
   </Routes>;

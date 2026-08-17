@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowRight, Check, Circle, LoaderCircle, Sparkles } from 'lucide-react';
 import { Button, Card, ProgressBar } from '../../shared/ui';
 import mascot from '../../assets/images/sana-mascot.png';
+import { learningPathApi } from '../../features/learning-path/learningPathApi';
 
 const generationSteps = [
   ['Изучаем диагностику', 'Сверяем ответы и уверенность по каждому навыку.'],
@@ -18,21 +19,44 @@ export function PlanGenerationPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const isRefresh = searchParams.get('mode') === 'refresh';
+  const requestedPathId = searchParams.get('path');
   const [activeStep, setActiveStep] = useState(0);
+  const [path, setPath] = useState(null);
+  const [error, setError] = useState('');
   const complete = activeStep >= generationSteps.length;
   const progress = complete ? 100 : progressByStep[activeStep];
 
   const title = useMemo(() => isRefresh ? 'Обновляем твой план' : 'Создаём твой план', [isRefresh]);
 
   useEffect(() => {
-    if (complete) return undefined;
-    const timer = window.setTimeout(() => setActiveStep((step) => step + 1), 850);
-    return () => window.clearTimeout(timer);
-  }, [activeStep, complete]);
+    let active = true;
+    const load = async () => {
+      try {
+        let pathId = requestedPathId;
+        if (!pathId) {
+          const list = await learningPathApi.list();
+          pathId = list.data.items?.[0]?.id;
+        }
+        if (!pathId) throw new Error('Backend ещё не создал учебный маршрут');
+        const response = isRefresh
+          ? await learningPathApi.recalculate(pathId)
+          : await learningPathApi.get(pathId);
+        if (active) {
+          setPath(response.data.learning_path);
+          setActiveStep(generationSteps.length);
+        }
+      } catch (requestError) {
+        if (active) setError(requestError.message);
+      }
+    };
+    load();
+    return () => { active = false; };
+  }, [isRefresh, requestedPathId]);
 
   return (
     <div className="mx-auto flex min-h-[calc(100dvh-150px)] w-full max-w-5xl items-center py-3 sm:py-8">
       <Card className="w-full overflow-hidden">
+        {error && <div className="border-b border-red-200 bg-red-50 p-4 text-red-900" role="alert">{error}</div>}
         <div className="grid lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
           <div className="flex flex-col items-center justify-center bg-lavender-50 p-6 text-center sm:p-10 lg:min-h-[620px]">
             <div className="relative">
@@ -70,7 +94,7 @@ export function PlanGenerationPage() {
             </ol>
 
             <div className="mt-8">
-              {complete ? <Button size="lg" className="w-full" onClick={() => navigate('/student/path', { replace: true })}>Открыть мой план <ArrowRight className="h-5 w-5" /></Button> : <button onClick={() => setActiveStep(generationSteps.length)} className="min-h-11 w-full rounded-xl text-sm font-bold text-stone-500 hover:bg-stone-100">Пропустить ожидание</button>}
+              {complete ? <Button size="lg" className="w-full" disabled={!path} onClick={() => navigate(`/student/path?path=${path.id}`, { replace: true })}>Открыть мой план <ArrowRight className="h-5 w-5" /></Button> : <p className="min-h-11 w-full rounded-xl text-center text-sm font-bold text-stone-500">Ожидаем расчёт маршрута на сервере</p>}
             </div>
           </div>
         </div>

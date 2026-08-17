@@ -85,7 +85,7 @@ def test_diagnostic_to_progress_vertical_slice(client, student_headers):
         "mode": "steps",
     })
     assert explanation.status_code == 200
-    assert explanation.get_json()["data"]["model_version"] == "deterministic-fallback-v1"
+    assert explanation.get_json()["data"]["model_version"] == "content-tutor-v1"
 
     attempt_result = client.post(
         f"/api/v1/attempts/{attempt_id}/complete", headers=student_headers
@@ -111,4 +111,3 @@ def test_diagnostic_to_progress_vertical_slice(client, student_headers):
     )
     assert knowledge_map.status_code == 200
     assert len(knowledge_map.get_json()["data"]["nodes"]) == 6
-

@@ -52,6 +52,7 @@ export const assistantApi = {
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
     let buffer = '';
+    let completed = false;
 
     const processEvent = (block) => {
       const event = block.match(/^event:\s*(.+)$/m)?.[1]?.trim() || 'message';
@@ -61,9 +62,26 @@ export const assistantApi = {
         .map((line) => line.slice(5).trim())
         .join('\n');
       if (!data) return;
-      const payload = JSON.parse(data);
+      let payload;
+      try {
+        payload = JSON.parse(data);
+      } catch (_error) {
+        throw new ApiError({
+          code: 'INVALID_STREAM_EVENT',
+          message: 'SANA вернула повреждённый потоковый ответ.',
+        });
+      }
+      if (event === 'error') {
+        throw new ApiError({
+          code: payload.code || 'AI_STREAM_INTERRUPTED',
+          message: payload.message || 'Потоковый ответ SANA прервался.',
+        });
+      }
       if (event === 'token') onToken?.(payload.text || '');
-      if (event === 'done') onDone?.(payload);
+      if (event === 'done') {
+        completed = true;
+        onDone?.(payload);
+      }
     };
 
     while (true) {
@@ -75,5 +93,11 @@ export const assistantApi = {
       if (done) break;
     }
     if (buffer.trim()) processEvent(buffer);
+    if (!completed) {
+      throw new ApiError({
+        code: 'AI_STREAM_INTERRUPTED',
+        message: 'Потоковый ответ SANA завершился преждевременно.',
+      });
+    }
   },
 };

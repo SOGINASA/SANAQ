@@ -61,12 +61,14 @@ def create_app(config_object=None):
         auth_bp,
         catalog_bp,
         content_bp,
-        contract_bp,
+        governance_bp,
         diagnostics_bp,
         learning_paths_bp,
         profiles_bp,
         progress_bp,
         system_bp,
+        teacher_bp,
+        engagement_bp,
     )
 
     prefix = app.config["API_PREFIX"]
@@ -81,15 +83,21 @@ def create_app(config_object=None):
     app.register_blueprint(attempts_bp, url_prefix=prefix)
     app.register_blueprint(ai_bp, url_prefix=prefix)
     app.register_blueprint(progress_bp, url_prefix=prefix)
-    app.register_blueprint(contract_bp, url_prefix=prefix)
+    app.register_blueprint(teacher_bp, url_prefix=prefix)
+    app.register_blueprint(engagement_bp, url_prefix=prefix)
+    app.register_blueprint(governance_bp, url_prefix=prefix)
 
     register_error_handlers(app)
     register_jwt_callbacks(jwt)
     register_cli_commands(app)
 
-    if app.config["AUTO_CREATE_DB"]:
+    if app.config["AUTO_CREATE_DB"] or app.config["MIGRATE_RUNTIME_SCHEMA"]:
         with app.app_context():
-            db.create_all()
+            if app.config["AUTO_CREATE_DB"]:
+                db.create_all()
+            if app.config["MIGRATE_RUNTIME_SCHEMA"]:
+                from services.schema import ensure_runtime_schema
+                ensure_runtime_schema()
             if app.config["SEED_DEMO_DATA"]:
                 from services.seed import seed_demo_data
                 seed_demo_data()

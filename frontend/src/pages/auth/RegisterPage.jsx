@@ -37,7 +37,7 @@ export function RegisterPage() {
           <div className="p-6 sm:p-10">
             {error && (
               <div className="mb-5 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-800" role="alert">
-                {error}<span className="mt-1 block font-normal">Fallback/mock-регистрация не использовалась.</span>
+                {error}
               </div>
             )}
             <RegisterForm loading={status === 'loading'} onSubmit={submit} />

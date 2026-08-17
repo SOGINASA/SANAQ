@@ -2,10 +2,10 @@ const baseClass = 'inline-flex w-fit items-center rounded-full px-3 py-1.5 text-
 
 export function DataSourceBadge({ meta, ai = false }) {
   if (ai) {
-    const isFallback = meta?.generated_by_ai === false;
+    const isServerTutor = meta?.generated_by_ai === false;
     return (
-      <span className={`${baseClass} ${isFallback ? 'bg-amber-100 text-amber-900' : 'bg-mint-100 text-mint-700'}`}>
-        {isFallback ? 'Проверенный fallback · не внешний AI' : 'Ответ внешней AI-модели'}
+      <span className={`${baseClass} ${isServerTutor ? 'bg-lavender-100 text-lavender-700' : 'bg-mint-100 text-mint-700'}`}>
+        {isServerTutor ? 'Серверный учебный движок' : 'Ответ внешней AI-модели'}
       </span>
     );
   }

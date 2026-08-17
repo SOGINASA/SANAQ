@@ -1,18 +1,53 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, ArrowRight, BookOpenText, Check, Lightbulb, Volume2 } from 'lucide-react';
-import { Button, Card, ProgressBar, StatusToast } from '../../shared/ui';
+import { ArrowLeft, ArrowRight, BookOpenText, Volume2 } from 'lucide-react';
+import { Button, Card, ProgressBar } from '../../shared/ui';
+import { contentApi } from '../../shared/api/contentApi';
 
 export function LessonPage() {
   const { moduleId } = useParams();
   const navigate = useNavigate();
-  const [mode, setMode] = useState('simple');
-  const [status, setStatus] = useState('');
-  const speak = () => {
-    if (!('speechSynthesis' in window)) { setStatus('Озвучивание не поддерживается этим браузером'); return; }
-    window.speechSynthesis.cancel();
-    window.speechSynthesis.speak(new SpeechSynthesisUtterance('Разность квадратов — это выражение вида а в квадрате минус б в квадрате. Формула: а минус б, умножить на а плюс б.'));
-    setStatus('Озвучивание запущено');
+  const [module, setModule] = useState(null);
+  const [lesson, setLesson] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    let active = true;
+    const load = async () => {
+      try {
+        const moduleResponse = await contentApi.module(moduleId);
+        if (!active) return;
+        setModule(moduleResponse.data.module);
+        const firstLesson = moduleResponse.data.module.lessons?.[0];
+        if (firstLesson) {
+          const lessonResponse = await contentApi.lesson(firstLesson.id);
+          if (active) setLesson(lessonResponse.data.lesson);
+        }
+      } catch (requestError) {
+        if (active) setError(requestError.message);
+      } finally {
+        if (active) setLoading(false);
+      }
+    };
+    load();
+    return () => { active = false; };
+  }, [moduleId]);
+
+  const chooseLesson = async (lessonId) => {
+    setLoading(true);
+    try { const response = await contentApi.lesson(lessonId); setLesson(response.data.lesson); }
+    catch (requestError) { setError(requestError.message); }
+    finally { setLoading(false); }
   };
-  return <div className="mx-auto max-w-5xl animate-rise"><button onClick={() => navigate('/student/path')} className="mb-5 inline-flex min-h-11 items-center gap-2 rounded-xl px-2 font-bold text-stone-600 hover:bg-stone-100"><ArrowLeft className="h-5 w-5" /> К маршруту</button><div className="grid gap-6 lg:grid-cols-[1fr_300px]"><article><div className="mb-6"><p className="eyebrow">Урок 2 из 4 · {moduleId}</p><h1 className="page-title mt-3">Разность квадратов</h1><ProgressBar className="mt-5" value={50} label="Прогресс модуля" /></div><Card className="p-6 sm:p-9"><div className="flex flex-wrap items-center justify-between gap-3"><h2 className="text-2xl font-extrabold">Главная идея</h2><button onClick={speak} className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-stone-100 px-4 text-sm font-bold"><Volume2 className="h-4 w-4" /> Озвучить</button></div><p className="mt-5 text-lg leading-8 text-stone-700">Разность квадратов — это выражение вида <strong>a² − b²</strong>. Его можно разложить на два множителя:</p><div className="my-7 rounded-3xl bg-ink p-7 text-center font-display text-2xl font-semibold text-white sm:text-3xl">a² − b² = (a − b)(a + b)</div><div className="flex gap-3 rounded-2xl bg-mint-100 p-5"><Lightbulb className="mt-1 h-6 w-6 shrink-0 text-mint-700" /><p><strong>Как запомнить:</strong> одинаковые скобки, но знаки разные — минус и плюс.</p></div><h3 className="mt-8 text-xl font-extrabold">Выбери способ объяснения</h3><div className="mt-4 flex flex-wrap gap-2">{[['simple', 'Коротко'], ['steps', 'Пошагово'], ['life', 'На примере']].map(([value, label]) => <button key={value} onClick={() => setMode(value)} className={`min-h-11 rounded-xl px-4 text-sm font-bold ${mode === value ? 'bg-lavender-600 text-white' : 'bg-stone-100'}`}>{label}</button>)}</div><div className="mt-4 rounded-2xl border border-lavender-200 bg-lavender-50 p-5 text-stone-700">{mode === 'simple' && 'Узнай квадраты, затем запиши сумму и разность их оснований.'}{mode === 'steps' && '1. Найди a и b. 2. Собери (a − b). 3. Собери (a + b). 4. Проверь раскрытием скобок.'}{mode === 'life' && 'Представь квадратный двор со стороной a, из которого вырезали квадрат со стороной b. Оставшуюся площадь можно пересобрать в прямоугольник со сторонами (a − b) и (a + b).'}</div><div className="mt-9 flex justify-end"><Button onClick={() => navigate('/student/task/factorization-1')}>Перейти к практике <ArrowRight className="h-5 w-5" /></Button></div></Card></article><aside className="space-y-4"><Card className="p-5"><p className="eyebrow">В модуле</p>{['Что такое множитель', 'Разность квадратов', 'Общий множитель', 'Мини-проверка'].map((title, i) => <div key={title} className={`mt-3 flex items-center gap-3 rounded-xl p-3 text-sm font-bold ${i === 1 ? 'bg-lavender-100 text-lavender-700' : ''}`}><span className={`grid h-7 w-7 place-items-center rounded-lg ${i < 1 ? 'bg-mint-100 text-mint-700' : 'bg-stone-100'}`}>{i < 1 ? <Check className="h-4 w-4" /> : i + 1}</span>{title}</div>)}</Card><Card className="p-5"><BookOpenText className="h-6 w-6 text-lavender-600" /><p className="mt-3 font-bold">Нужна шпаргалка?</p><p className="mt-2 text-sm text-stone-500">Сохрани формулу в повторение — SANA напомнит через 2 дня.</p><Button variant="outline" size="sm" className="mt-4 w-full" onClick={() => setStatus('Формула добавлена в повторение через 2 дня')}>Сохранить формулу</Button></Card></aside></div><StatusToast message={status} onClose={() => setStatus('')} /></div>;
+
+  const speak = () => {
+    if (!lesson || !window.speechSynthesis) return;
+    window.speechSynthesis.cancel();
+    window.speechSynthesis.speak(new SpeechSynthesisUtterance(`${lesson.title}. ${lesson.theory}. ${lesson.example}`));
+  };
+
+  if (loading && !module) return <div className="mx-auto max-w-5xl py-16 text-center font-bold">Загружаем модуль…</div>;
+
+  return <div className="mx-auto max-w-5xl animate-rise"><button onClick={() => navigate('/student/path')} className="mb-5 inline-flex min-h-11 items-center gap-2 rounded-xl px-2 font-bold text-stone-600"><ArrowLeft className="h-5 w-5" /> К маршруту</button>{error && <div className="mb-5 rounded-2xl border border-red-200 bg-red-50 p-4 text-red-900">{error}</div>}{module && <div className="grid gap-6 lg:grid-cols-[1fr_300px]"><article><div className="mb-6"><p className="eyebrow">{module.title}</p><h1 className="page-title mt-3">{lesson?.title || 'Урок'}</h1><ProgressBar className="mt-5" value={lesson ? 50 : 0} label="Модуль загружен из backend" /></div>{lesson && <Card className="p-6 sm:p-9"><div className="flex flex-wrap items-center justify-between gap-3"><h2 className="text-2xl font-extrabold">Главная идея</h2><button onClick={speak} className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-stone-100 px-4 text-sm font-bold"><Volume2 className="h-4 w-4" /> Озвучить</button></div><p className="mt-5 text-lg leading-8 text-stone-700">{lesson.theory}</p><div className="my-7 rounded-3xl bg-ink p-7 text-center font-display text-2xl font-semibold text-white">{lesson.example}</div>{lesson.tasks?.[0] && <div className="mt-9 flex justify-end"><Button onClick={() => navigate(`/student/task/${lesson.tasks[0].id}`)}>Перейти к практике <ArrowRight className="h-5 w-5" /></Button></div>}</Card>}</article><aside><Card className="p-5"><p className="eyebrow">В модуле</p>{module.lessons?.map((item) => <button key={item.id} onClick={() => chooseLesson(item.id)} className={`mt-3 flex min-h-12 w-full items-center gap-3 rounded-xl p-3 text-left text-sm font-bold ${lesson?.id === item.id ? 'bg-lavender-100 text-lavender-700' : 'hover:bg-stone-100'}`}><BookOpenText className="h-4 w-4" />{item.title}</button>)}</Card></aside></div>}</div>;
 }

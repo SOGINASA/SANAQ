@@ -10,4 +10,5 @@ export const assessmentsApi = {
     apiRequest({ method: 'POST', url: `/attempts/${attemptId}/complete` }),
   result: (attemptId) =>
     apiRequest({ method: 'GET', url: `/attempts/${attemptId}/result` }),
+  history: () => apiRequest({ method: 'GET', url: '/students/me/attempts' }),
 };

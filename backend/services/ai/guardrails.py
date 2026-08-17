@@ -8,10 +8,23 @@ _PII_PATTERNS = (
     (re.compile(r"(?<!\d)(?:\+?7|8)[\s()-]*\d{3}[\s()-]*\d{3}[\s-]*\d{2}[\s-]*\d{2}(?!\d)"), "[телефон скрыт]"),
 )
 
-_HIGH_RISK_PATTERNS = (
-    re.compile(r"\b(?:суицид|самоубийств|убить себя|не хочу жить)\b", re.IGNORECASE),
-    re.compile(r"\b(?:өзімді өлтір|өмір сүргім келмейді)\b", re.IGNORECASE),
-)
+_HIGH_RISK_PATTERNS = {
+    "ru": (
+        re.compile(r"(?<!\w)суицид\w*", re.IGNORECASE),
+        re.compile(r"(?<!\w)самоубийств\w*", re.IGNORECASE),
+        re.compile(r"(?<!\w)уби(?:ть|ваю|й)\s+себя(?!\w)", re.IGNORECASE),
+        re.compile(r"(?<!\w)убью\s+себя(?!\w)", re.IGNORECASE),
+        re.compile(r"(?<!\w)не\s+хочу\s+жить(?!\w)", re.IGNORECASE),
+        re.compile(r"(?<!\w)(?:хочу|собираюсь)\s+(?:умереть|покончить\s+с\s+собой)", re.IGNORECASE),
+        re.compile(r"(?<!\w)покончить\s+с\s+собой(?!\w)", re.IGNORECASE),
+    ),
+    "kk": (
+        re.compile(r"(?<!\w)өзімді\s+өлтір\w*", re.IGNORECASE),
+        re.compile(r"(?<!\w)өмір\s+сүргім\s+келме\w*", re.IGNORECASE),
+        re.compile(r"(?<!\w)өлгім\s+келеді(?!\w)", re.IGNORECASE),
+        re.compile(r"(?<!\w)өзіме\s+қол\s+жұмса\w*", re.IGNORECASE),
+    ),
+}
 
 
 def validate_user_message(content):
@@ -34,9 +47,18 @@ def redact_personal_data(content):
 
 
 def urgent_safety_response(content, locale="ru"):
-    if not any(pattern.search(content) for pattern in _HIGH_RISK_PATTERNS):
+    matched_locale = next(
+        (
+            language
+            for language, patterns in _HIGH_RISK_PATTERNS.items()
+            if any(pattern.search(content) for pattern in patterns)
+        ),
+        None,
+    )
+    if not matched_locale:
         return None
-    if locale == "kk":
+    response_locale = "kk" if matched_locale == "kk" else locale
+    if response_locale == "kk":
         return (
             "Маған сенің қауіпсіздігің маңызды. Қазір жалғыз қалма: сенетін ересек адамға — "
             "ата-анаңа, мұғалімге немесе мектеп психологына — бірден айт. Егер дәл қазір қауіп бар "
