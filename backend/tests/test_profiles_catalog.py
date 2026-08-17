@@ -54,6 +54,7 @@ def test_catalog_contains_mathematics_curriculum_for_grades_7_to_12(
     }
     assert all(topic["curriculum_version"] == "kz-math-7-12-v1" for topic in grade_nine)
     assert all(topic["estimated_total_minutes"] > 0 for topic in grade_nine)
+    assert any(topic["prerequisite_skill_ids"] for topic in grade_nine)
 
 
 def test_catalog_exposes_planning_metadata(client, student_headers):
@@ -76,3 +77,28 @@ def test_catalog_rejects_unsupported_grade(client, student_headers):
         headers=student_headers,
     )
     assert response.status_code == 422
+
+
+def test_knowledge_graph_includes_target_grade_and_foundations(
+    client, student_headers
+):
+    response = client.get(
+        "/api/v1/catalog/subjects/mathematics/knowledge-graph?grade=9",
+        headers=student_headers,
+    )
+    assert response.status_code == 200
+    graph = response.get_json()["data"]
+    assert graph["target_grade"] == 9
+    assert graph["target_node_count"] == 30
+    assert graph["foundation_node_count"] > 0
+    assert graph["edges"]
+    node_ids = {node["id"] for node in graph["nodes"]}
+    assert all(
+        edge["from"] in node_ids and edge["to"] in node_ids
+        for edge in graph["edges"]
+    )
+    assert all(
+        node["grade"] == 9
+        for node in graph["nodes"]
+        if node["is_target_grade"]
+    )

@@ -97,6 +97,79 @@ def topics(subjectId):
     return success({"items": items})
 
 
+@catalog_bp.get("/catalog/subjects/<subjectId>/knowledge-graph")
+@jwt_required(locations=["headers"])
+def knowledge_graph(subjectId):
+    if not db.session.get(Subject, subjectId):
+        return api_error("SUBJECT_NOT_FOUND", "Предмет не найден", 404)
+    grade = request.args.get("grade", type=int)
+    if request.args.get("grade") is not None and grade not in range(7, 13):
+        return api_error("VALIDATION_ERROR", "Допустимы классы с 7 по 12", 422)
+
+    rows = db.session.execute(
+        db.select(Skill, SkillPlanningMetadata, Topic)
+        .join(SkillPlanningMetadata, SkillPlanningMetadata.skill_id == Skill.id)
+        .join(Topic, Skill.topic_id == Topic.id)
+        .where(Topic.subject_id == subjectId)
+        .order_by(Topic.grade, Topic.order_index, Skill.order_index)
+    ).all()
+    all_skill_ids = {skill.id for skill, _, _ in rows}
+    all_edges = db.session.scalars(
+        db.select(PrerequisiteEdge).where(
+            PrerequisiteEdge.skill_id.in_(all_skill_ids),
+            PrerequisiteEdge.prerequisite_skill_id.in_(all_skill_ids),
+        )
+    ).all() if all_skill_ids else []
+
+    included_ids = {
+        skill.id for skill, metadata, _ in rows
+        if grade is None or metadata.grade == grade
+    }
+    if grade is not None:
+        prerequisites_by_skill = {}
+        for edge in all_edges:
+            prerequisites_by_skill.setdefault(edge.skill_id, set()).add(
+                edge.prerequisite_skill_id
+            )
+        pending = list(included_ids)
+        while pending:
+            skill_id = pending.pop()
+            for prerequisite_id in prerequisites_by_skill.get(skill_id, set()):
+                if prerequisite_id not in included_ids:
+                    included_ids.add(prerequisite_id)
+                    pending.append(prerequisite_id)
+
+    nodes = [
+        {
+            "id": skill.id,
+            "name": localized(skill.name),
+            "topic_id": topic.id,
+            "topic_name": localized(topic.name),
+            "grade": metadata.grade,
+            "learning_minutes": metadata.learning_minutes,
+            "practice_minutes": metadata.practice_minutes,
+            "difficulty": metadata.difficulty,
+            "importance": metadata.importance,
+            "is_target_grade": grade is None or metadata.grade == grade,
+        }
+        for skill, metadata, topic in rows
+        if skill.id in included_ids
+    ]
+    edges = [
+        {"from": edge.prerequisite_skill_id, "to": edge.skill_id}
+        for edge in all_edges
+        if edge.skill_id in included_ids and edge.prerequisite_skill_id in included_ids
+    ]
+    return success({
+        "subject_id": subjectId,
+        "target_grade": grade,
+        "nodes": nodes,
+        "edges": edges,
+        "target_node_count": sum(node["is_target_grade"] for node in nodes),
+        "foundation_node_count": sum(not node["is_target_grade"] for node in nodes),
+    })
+
+
 @catalog_bp.get("/catalog/goals")
 def goals():
     return success({"items": GOALS})

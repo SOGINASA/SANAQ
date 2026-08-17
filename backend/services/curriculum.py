@@ -3,6 +3,7 @@ from pathlib import Path
 
 from models import (
     CurriculumTopicMetadata,
+    PrerequisiteEdge,
     Skill,
     SkillPlanningMetadata,
     Subject,
@@ -98,7 +99,71 @@ def validate_math_curriculum(payload):
 
     if covered_grades != set(payload["grades"]):
         raise CurriculumValidationError("every supported grade must contain topics")
+    _validate_topic_prerequisites(payload)
     return True
+
+
+def _validate_topic_prerequisites(payload):
+    dependencies = payload.get("topic_prerequisites")
+    if not isinstance(dependencies, dict):
+        raise CurriculumValidationError("topic_prerequisites must be an object")
+
+    topics = {topic["id"]: topic for topic in payload["topics"]}
+    for topic_id, prerequisite_ids in dependencies.items():
+        if topic_id not in topics:
+            raise CurriculumValidationError(f"unknown topic prerequisite target: {topic_id}")
+        if not isinstance(prerequisite_ids, list) or not prerequisite_ids:
+            raise CurriculumValidationError(
+                f"topic_prerequisites.{topic_id} must be a non-empty list"
+            )
+        if len(prerequisite_ids) != len(set(prerequisite_ids)):
+            raise CurriculumValidationError(f"duplicate prerequisite for topic: {topic_id}")
+        target = topics[topic_id]
+        for prerequisite_id in prerequisite_ids:
+            if prerequisite_id not in topics:
+                raise CurriculumValidationError(
+                    f"unknown prerequisite topic: {prerequisite_id}"
+                )
+            prerequisite = topics[prerequisite_id]
+            if prerequisite["grade"] > target["grade"] or (
+                prerequisite["grade"] == target["grade"]
+                and prerequisite["order"] >= target["order"]
+            ):
+                raise CurriculumValidationError(
+                    f"prerequisite {prerequisite_id} must precede {topic_id}"
+                )
+
+    visiting = set()
+    visited = set()
+
+    def visit(topic_id):
+        if topic_id in visiting:
+            raise CurriculumValidationError(f"cycle detected at topic: {topic_id}")
+        if topic_id in visited:
+            return
+        visiting.add(topic_id)
+        for prerequisite_id in dependencies.get(topic_id, []):
+            visit(prerequisite_id)
+        visiting.remove(topic_id)
+        visited.add(topic_id)
+
+    for topic_id in topics:
+        visit(topic_id)
+
+
+def build_curriculum_edges(payload):
+    """Build skill-level edges from ordered skills and topic dependencies."""
+    topics = {topic["id"]: topic for topic in payload["topics"]}
+    edges = set()
+    for topic in payload["topics"]:
+        skill_ids = [skill["id"] for skill in topic["skills"]]
+        edges.update(zip(skill_ids[1:], skill_ids[:-1]))
+    for topic_id, prerequisite_topic_ids in payload["topic_prerequisites"].items():
+        target_skill_id = topics[topic_id]["skills"][0]["id"]
+        for prerequisite_topic_id in prerequisite_topic_ids:
+            prerequisite_skill_id = topics[prerequisite_topic_id]["skills"][-1]["id"]
+            edges.add((target_skill_id, prerequisite_skill_id))
+    return sorted(edges)
 
 
 def _upsert(model, identity, **values):
@@ -168,6 +233,23 @@ def seed_math_curriculum(path=CURRICULUM_PATH, commit=True):
                 curriculum_version=version,
             )
 
+    db.session.execute(
+        db.delete(PrerequisiteEdge).where(PrerequisiteEdge.skill_id.like("math-g%"))
+    )
+    curriculum_edges = build_curriculum_edges(payload)
+    db.session.add_all([
+        PrerequisiteEdge(
+            skill_id=skill_id,
+            prerequisite_skill_id=prerequisite_skill_id,
+        )
+        for skill_id, prerequisite_skill_id in curriculum_edges
+    ])
+
     if commit:
         db.session.commit()
-    return {"version": version, "topics": topic_count, "skills": skill_count}
+    return {
+        "version": version,
+        "topics": topic_count,
+        "skills": skill_count,
+        "prerequisite_edges": len(curriculum_edges),
+    }

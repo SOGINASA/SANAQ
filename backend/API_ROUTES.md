@@ -84,6 +84,7 @@
 | GET | `/catalog/grades` | public | Классы 7–12 |
 | GET | `/catalog/subjects` | public | Доступные предметы |
 | GET | `/catalog/subjects/:subjectId/topics?grade=` | user | Дерево тем и навыков; фильтр по классу 7–12 |
+| GET | `/catalog/subjects/:subjectId/knowledge-graph?grade=` | user | Граф навыков выбранного класса со всеми необходимыми основами |
 | GET | `/catalog/goals` | public | Экзамен, олимпиада, повторение и др. |
 | GET | `/catalog/locales` | public | Поддерживаемые языки |
 
