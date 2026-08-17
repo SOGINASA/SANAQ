@@ -3,3 +3,6 @@ export { Card } from './Card';
 export { ProgressBar } from './ProgressBar';
 export { Dialog } from './Dialog';
 export { StatusToast } from './StatusToast';
+export { Input } from './Input';
+export { Skeleton } from './Skeleton';
+export { Tabs } from './Tabs';

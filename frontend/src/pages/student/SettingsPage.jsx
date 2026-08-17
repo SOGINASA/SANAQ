@@ -5,6 +5,7 @@ import { notificationsApi } from '../../features/notifications/notificationsApi'
 import { profileApi } from '../../shared/api/profileApi';
 import { Button, Card, StatusToast } from '../../shared/ui';
 import { goalsApi } from '../../features/goals/goalsApi';
+import { useI18n } from '../../shared/i18n/i18n';
 
 function Toggle({ checked, onChange, label, description }) {
   return (
@@ -19,6 +20,7 @@ function Toggle({ checked, onChange, label, description }) {
 }
 
 export function SettingsPage() {
+  const { t } = useI18n();
   const store = useAccessibilityStore();
   const [reviews, setReviews] = useState(true);
   const [deadlines, setDeadlines] = useState(true);
@@ -47,7 +49,7 @@ export function SettingsPage() {
     setError('');
     try {
       await notificationsApi.savePreferences(next);
-      setStatus('Настройки напоминаний сохранены');
+      setStatus(t('settings.remindersSaved'));
     } catch (requestError) {
       setError(requestError.message);
     }
@@ -58,7 +60,7 @@ export function SettingsPage() {
     setError('');
     try {
       await profileApi.update({ locale: value });
-      setStatus(`Выбран язык: ${label}`);
+      setStatus(t('settings.languageSelected', { language: label }));
     } catch (requestError) {
       setError(requestError.message);
     }
@@ -77,7 +79,7 @@ export function SettingsPage() {
             reduced_motion: state.reducedMotion,
           },
         });
-        setStatus('Настройки доступности сохранены');
+        setStatus(t('settings.accessibilitySaved'));
       } catch (requestError) {
         setError(requestError.message);
       }
@@ -91,7 +93,7 @@ export function SettingsPage() {
     try {
       const response = await profileApi.joinClass(joinCode.trim().toUpperCase());
       setJoinCode('');
-      setStatus(`Вы вступили в класс «${response.data.class.name}»`);
+      setStatus(t('settings.joined', { name: response.data.class.name }));
     } catch (requestError) {
       setError(requestError.message);
     } finally {
@@ -105,7 +107,7 @@ export function SettingsPage() {
     try {
       const response = await goalsApi.create({ title: goalTitle.trim(), target_date: goalDate || null });
       setGoals((items) => [...items, response.data.goal]);
-      setGoalTitle(''); setGoalDate(''); setStatus('Цель сохранена на сервере');
+      setGoalTitle(''); setGoalDate(''); setStatus(t('settings.goalSaved'));
     } catch (requestError) { setError(requestError.message); }
   };
 
@@ -127,56 +129,56 @@ export function SettingsPage() {
 
   return (
     <div className="mx-auto max-w-4xl animate-rise">
-      <div><p className="eyebrow">Под тебя</p><h1 className="page-title mt-3">Настройки</h1></div>
+      <div><p className="eyebrow">{t('settings.eyebrow')}</p><h1 className="page-title mt-3">{t('settings.title')}</h1></div>
       {error && <div className="mt-5 rounded-2xl border border-red-200 bg-red-50 p-4 text-red-900" role="alert">{error}</div>}
 
       <Card className="mt-8 p-6 sm:p-8">
-        <div className="flex items-center gap-3"><Link2 className="h-6 w-6 text-lavender-600" /><h2 className="text-xl font-extrabold">Подключиться к классу</h2></div>
-        <p className="mt-2 text-sm text-stone-500">Введите код, который выдал учитель. После подключения здесь появятся его назначения и комментарии.</p>
+        <div className="flex items-center gap-3"><Link2 className="h-6 w-6 text-lavender-600" /><h2 className="text-xl font-extrabold">{t('settings.joinTitle')}</h2></div>
+        <p className="mt-2 text-sm text-stone-500">{t('settings.joinDescription')}</p>
         <form className="mt-5 flex flex-col gap-3 sm:flex-row" onSubmit={joinClass}>
-          <label className="sr-only" htmlFor="join-code">Код класса</label>
-          <input id="join-code" className="field-control uppercase" value={joinCode} onChange={(event) => setJoinCode(event.target.value)} placeholder="Например, A1B2C3" maxLength="20" />
-          <Button type="submit" loading={joining} disabled={!joinCode.trim()}>Подключиться</Button>
+          <label className="sr-only" htmlFor="join-code">{t('settings.classCode')}</label>
+          <input id="join-code" className="field-control uppercase" value={joinCode} onChange={(event) => setJoinCode(event.target.value)} placeholder={t('settings.codePlaceholder')} maxLength="20" />
+          <Button type="submit" loading={joining} disabled={!joinCode.trim()}>{t('settings.join')}</Button>
         </form>
       </Card>
 
       <Card className="mt-5 p-6 sm:p-8">
-        <h2 className="text-xl font-extrabold">Учебные цели</h2>
-        <p className="mt-2 text-sm text-stone-500">Цели и сроки хранятся в профиле на сервере.</p>
+        <h2 className="text-xl font-extrabold">{t('settings.goals')}</h2>
+        <p className="mt-2 text-sm text-stone-500">{t('settings.goalsDescription')}</p>
         <form onSubmit={createGoal} className="mt-5 grid gap-3 sm:grid-cols-[1fr_auto_auto]">
-          <input className="field-control" value={goalTitle} onChange={(event) => setGoalTitle(event.target.value)} placeholder="Например, подготовиться к контрольной" />
+          <input className="field-control" value={goalTitle} onChange={(event) => setGoalTitle(event.target.value)} placeholder={t('settings.goalPlaceholder')} />
           <input type="date" className="field-control" value={goalDate} onChange={(event) => setGoalDate(event.target.value)} />
-          <Button type="submit" disabled={!goalTitle.trim()}><Plus className="h-5 w-5" /> Добавить</Button>
+          <Button type="submit" disabled={!goalTitle.trim()}><Plus className="h-5 w-5" /> {t('settings.add')}</Button>
         </form>
         <div className="mt-5 grid gap-2">
-          {goals.map((goal) => <div key={goal.id} className="flex items-center gap-3 rounded-2xl bg-stone-100 p-4"><button onClick={() => updateGoal(goal, goal.status === 'completed' ? 'active' : 'completed')} className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl ${goal.status === 'completed' ? 'bg-mint-500 text-white' : 'bg-paper text-stone-400'}`} aria-label="Изменить статус цели"><CheckCircle2 className="h-5 w-5" /></button><div className="min-w-0 flex-1"><strong className={`block ${goal.status === 'completed' ? 'line-through opacity-60' : ''}`}>{goal.title}</strong>{goal.target_date && <span className="text-xs text-stone-500">до {new Date(`${goal.target_date}T00:00:00`).toLocaleDateString()}</span>}</div><button onClick={() => removeGoal(goal)} className="grid h-10 w-10 place-items-center rounded-xl text-stone-400 hover:bg-red-50 hover:text-red-700" aria-label="Удалить цель"><Trash2 className="h-4 w-4" /></button></div>)}
-          {!goals.length && <p className="text-sm text-stone-500">Активных целей пока нет.</p>}
+          {goals.map((goal) => <div key={goal.id} className="flex items-center gap-3 rounded-2xl bg-stone-100 p-4"><button onClick={() => updateGoal(goal, goal.status === 'completed' ? 'active' : 'completed')} className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl ${goal.status === 'completed' ? 'bg-mint-500 text-white' : 'bg-paper text-stone-400'}`} aria-label={t('settings.toggleGoal')}><CheckCircle2 className="h-5 w-5" /></button><div className="min-w-0 flex-1"><strong className={`block ${goal.status === 'completed' ? 'line-through opacity-60' : ''}`}>{goal.title}</strong>{goal.target_date && <span className="text-xs text-stone-500">{t('settings.until', { date: new Date(`${goal.target_date}T00:00:00`).toLocaleDateString() })}</span>}</div><button onClick={() => removeGoal(goal)} className="grid h-10 w-10 place-items-center rounded-xl text-stone-400 hover:bg-red-50 hover:text-red-700" aria-label={t('settings.removeGoal')}><Trash2 className="h-4 w-4" /></button></div>)}
+          {!goals.length && <p className="text-sm text-stone-500">{t('settings.noGoals')}</p>}
         </div>
       </Card>
 
       <Card className="mt-5 p-6 sm:p-8">
-        <h2 className="text-xl font-extrabold">Язык интерфейса</h2>
-        <div className="mt-5 grid grid-cols-2 gap-3">
-          {[['ru', 'Русский'], ['kk', 'Қазақша']].map(([value, label]) => (
+        <h2 className="text-xl font-extrabold">{t('settings.interfaceLanguage')}</h2>
+        <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
+          {[['ru', t('language.ru')], ['kk', t('language.kk')], ['en', t('language.en')]].map(([value, label]) => (
             <button key={value} onClick={() => updateLocale(value, label)} className={`min-h-12 rounded-2xl border-2 font-bold ${store.locale === value ? 'border-lavender-500 bg-lavender-100 text-lavender-700' : 'border-stone-200'}`}>{label}</button>
           ))}
         </div>
       </Card>
 
       <Card className="mt-5 p-6 sm:p-8">
-        <h2 className="text-xl font-extrabold">Доступность</h2>
+        <h2 className="text-xl font-extrabold">{t('settings.accessibility')}</h2>
         <div className="mt-3">
-          <Toggle checked={store.largeText} onChange={() => updateAccessibility(store.toggleLargeText)} label="Увеличенный текст" description="Сделать основной текст и элементы управления крупнее" />
-          <Toggle checked={store.highContrast} onChange={() => updateAccessibility(store.toggleHighContrast)} label="Высокий контраст" description="Усилить различия между текстом и поверхностями" />
-          <Toggle checked={store.reducedMotion} onChange={() => updateAccessibility(store.toggleReducedMotion)} label="Уменьшить анимацию" description="Отключить декоративные переходы" />
+          <Toggle checked={store.largeText} onChange={() => updateAccessibility(store.toggleLargeText)} label={t('settings.enlargedText')} description={t('settings.enlargedTextDescription')} />
+          <Toggle checked={store.highContrast} onChange={() => updateAccessibility(store.toggleHighContrast)} label={t('settings.highContrast')} description={t('settings.highContrastDescription')} />
+          <Toggle checked={store.reducedMotion} onChange={() => updateAccessibility(store.toggleReducedMotion)} label={t('settings.reducedMotion')} description={t('settings.reducedMotionDescription')} />
         </div>
       </Card>
 
       <Card className="mt-5 p-6 sm:p-8">
-        <h2 className="text-xl font-extrabold">Напоминания</h2>
+        <h2 className="text-xl font-extrabold">{t('settings.reminders')}</h2>
         <div className="mt-3">
-          <Toggle checked={reviews} onChange={(event) => updateReminder('reviews', event.target.checked)} label="Повторение тем" description="Напомнить, когда знание начинает забываться" />
-          <Toggle checked={deadlines} onChange={(event) => updateReminder('deadlines', event.target.checked)} label="Дедлайны назначений" description="Предупредить о приближении срока" />
+          <Toggle checked={reviews} onChange={(event) => updateReminder('reviews', event.target.checked)} label={t('settings.reviews')} description={t('settings.reviewsDescription')} />
+          <Toggle checked={deadlines} onChange={(event) => updateReminder('deadlines', event.target.checked)} label={t('settings.deadlines')} description={t('settings.deadlinesDescription')} />
         </div>
       </Card>
       <StatusToast message={status} onClose={() => setStatus('')} />

@@ -2,31 +2,33 @@ import { Link, useNavigate } from 'react-router-dom';
 import { ArrowRight, BrainCircuit, Check, Languages, Map, MessageCircleQuestion, ShieldCheck, Sparkles, Users } from 'lucide-react';
 import { Button, Card } from '../../shared/ui';
 import mascot from '../../assets/images/sana-mascot.png';
+import { useI18n } from '../../shared/i18n/i18n';
 
 const features = [
   { icon: BrainCircuit, title: 'Диагностика без стресса', text: '4–7 коротких вопросов находят не оценку, а конкретный пробел.', tone: 'bg-lavender-100 text-lavender-700' },
   { icon: Map, title: 'Живое созвездие знаний', text: 'Видно, какая тема блокирует следующую и почему маршрут изменился.', tone: 'bg-mint-100 text-mint-700' },
-  { icon: MessageCircleQuestion, title: 'Объяснение, которое подходит тебе', text: 'SANA объяснит коротко, пошагово или на жизненном примере.', tone: 'bg-[#FFE8E2] text-[#9B3D2D]' },
-  { icon: Users, title: 'Учитель видит главное', text: 'Не десятки таблиц, а навыки, где классу действительно нужна помощь.', tone: 'bg-lime/30 text-[#52670A]' },
+  { icon: MessageCircleQuestion, title: 'Объяснение, которое подходит тебе', text: 'SANA объяснит коротко, пошагово или на жизненном примере.', tone: 'status-danger' },
+  { icon: Users, title: 'Учитель видит главное', text: 'Не десятки таблиц, а навыки, где классу действительно нужна помощь.', tone: 'status-warning' },
 ];
 
 export function HomePage() {
   const navigate = useNavigate();
+  const { t } = useI18n();
   return (
     <>
       <section className="hero-grid overflow-hidden border-b border-stone-200 py-14 sm:py-20 lg:py-24">
         <div className="page-container grid items-center gap-12 lg:grid-cols-[1.08fr_0.92fr]">
           <div className="animate-rise">
             <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-lavender-200 bg-lavender-50 px-4 py-2 text-sm font-bold text-lavender-700">
-              <Sparkles className="h-4 w-4" aria-hidden="true" /> AI-навигация по знаниям
+              <Sparkles className="h-4 w-4" aria-hidden="true" /> {t('home.badge')}
             </div>
             <h1 className="max-w-3xl font-display text-[2.65rem] font-semibold leading-[1.08] tracking-[-0.055em] sm:text-6xl lg:text-[4.6rem]">
-              Учись не больше. <span className="text-lavender-600">Учись точнее.</span>
+              {t('home.title')} <span className="text-lavender-600">{t('home.titleAccent')}</span>
             </h1>
-            <p className="mt-7 max-w-2xl text-lg leading-8 text-stone-600 sm:text-xl">SANAQ находит пробелы, строит личный маршрут и объясняет сложное так, как понятно именно тебе — на русском и казахском.</p>
+            <p className="mt-7 max-w-2xl text-lg leading-8 text-stone-600 sm:text-xl">{t('home.description')}</p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <Button size="lg" onClick={() => navigate('/student/onboarding')}>Пройти диагностику <ArrowRight className="h-5 w-5" /></Button>
-              <Button size="lg" variant="outline" onClick={() => navigate('/student/dashboard')}>Посмотреть демо</Button>
+              <Button size="lg" onClick={() => navigate('/student/onboarding')}>{t('home.diagnostic')} <ArrowRight className="h-5 w-5" /></Button>
+              <Button size="lg" variant="outline" onClick={() => navigate('/student/dashboard')}>{t('home.demo')}</Button>
             </div>
             <div className="mt-8 flex flex-wrap gap-x-6 gap-y-3 text-sm font-semibold text-stone-600">
               {['7–12 классы', '2 языка', 'Без платной подписки в MVP'].map((item) => <span key={item} className="inline-flex items-center gap-2"><Check className="h-4 w-4 text-mint-700" />{item}</span>)}
@@ -41,7 +43,7 @@ export function HomePage() {
               <p className="text-xs font-bold uppercase tracking-wider text-lime">Следующий шаг</p>
               <p className="mt-1 font-bold">8 минут · 3 задания</p>
             </div>
-            <div className="rounded-[3rem] border border-lavender-200 bg-[#F7F6F2] p-2 shadow-soft">
+            <div className="rounded-[3rem] border border-lavender-200 bg-canvas p-2 shadow-soft">
               <img src={mascot} alt="SANA — AI-спутник, который помогает разбираться в сложных темах" className="mascot-image aspect-[4/4.5] w-full rounded-[2.6rem] object-cover" width="700" height="780" fetchPriority="high" />
             </div>
           </div>
@@ -70,7 +72,7 @@ export function HomePage() {
           </div>
           <div className="overflow-hidden rounded-[2.5rem] border border-stone-200 bg-ink p-3 shadow-soft sm:p-5">
             <div className="overflow-hidden rounded-[2rem] bg-canvas">
-              <div className="flex items-center gap-2 border-b border-stone-200 bg-paper px-5 py-4"><span className="h-3 w-3 rounded-full bg-[#F17862]" /><span className="h-3 w-3 rounded-full bg-[#F0C75E]" /><span className="h-3 w-3 rounded-full bg-mint-500" /><span className="ml-3 text-xs font-bold text-stone-400">Личный кабинет · Айару</span></div>
+              <div className="flex items-center gap-2 border-b border-stone-200 bg-paper px-5 py-4"><span className="h-3 w-3 rounded-full bg-danger-500" /><span className="h-3 w-3 rounded-full bg-warning-500" /><span className="h-3 w-3 rounded-full bg-mint-500" /><span className="ml-3 text-xs font-bold text-stone-400">Личный кабинет · Айару</span></div>
               <div className="grid lg:grid-cols-[210px_1fr]">
                 <div className="hidden border-r border-stone-200 bg-paper p-5 lg:block">
                   <div className="flex items-center gap-3"><span className="grid h-9 w-9 place-items-center rounded-xl bg-lavender-600 text-white"><Sparkles className="h-4 w-4" /></span><span className="font-display font-semibold">SANAQ</span></div>

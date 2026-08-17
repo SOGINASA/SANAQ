@@ -78,6 +78,7 @@ def test_diagnostic_to_progress_vertical_slice(client, student_headers):
     )
     assert answer.status_code == 201
     assert answer.get_json()["data"]["is_correct"] is True
+    assert answer.get_json()["data"]["adaptation"]["direction"] == "up"
 
     explanation = client.post("/api/v1/ai/explanations", headers=student_headers, json={
         "attempt_id": attempt_id,
@@ -92,6 +93,9 @@ def test_diagnostic_to_progress_vertical_slice(client, student_headers):
     )
     assert attempt_result.status_code == 200
     assert attempt_result.get_json()["data"]["result"]["skill"]["mastery"] >= 0.75
+    adaptation = attempt_result.get_json()["data"]["result"]["adaptation"]
+    assert adaptation["recommended_difficulty"] > adaptation["current_difficulty"]
+    assert adaptation["reason"]
 
     updated_step = client.get(
         f"/api/v1/learning-paths/{path_id}/next-step", headers=student_headers

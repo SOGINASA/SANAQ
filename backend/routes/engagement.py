@@ -3,7 +3,7 @@ from datetime import datetime, timedelta, timezone
 from flask import Blueprint, request
 from flask_jwt_extended import get_jwt_identity
 
-from models import Attempt, KnowledgeState, Notification, Skill, Task, User, db
+from models import Assignment, Attempt, ClassEnrollment, KnowledgeState, Notification, Skill, Task, User, db
 from services.events import record_learning_event
 from utils.decorators import roles_required
 from utils.localization import localized
@@ -20,9 +20,95 @@ def _notification_payload(item):
     }
 
 
+def _as_utc(value):
+    if value and value.tzinfo is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value
+
+
+def _reminder_copy(locale, kind, name, due_at=None):
+    language = locale if locale in {"ru", "kk", "en"} else "ru"
+    if kind == "review":
+        return {
+            "ru": ("Пора повторить", f"Закрепите навык «{name}», пока знания свежи."),
+            "kk": ("Қайталау уақыты", f"«{name}» дағдысын бекітіп алыңыз."),
+            "en": ("Time to review", f"Reinforce “{name}” while it is still fresh."),
+        }[language]
+    return {
+        "ru": ("Срок задания приближается", f"«{name}» нужно выполнить до {due_at:%d.%m, %H:%M}."),
+        "kk": ("Тапсырма мерзімі жақындады", f"«{name}» тапсырмасын {due_at:%d.%m, %H:%M} дейін орындаңыз."),
+        "en": ("Assignment due soon", f"Complete “{name}” by {due_at:%d %b, %H:%M}."),
+    }[language]
+
+
+def _sync_reminder_notifications(user_id):
+    """Materialize due reminders on notification reads, without creating duplicates."""
+    user = db.session.get(User, user_id)
+    if not user or user.role != "student":
+        return
+    preferences = dict(user.preferences or {}).get("notifications", {})
+    reviews_enabled = bool(preferences.get("reviews", True))
+    deadlines_enabled = bool(preferences.get("deadlines", True))
+    now = datetime.now(timezone.utc)
+    created = False
+
+    if reviews_enabled:
+        states = db.session.scalars(
+            db.select(KnowledgeState).where(
+                KnowledgeState.student_id == user_id,
+                KnowledgeState.next_review_at.is_not(None),
+                KnowledgeState.next_review_at <= now,
+            )
+        ).all()
+        for state in states:
+            task = db.session.scalar(
+                db.select(Task).where(Task.skill_id == state.skill_id, Task.is_published.is_(True))
+            )
+            skill = db.session.get(Skill, state.skill_id)
+            if not task or not skill:
+                continue
+            due_at = _as_utc(state.next_review_at)
+            link = f"/student/task/{task.id}?review={state.id}&due={int(due_at.timestamp())}"
+            exists = db.session.scalar(
+                db.select(Notification.id).where(Notification.user_id == user_id, Notification.link == link)
+            )
+            if not exists:
+                title, body = _reminder_copy(user.locale, "review", localized(skill.name, user.locale))
+                db.session.add(Notification(user_id=user_id, title=title, body=body, link=link))
+                created = True
+
+    if deadlines_enabled:
+        deadline = now + timedelta(days=3)
+        assignments = db.session.scalars(
+            db.select(Assignment).join(
+                ClassEnrollment, ClassEnrollment.class_id == Assignment.class_id
+            ).where(
+                ClassEnrollment.student_id == user_id,
+                Assignment.status == "published",
+                Assignment.due_at.is_not(None),
+                Assignment.due_at >= now,
+                Assignment.due_at <= deadline,
+            )
+        ).all()
+        for assignment in assignments:
+            due_at = _as_utc(assignment.due_at)
+            link = f"/student/progress?assignment={assignment.id}&due={int(due_at.timestamp())}"
+            exists = db.session.scalar(
+                db.select(Notification.id).where(Notification.user_id == user_id, Notification.link == link)
+            )
+            if not exists:
+                title, body = _reminder_copy(user.locale, "deadline", assignment.title, due_at)
+                db.session.add(Notification(user_id=user_id, title=title, body=body, link=link))
+                created = True
+
+    if created:
+        db.session.commit()
+
+
 @engagement_bp.get("/notifications")
 @roles_required("student", "teacher", "admin")
 def notifications():
+    _sync_reminder_notifications(get_jwt_identity())
     items = db.session.scalars(
         db.select(Notification).where(Notification.user_id == get_jwt_identity())
         .order_by(Notification.created_at.desc()).limit(50)
@@ -82,6 +168,18 @@ def update_notification_preferences():
         "reviews": bool(data.get("reviews", True)), "deadlines": bool(data.get("deadlines", True)),
     }
     user.preferences = current
+    if not current["notifications"]["reviews"]:
+        db.session.execute(db.delete(Notification).where(
+            Notification.user_id == user.id,
+            Notification.read_at.is_(None),
+            Notification.link.like("/student/task/%?review=%"),
+        ))
+    if not current["notifications"]["deadlines"]:
+        db.session.execute(db.delete(Notification).where(
+            Notification.user_id == user.id,
+            Notification.read_at.is_(None),
+            Notification.link.like("/student/progress?assignment=%"),
+        ))
     db.session.commit()
     return success({"preferences": current["notifications"]})
 

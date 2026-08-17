@@ -24,7 +24,7 @@ def _cors_origins():
 class Config:
     API_VERSION = "1.0.0"
     API_PREFIX = "/api/v1"
-    SUPPORTED_LOCALES = ("ru", "kk")
+    SUPPORTED_LOCALES = ("ru", "kk", "en")
     DEFAULT_LOCALE = os.environ.get("DEFAULT_LOCALE", "ru")
     DATA_MODE = os.environ.get("DATA_MODE", "demo_seed")
 

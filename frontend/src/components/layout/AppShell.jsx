@@ -1,13 +1,16 @@
 import { useEffect, useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { AccessibilityMenu } from '../../features/accessibility';
 import { Bell, BookOpenCheck, ChevronDown, LogOut, MessageCircleQuestion, Settings } from 'lucide-react';
 import { SidebarNavigation } from '../navigation/SidebarNavigation';
 import { MobileNavigation } from '../navigation/MobileNavigation';
 import { LanguageSwitcher } from '../navigation/LanguageSwitcher';
 import { useAuthStore } from '../../features/auth/authStore';
 import { notificationsApi } from '../../features/notifications/notificationsApi';
+import { useI18n } from '../../shared/i18n/i18n';
 
 export function AppShell({ role = 'student' }) {
+  const { t } = useI18n();
   const user = useAuthStore((state) => state.user);
   const logout = useAuthStore((state) => state.logout);
   const navigate = useNavigate();
@@ -16,13 +19,15 @@ export function AppShell({ role = 'student' }) {
   const [profileOpen, setProfileOpen] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
-  const defaultName = role === 'teacher' ? 'Учитель' : 'Ученик';
+  const defaultName = role === 'teacher' ? t('shell.teacher') : t('shell.student');
   const displayName = user?.name || defaultName;
   const immersiveAssistant = role === 'student' && pathname === '/student/assistant';
 
   const loadNotifications = async (isActive = () => true) => {
     try {
-      const [list, count] = await Promise.all([notificationsApi.list(), notificationsApi.unreadCount()]);
+      // The list request materializes due reminders before the unread count is calculated.
+      const list = await notificationsApi.list();
+      const count = await notificationsApi.unreadCount();
       if (!isActive()) return;
       setNotifications(list.data.items || []);
       setUnreadCount(count.data.count || 0);
@@ -61,46 +66,46 @@ export function AppShell({ role = 'student' }) {
 
   return (
     <div className="min-h-screen bg-canvas lg:pl-72">
-      <a href="#dashboard-content" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-xl focus:bg-ink focus:px-4 focus:py-3 focus:text-white">К содержимому</a>
+      <a href="#dashboard-content" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-xl focus:bg-ink focus:px-4 focus:py-3 focus:text-white">{t('shell.skip')}</a>
       <SidebarNavigation role={role} />
       {!immersiveAssistant && (
         <header className="sticky top-0 z-20 border-b border-stone-200/80 bg-canvas/90 backdrop-blur-xl">
           <div className="flex min-h-[76px] items-center justify-between px-4 sm:px-6 lg:px-8">
             <div>
-              <p className="text-xs font-bold uppercase tracking-[0.16em] text-stone-400">{role === 'teacher' ? 'SANAQ for school' : 'Персональный маршрут'}</p>
-              <p className="font-bold">{role === 'teacher' ? 'Кабинет учителя' : 'Мой учебный кабинет'}</p>
+              <p className="text-xs font-bold uppercase tracking-[0.16em] text-stone-400">{role === 'teacher' ? 'SANAQ for school' : t('shell.personalPath')}</p>
+              <p className="font-bold">{role === 'teacher' ? t('teacher.dashboard') : t('shell.studentCabinet')}</p>
             </div>
             <div className="relative flex items-center gap-2 sm:gap-3">
               <LanguageSwitcher compact />
-              <button onClick={toggleNotifications} className="relative grid h-11 w-11 place-items-center rounded-2xl border border-stone-200 bg-paper" aria-label="Уведомления" aria-expanded={notificationsOpen}>
+              <button onClick={toggleNotifications} className="relative grid h-11 w-11 cursor-pointer place-items-center rounded-2xl border border-stone-200 bg-paper" aria-label={t('shell.notifications')} aria-expanded={notificationsOpen}>
                 <Bell className="h-5 w-5" />{unreadCount > 0 && <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-coral" />}
               </button>
-              <button onClick={() => { setProfileOpen((value) => !value); setNotificationsOpen(false); }} className="flex min-h-11 items-center gap-2 rounded-2xl border border-stone-200 bg-paper px-2 sm:px-3" aria-label="Открыть меню профиля" aria-expanded={profileOpen}>
+              <button onClick={() => { setProfileOpen((value) => !value); setNotificationsOpen(false); }} className="flex min-h-11 cursor-pointer items-center gap-2 rounded-2xl border border-stone-200 bg-paper px-2 sm:px-3" aria-label={t('shell.profileMenu')} aria-expanded={profileOpen}>
                 <span className="grid h-8 w-8 place-items-center rounded-xl bg-lavender-200 text-sm font-extrabold text-lavender-700">{displayName[0]}</span>
                 <span className="hidden text-sm font-bold sm:inline">{displayName}</span>
                 <ChevronDown className="hidden h-4 w-4 sm:block" />
               </button>
 
               {notificationsOpen && (
-                <div className="absolute right-0 top-14 z-50 w-[min(360px,calc(100vw-2rem))] overflow-hidden rounded-3xl border border-stone-200 bg-paper shadow-2xl" role="dialog" aria-label="Центр уведомлений">
-                  <div className="flex items-center justify-between border-b border-stone-200 p-5"><div><p className="font-extrabold">Уведомления</p><p className="text-xs text-stone-500">{unreadCount} непрочитанных</p></div>{unreadCount > 0 && <button onClick={markAllRead} className="text-xs font-bold text-lavender-700">Прочитать все</button>}</div>
+                <div className="absolute right-0 top-14 z-50 w-[min(360px,calc(100vw-2rem))] overflow-hidden rounded-3xl border border-stone-200 bg-paper shadow-2xl" role="dialog" aria-label={t('shell.notificationCenter')}>
+                  <div className="flex items-center justify-between border-b border-stone-200 p-5"><div><p className="font-extrabold">{t('shell.notifications')}</p><p className="text-xs text-stone-500">{t('shell.unread', { count: unreadCount })}</p></div>{unreadCount > 0 && <button onClick={markAllRead} className="cursor-pointer text-xs font-bold text-lavender-700">{t('shell.readAll')}</button>}</div>
                   <div className="p-2">
                     {notifications.map((item) => (
                       <button key={item.id} onClick={async () => { if (!item.read) await notificationsApi.markRead(item.id); setNotificationsOpen(false); if (item.link) navigate(item.link); }} className={`flex w-full gap-3 rounded-2xl p-4 text-left ${item.read ? 'opacity-60' : 'hover:bg-stone-100'}`}>
-                        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-lavender-100 text-lavender-700">{item.title.includes('комментар') ? <MessageCircleQuestion className="h-5 w-5" /> : <BookOpenCheck className="h-5 w-5" />}</span>
+                        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-lavender-100 text-lavender-700">{item.link === '/student/path' ? <MessageCircleQuestion className="h-5 w-5" /> : <BookOpenCheck className="h-5 w-5" />}</span>
                         <span><span className="block text-sm font-bold">{item.title}</span><span className="mt-1 block text-xs text-stone-500">{item.body}</span></span>
                       </button>
                     ))}
-                    {!notifications.length && <p className="p-5 text-center text-sm text-stone-500">Новых уведомлений нет</p>}
+                    {!notifications.length && <p className="p-5 text-center text-sm text-stone-500">{t('shell.emptyNotifications')}</p>}
                   </div>
                 </div>
               )}
 
               {profileOpen && (
                 <div className="absolute right-0 top-14 z-50 w-64 rounded-3xl border border-stone-200 bg-paper p-2 shadow-2xl" role="menu">
-                  <div className="border-b border-stone-200 p-3"><p className="font-bold">{displayName}</p><p className="text-xs text-stone-500">{user?.email || 'Email не загружен'}</p></div>
-                  <button onClick={() => { navigate(role === 'student' ? '/student/settings' : '/teacher/dashboard'); setProfileOpen(false); }} className="mt-2 flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-sm font-bold hover:bg-stone-100" role="menuitem"><Settings className="h-4 w-4" /> Настройки профиля</button>
-                  <button onClick={leaveSession} className="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-sm font-bold text-[#A74735] hover:bg-[#FFE8E2]" role="menuitem"><LogOut className="h-4 w-4" /> Выйти</button>
+                  <div className="border-b border-stone-200 p-3"><p className="font-bold">{displayName}</p><p className="text-xs text-stone-500">{user?.email || t('shell.emailUnavailable')}</p></div>
+                  <button onClick={() => { navigate(role === 'student' ? '/student/settings' : '/teacher/dashboard'); setProfileOpen(false); }} className="mt-2 flex min-h-11 w-full cursor-pointer items-center gap-3 rounded-xl px-3 text-sm font-bold hover:bg-stone-100" role="menuitem"><Settings className="h-4 w-4" /> {t('shell.profileSettings')}</button>
+                  <button onClick={leaveSession} className="flex min-h-11 w-full cursor-pointer items-center gap-3 rounded-xl px-3 text-sm font-bold text-danger-700 hover:bg-danger-100" role="menuitem"><LogOut className="h-4 w-4" /> {t('shell.logout')}</button>
                 </div>
               )}
             </div>
@@ -111,6 +116,7 @@ export function AppShell({ role = 'student' }) {
         <Outlet />
       </main>
       {!immersiveAssistant && <MobileNavigation role={role} />}
+      <AccessibilityMenu />
     </div>
   );
 }

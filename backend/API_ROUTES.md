@@ -133,6 +133,7 @@
 | POST | `/modules/:moduleId/publish` | author/admin | Опубликовать после валидации |
 | POST | `/lessons` | teacher/admin | Создать урок |
 | PATCH | `/lessons/:lessonId` | author/admin | Изменить урок |
+| DELETE | `/lessons/:lessonId` | teacher/admin | Удалить урок вместе с его заданиями |
 | POST | `/materials/upload-url` | teacher/admin | Получить signed URL для загрузки файла |
 | PUT | `/materials/:materialId/content` | signed token | Загрузить содержимое файла по одноразовой ссылке |
 | GET | `/materials/:materialId/content` | owner/admin | Получить загруженный материал |
@@ -146,6 +147,7 @@
 | GET | `/tasks/:taskId` | user | Условие без скрытого правильного ответа |
 | POST | `/tasks` | teacher/admin | Создать задание |
 | PATCH | `/tasks/:taskId` | author/admin | Изменить задание |
+| DELETE | `/tasks/:taskId` | teacher/admin | Удалить задание |
 | POST | `/tasks/:taskId/attempts` | student | Начать попытку |
 | POST | `/attempts/:attemptId/answers` | owner | Отправить ответ |
 | POST | `/attempts/:attemptId/complete` | owner | Завершить попытку |

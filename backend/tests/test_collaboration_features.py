@@ -129,3 +129,36 @@ def test_review_completion_schedules_next_review(client, student_headers, studen
 
     no_longer_due = client.get("/api/v1/reviews/due", headers=student_headers)
     assert no_longer_due.get_json()["data"]["items"] == []
+
+
+def test_review_reminder_respects_preferences_and_is_not_duplicated(
+    client, student_headers, student,
+):
+    state = KnowledgeState(
+        student_id=student.id,
+        skill_id="common-factor",
+        mastery=0.55,
+        confidence=0.7,
+        next_review_at=datetime.now(timezone.utc) - timedelta(hours=1),
+    )
+    db.session.add(state)
+    db.session.commit()
+
+    disabled = client.patch(
+        "/api/v1/notification-preferences",
+        headers=student_headers,
+        json={"reviews": False, "deadlines": True},
+    )
+    assert disabled.status_code == 200
+    items = client.get("/api/v1/notifications", headers=student_headers).get_json()["data"]["items"]
+    assert not any(f"review={state.id}" in (item["link"] or "") for item in items)
+
+    client.patch(
+        "/api/v1/notification-preferences",
+        headers=student_headers,
+        json={"reviews": True, "deadlines": True},
+    )
+    first = client.get("/api/v1/notifications", headers=student_headers).get_json()["data"]["items"]
+    second = client.get("/api/v1/notifications", headers=student_headers).get_json()["data"]["items"]
+    assert sum(f"review={state.id}" in (item["link"] or "") for item in first) == 1
+    assert sum(f"review={state.id}" in (item["link"] or "") for item in second) == 1

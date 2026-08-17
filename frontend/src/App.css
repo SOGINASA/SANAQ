@@ -2,7 +2,7 @@
   background:
     radial-gradient(circle at 8% 12%, rgba(212, 197, 255, 0.38), transparent 30%),
     radial-gradient(circle at 88% 76%, rgba(155, 226, 203, 0.28), transparent 27%),
-    linear-gradient(180deg, #fdfcf9 0%, #f7f6f2 100%);
+    linear-gradient(180deg, var(--color-paper) 0%, var(--color-canvas) 100%);
 }
 
 .mascot-image {
@@ -21,7 +21,7 @@
   min-width: 24px;
   flex: 1;
   border-radius: 12px 12px 6px 6px;
-  background: linear-gradient(180deg, #947ce0, #5b3fa8);
+  background: linear-gradient(180deg, var(--color-primary-light), var(--color-primary));
 }
 
 .heat-cell {

@@ -119,4 +119,5 @@ def locales():
     return success({"items": [
         {"id": "ru", "name": "Русский"},
         {"id": "kk", "name": "Қазақша"},
+        {"id": "en", "name": "English"},
     ]})

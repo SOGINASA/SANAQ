@@ -5,8 +5,8 @@ export const catalogApi = {
   grades: () => apiRequest({ method: 'GET', url: '/catalog/grades' }),
   subjects: () => apiRequest({ method: 'GET', url: '/catalog/subjects' }),
   goals: () => apiRequest({ method: 'GET', url: '/catalog/goals' }),
-  topics: (subjectId) =>
-    apiRequest({ method: 'GET', url: `/catalog/subjects/${subjectId}/topics` }),
+  topics: (subjectId, grade) =>
+    apiRequest({ method: 'GET', url: `/catalog/subjects/${subjectId}/topics`, params: grade ? { grade } : undefined }),
   studentProfile: () => apiRequest({ method: 'GET', url: '/students/me/profile' }),
   saveStudentProfile: (payload) =>
     apiRequest({ method: 'PUT', url: '/students/me/profile', data: payload }),

@@ -26,6 +26,8 @@ module.exports = {
         },
         lime: '#C9F227',
         coral: '#FF806A',
+        danger: { 50: '#FFF2EF', 100: '#FFE8E2', 500: '#D96552', 700: '#9B3D2D' },
+        warning: { 50: '#FFF9E8', 100: '#FFF1BF', 500: '#D6A824', 700: '#6B550A' },
       },
       fontFamily: {
         sans: ['Manrope Variable', 'Manrope', 'sans-serif'],
@@ -34,6 +36,7 @@ module.exports = {
       boxShadow: {
         soft: '0 16px 45px rgba(35, 35, 41, 0.08)',
         lift: '0 10px 0 rgba(70, 47, 130, 0.12)',
+        overlay: '0 24px 70px rgba(35, 35, 41, 0.18)',
       },
       borderRadius: {
         '4xl': '2rem',

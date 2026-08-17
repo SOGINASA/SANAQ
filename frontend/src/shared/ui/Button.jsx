@@ -9,6 +9,7 @@ const variants = {
   ghost: 'bg-transparent text-ink hover:bg-stone-100 border-transparent',
   outline: 'bg-paper text-ink hover:border-lavender-300 hover:bg-lavender-50 border-stone-300',
   success: 'bg-mint-700 text-white hover:bg-mint-500 border-mint-700',
+  danger: 'bg-danger-700 text-white hover:bg-danger-500 border-danger-700',
 };
 
 export const Button = React.forwardRef(

@@ -24,6 +24,7 @@ import { ClassDetailsPage } from '../../pages/teacher/ClassDetailsPage';
 import { StudentDetailsPage } from '../../pages/teacher/StudentDetailsPage';
 import { ContentLibraryPage } from '../../pages/teacher/ContentLibraryPage';
 import { ContentEditorPage } from '../../pages/teacher/ContentEditorPage';
+import { DesignSystemPage } from '../../pages/teacher/DesignSystemPage';
 import { TeacherAssignmentsPage } from '../../pages/teacher/TeacherAssignmentsPage';
 import { NotFoundPage } from '../../pages/shared/NotFoundPage';
 import { ProtectedRoute } from '../../components/common/ProtectedRoute';
@@ -35,6 +36,7 @@ export function AppRouter() {
       <Route path="/" element={<HomePage />} />
       <Route path="/about" element={<AboutPage />} />
       <Route path="/accessibility" element={<AccessibilityPage />} />
+      <Route path="/ui-kit" element={<DesignSystemPage />} />
     </Route>
     <Route path="/login" element={<LoginPage />} />
     <Route path="/register" element={<RegisterPage />} />
@@ -62,6 +64,7 @@ export function AppRouter() {
           <Route path="students/:studentId" element={<StudentDetailsPage />} />
           <Route path="content" element={<ContentLibraryPage />} />
           <Route path="content/new" element={<ContentEditorPage />} />
+          <Route path="content/:moduleId/edit" element={<ContentEditorPage />} />
           <Route path="assignments" element={<TeacherAssignmentsPage />} />
         </Route>
       </Route>

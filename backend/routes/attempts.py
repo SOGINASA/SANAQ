@@ -1,11 +1,12 @@
+import json
 from datetime import datetime, timezone
 
 from flask import Blueprint, request
 from flask_jwt_extended import get_jwt, get_jwt_identity, jwt_required
 
-from models import Attempt, KnowledgeState, Task, TaskAnswer, db
+from models import Attempt, KnowledgeState, LearningPath, LearningStep, Task, TaskAnswer, db
 from services.events import record_learning_event
-from services.learning import answer_is_correct, apply_attempt_result, mastery_status
+from services.learning import answer_is_correct, apply_attempt_result, mastery_status, normalize_answer
 from utils.decorators import roles_required
 from utils.localization import localized
 from utils.responses import api_error, success
@@ -42,6 +43,109 @@ def _latest_answer(attempt_id):
         .where(TaskAnswer.attempt_id == attempt_id)
         .order_by(TaskAnswer.attempt_number.desc())
     )
+
+
+def _task_answer_is_correct(task, answer):
+    if task.task_type == "multiple_choice":
+        try:
+            selected = json.loads(answer)
+        except (TypeError, ValueError, json.JSONDecodeError):
+            return False
+        if not isinstance(selected, list):
+            return False
+        return {str(item).strip().casefold() for item in selected} == {
+            str(item).strip().casefold() for item in (task.acceptable_answers or [])
+        }
+    if task.task_type == "matching":
+        try:
+            selected = json.loads(answer)
+        except (TypeError, ValueError, json.JSONDecodeError):
+            return False
+        if not isinstance(selected, dict):
+            return False
+        expected = {}
+        for pair in task.acceptable_answers or []:
+            if "|||" not in str(pair):
+                return False
+            left, right = str(pair).split("|||", 1)
+            expected[normalize_answer(left)] = normalize_answer(right)
+        actual = {normalize_answer(left): normalize_answer(right) for left, right in selected.items()}
+        return actual == expected
+    if task.task_type == "ordering":
+        try:
+            selected = json.loads(answer)
+        except (TypeError, ValueError, json.JSONDecodeError):
+            return False
+        return isinstance(selected, list) and [normalize_answer(item) for item in selected] == [
+            normalize_answer(item) for item in (task.acceptable_answers or [])
+        ]
+    if task.task_type == "numeric":
+        try:
+            expected = float(task.acceptable_answers[0])
+            tolerance = abs(float(task.acceptable_answers[1])) if len(task.acceptable_answers) > 1 else 0.0
+            return abs(float(answer.replace(",", ".")) - expected) <= tolerance
+        except (TypeError, ValueError, IndexError):
+            return False
+    return answer_is_correct(answer, task.acceptable_answers)
+
+
+def _adaptation_payload(task, answer, state=None):
+    is_correct = bool(answer and answer.is_correct)
+    current = max(1, min(5, int(task.difficulty)))
+    recommended = min(5, current + 1) if is_correct else max(1, current - 1)
+    direction = "up" if recommended > current else "down" if recommended < current else "same"
+    if is_correct and direction == "up":
+        reason = {
+            "ru": "Ответ верный — следующее задание будет сложнее, чтобы сохранить полезный вызов.",
+            "kk": "Жауап дұрыс — пайдалы қиындықты сақтау үшін келесі тапсырма күрделірек болады.",
+            "en": "Your answer was correct, so the next task can be harder while staying productively challenging.",
+        }
+    elif not is_correct and direction == "down":
+        reason = {
+            "ru": "Ответ пока неверный — следующий шаг будет проще и поможет закрепить основу.",
+            "kk": "Жауап әзірге дұрыс емес — келесі қадам жеңілірек болып, негізді бекітуге көмектеседі.",
+            "en": "This answer was not correct yet, so the next step will be easier and reinforce the foundation.",
+        }
+    else:
+        reason = {
+            "ru": "Уровень остаётся прежним: вы на границе доступного диапазона сложности.",
+            "kk": "Деңгей өзгермейді: сіз қолжетімді қиындық ауқымының шегіндесіз.",
+            "en": "The level stays the same because you are at the edge of the available difficulty range.",
+        }
+    return {
+        "algorithm": "answer-difficulty-v1",
+        "current_difficulty": current,
+        "recommended_difficulty": recommended,
+        "direction": direction,
+        "reason": localized(reason),
+        "based_on": {
+            "is_correct": is_correct,
+            "mastery": round(state.mastery, 2) if state else None,
+        },
+    }
+
+
+def _apply_adaptive_task(student_id, recommended_difficulty):
+    step = db.session.scalar(
+        db.select(LearningStep)
+        .join(LearningPath, LearningStep.path_id == LearningPath.id)
+        .where(
+            LearningPath.student_id == student_id,
+            LearningPath.status == "active",
+            LearningStep.status == "available",
+        )
+        .order_by(LearningStep.order_index)
+    )
+    if not step:
+        return {"applied": False, "task_id": None}
+    candidates = db.session.scalars(
+        db.select(Task).where(Task.skill_id == step.skill_id, Task.is_published.is_(True))
+    ).all()
+    if not candidates:
+        return {"applied": False, "task_id": None}
+    selected = min(candidates, key=lambda item: (abs(item.difficulty - recommended_difficulty), item.difficulty))
+    step.task_id = selected.id
+    return {"applied": True, "task_id": selected.id, "difficulty": selected.difficulty}
 
 
 @attempts_bp.post("/tasks/<taskId>/attempts")
@@ -90,7 +194,7 @@ def submit_attempt_answer(attemptId):
     count = db.session.scalar(
         db.select(db.func.count()).select_from(TaskAnswer).where(TaskAnswer.attempt_id == attempt.id)
     )
-    is_correct = answer_is_correct(answer, task.acceptable_answers)
+    is_correct = _task_answer_is_correct(task, answer)
     record = TaskAnswer(
         attempt_id=attempt.id,
         answer=answer,
@@ -116,7 +220,8 @@ def submit_attempt_answer(attemptId):
         ),
         "hint": None if is_correct else localized(task.hint),
         "mastery_change": 0.45 if is_correct else -0.05,
-        "next_difficulty": min(3, task.difficulty + 1) if is_correct else max(1, task.difficulty - 1),
+        "next_difficulty": min(5, task.difficulty + 1) if is_correct else max(1, task.difficulty - 1),
+        "adaptation": _adaptation_payload(task, record),
         "knowledge_map_changes": [{"skill_id": task.skill_id, "pending": True}],
     }, status=201)
 
@@ -140,6 +245,7 @@ def _result_payload(attempt):
             "status": mastery_status(state.mastery, state.next_review_at) if state else "available",
             "next_review_at": state.next_review_at.isoformat() if state and state.next_review_at else None,
         },
+        "adaptation": _adaptation_payload(task, answer, state),
     }
 
 
@@ -156,6 +262,8 @@ def complete_attempt(attemptId):
         return api_error("ANSWER_REQUIRED", "Сначала отправьте ответ", 409)
     task = db.session.get(Task, attempt.task_id)
     previous, state = apply_attempt_result(attempt, task, answer.is_correct)
+    adaptation = _adaptation_payload(task, answer, state)
+    application = _apply_adaptive_task(attempt.student_id, adaptation["recommended_difficulty"])
     attempt.status = "completed"
     attempt.score = 1.0 if answer.is_correct and answer.attempt_number == 1 else 0.7 if answer.is_correct else 0.0
     attempt.completed_at = datetime.now(timezone.utc)
@@ -171,6 +279,7 @@ def complete_attempt(attemptId):
     })
     db.session.commit()
     result = _result_payload(attempt)
+    result["adaptation"].update({"application": application})
     result["mastery_change"] = round(state.mastery - previous, 2)
     result["knowledge_map_changes"] = [{
         "skill_id": task.skill_id,

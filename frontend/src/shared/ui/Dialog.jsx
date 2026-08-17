@@ -2,6 +2,7 @@ import { useEffect, useId, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { cn } from '../lib/cn';
+import { useI18n } from '../i18n/i18n';
 
 const sizes = {
   sm: 'max-w-md',
@@ -11,6 +12,7 @@ const sizes = {
 };
 
 export function Dialog({ open, onClose, title, description, children, footer, size = 'md' }) {
+  const { t } = useI18n();
   const titleId = useId();
   const descriptionId = useId();
   const closeRef = useRef(null);
@@ -54,7 +56,7 @@ export function Dialog({ open, onClose, title, description, children, footer, si
             <h2 id={titleId} className="text-xl font-extrabold sm:text-2xl">{title}</h2>
             {description && <p id={descriptionId} className="mt-1 text-sm leading-6 text-stone-500">{description}</p>}
           </div>
-          <button ref={closeRef} type="button" onClick={onClose} className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-stone-100 transition hover:bg-stone-200" aria-label="Закрыть окно"><X className="h-5 w-5" /></button>
+          <button ref={closeRef} type="button" onClick={onClose} className="grid h-11 w-11 shrink-0 cursor-pointer place-items-center rounded-2xl bg-stone-100 transition hover:bg-stone-200" aria-label={t('ui.close')}><X className="h-5 w-5" /></button>
         </header>
         <div className="p-5 sm:p-7">{children}</div>
         {footer && <footer className="sticky bottom-0 flex flex-col-reverse gap-3 border-t border-stone-200 bg-paper/95 px-5 py-4 backdrop-blur-xl sm:flex-row sm:justify-end sm:px-7">{footer}</footer>}

@@ -12,9 +12,9 @@ from utils.decorators import roles_required
 content_bp = Blueprint("content", __name__)
 
 
-def task_payload(task):
+def task_payload(task, editor=False):
     skill = db.session.get(Skill, task.skill_id)
-    return {
+    payload = {
         "id": task.id,
         "lesson_id": task.lesson_id,
         "skill_id": task.skill_id,
@@ -24,9 +24,17 @@ def task_payload(task):
         "difficulty": task.difficulty,
         "options": task.options or [],
     }
+    if editor:
+        payload.update({
+            "acceptable_answers": task.acceptable_answers or [],
+            "hint": localized(task.hint),
+            "explanation": localized(task.explanation),
+            "is_published": task.is_published,
+        })
+    return payload
 
 
-def lesson_payload(lesson, include_content=True):
+def lesson_payload(lesson, include_content=True, editor=False):
     payload = {
         "id": lesson.id,
         "module_id": lesson.module_id,
@@ -34,20 +42,19 @@ def lesson_payload(lesson, include_content=True):
         "order": lesson.order_index,
     }
     if include_content:
-        tasks = db.session.scalars(
-            db.select(Task)
-            .where(Task.lesson_id == lesson.id, Task.is_published.is_(True))
-            .order_by(Task.difficulty)
-        ).all()
+        task_query = db.select(Task).where(Task.lesson_id == lesson.id)
+        if not editor:
+            task_query = task_query.where(Task.is_published.is_(True))
+        tasks = db.session.scalars(task_query.order_by(Task.difficulty)).all()
         payload.update({
             "theory": localized(lesson.theory),
             "example": localized(lesson.example),
-            "tasks": [task_payload(task) for task in tasks],
+            "tasks": [task_payload(task, editor=editor) for task in tasks],
         })
     return payload
 
 
-def module_payload(module, include_lessons=False):
+def module_payload(module, include_lessons=False, include_content=False, editor=False):
     payload = {
         "id": module.id,
         "subject_id": module.subject_id,
@@ -64,7 +71,10 @@ def module_payload(module, include_lessons=False):
             .where(Lesson.module_id == module.id)
             .order_by(Lesson.order_index)
         ).all()
-        payload["lessons"] = [lesson_payload(lesson, include_content=False) for lesson in lessons]
+        payload["lessons"] = [
+            lesson_payload(lesson, include_content=include_content, editor=editor)
+            for lesson in lessons
+        ]
     return payload
 
 
@@ -72,7 +82,7 @@ def _localized_value(value):
     if isinstance(value, dict):
         return value
     text = str(value or "").strip()
-    return {"ru": text, "kk": text}
+    return {"ru": text, "kk": text, "en": text}
 
 
 @content_bp.get("/modules")
@@ -147,14 +157,11 @@ def delete_module(moduleId):
     module = db.session.get(LearningModule, moduleId)
     if not module:
         return api_error("MODULE_NOT_FOUND", "Модуль не найден", 404)
-    has_tasks = db.session.scalar(
-        db.select(db.func.count()).select_from(Task).join(Lesson, Task.lesson_id == Lesson.id)
-        .where(Lesson.module_id == module.id)
-    )
-    if has_tasks:
-        return api_error("MODULE_IN_USE", "Сначала удалите задания модуля", 409)
     lessons = db.session.scalars(db.select(Lesson).where(Lesson.module_id == module.id)).all()
     for lesson in lessons:
+        tasks = db.session.scalars(db.select(Task).where(Task.lesson_id == lesson.id)).all()
+        for task in tasks:
+            db.session.delete(task)
         db.session.delete(lesson)
     db.session.delete(module)
     db.session.commit()
@@ -204,6 +211,8 @@ def update_lesson(lessonId):
     for field in ("title", "theory", "example"):
         if field in data:
             setattr(lesson, field, _localized_value(data[field]))
+    if "order" in data:
+        lesson.order_index = int(data["order"])
     db.session.commit()
     return success({"lesson": lesson_payload(lesson)})
 
@@ -237,20 +246,46 @@ def update_task(taskId):
     for field in ("prompt", "hint", "explanation"):
         if field in data:
             setattr(task, field, _localized_value(data[field]))
-    for field in ("options", "acceptable_answers", "is_published", "difficulty"):
+    for field in ("options", "acceptable_answers", "is_published", "difficulty", "task_type", "skill_id"):
         if field in data:
             setattr(task, field, data[field])
     db.session.commit()
     return success({"task": task_payload(task)})
 
 
+@content_bp.delete("/tasks/<taskId>")
+@roles_required("teacher", "admin")
+def delete_task(taskId):
+    task = db.session.get(Task, taskId)
+    if not task:
+        return api_error("TASK_NOT_FOUND", "Задание не найдено", 404)
+    db.session.delete(task)
+    db.session.commit()
+    return success({"deleted": True})
+
+
+@content_bp.delete("/lessons/<lessonId>")
+@roles_required("teacher", "admin")
+def delete_lesson(lessonId):
+    lesson = db.session.get(Lesson, lessonId)
+    if not lesson:
+        return api_error("LESSON_NOT_FOUND", "Урок не найден", 404)
+    tasks = db.session.scalars(db.select(Task).where(Task.lesson_id == lesson.id)).all()
+    for task in tasks:
+        db.session.delete(task)
+    db.session.delete(lesson)
+    db.session.commit()
+    return success({"deleted": True})
+
+
 @content_bp.get("/modules/<moduleId>")
 @jwt_required(locations=["headers"])
 def module_details(moduleId):
     module = db.session.get(LearningModule, moduleId)
-    if not module or module.status != "published":
+    editor = get_jwt().get("role") in {"teacher", "admin"}
+    if not module or (module.status != "published" and not editor):
         return api_error("MODULE_NOT_FOUND", "Модуль не найден", 404)
-    return success({"module": module_payload(module, include_lessons=True)})
+    return success({"module": module_payload(module, include_lessons=True, include_content=editor, editor=editor)})
 
 
 @content_bp.get("/lessons/<lessonId>")

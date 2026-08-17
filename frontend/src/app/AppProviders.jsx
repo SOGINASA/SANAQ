@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { BrowserRouter } from 'react-router-dom';
 import { useAccessibilityStore } from '../features/accessibility/accessibilityStore';
 import { useAuthStore } from '../features/auth/authStore';
+import { I18nProvider } from './providers/I18nProvider';
 
 function AccessibilitySync({ children }) {
   const { largeText, highContrast, reducedMotion } = useAccessibilityStore();
@@ -23,7 +24,7 @@ function AuthSync({ children }) {
 export function AppProviders({ children }) {
   return (
     <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-      <AccessibilitySync><AuthSync>{children}</AuthSync></AccessibilitySync>
+      <I18nProvider><AccessibilitySync><AuthSync>{children}</AuthSync></AccessibilitySync></I18nProvider>
     </BrowserRouter>
   );
 }

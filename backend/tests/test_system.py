@@ -15,4 +15,4 @@ def test_ready(client):
 def test_meta(client):
     response = client.get("/api/v1/meta")
     assert response.status_code == 200
-    assert response.get_json()["data"]["supported_locales"] == ["ru", "kk"]
+    assert response.get_json()["data"]["supported_locales"] == ["ru", "kk", "en"]

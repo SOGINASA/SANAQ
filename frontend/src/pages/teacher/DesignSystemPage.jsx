@@ -1,0 +1,14 @@
+import { useState } from 'react';
+import { AlertTriangle, CheckCircle2, Info } from 'lucide-react';
+import { Button, Card, Input, ProgressBar, Skeleton, Tabs } from '../../shared/ui';
+import { useI18n } from '../../shared/i18n/i18n';
+
+export function DesignSystemPage() {
+  const { t } = useI18n();
+  const [tab, setTab] = useState('default');
+  return <div className="mx-auto max-w-6xl animate-rise pb-12"><p className="eyebrow">SANAQ UI</p><h1 className="page-title mt-3">{t('ui.designSystem')}</h1><p className="mt-3 max-w-2xl text-stone-600">Semantic tokens and reusable states used across student and teacher experiences.</p>
+    <section className="mt-8"><h2 className="text-2xl font-extrabold">Actions</h2><Card className="mt-4 flex flex-wrap gap-3 p-6"><Button>Primary</Button><Button variant="secondary">Secondary</Button><Button variant="outline">Outline</Button><Button variant="ghost">Ghost</Button><Button variant="success">Success</Button><Button variant="danger">Danger</Button><Button loading>Loading</Button><Button disabled>Disabled</Button></Card></section>
+    <section className="mt-8 grid gap-5 lg:grid-cols-2"><Card className="p-6"><h2 className="text-xl font-extrabold">Fields and tabs</h2><Input className="mt-5" label="Accessible field" hint="Supporting guidance is linked to the field." placeholder="Value" /><Input className="mt-4" label="Invalid field" error="A clear error message" defaultValue="Invalid" /><Tabs className="mt-5" label="Example states" value={tab} onChange={setTab} items={[{ value: 'default', label: 'Default' }, { value: 'success', label: 'Success' }, { value: 'warning', label: 'Warning' }]} /></Card><Card className="p-6"><h2 className="text-xl font-extrabold">Progress and loading</h2><ProgressBar className="mt-5" value={68} label="Learning progress" /><Skeleton className="mt-7" lines={4} /></Card></section>
+    <section className="mt-8"><h2 className="text-2xl font-extrabold">Feedback states</h2><div className="mt-4 grid gap-4 md:grid-cols-3"><div className="rounded-3xl bg-mint-100 p-5 text-mint-700"><CheckCircle2 className="h-6 w-6" /><strong className="mt-3 block">Success</strong><p className="mt-1 text-sm">The operation completed.</p></div><div className="rounded-3xl bg-warning-100 p-5 text-warning-700"><AlertTriangle className="h-6 w-6" /><strong className="mt-3 block">Warning</strong><p className="mt-1 text-sm">Review this information.</p></div><div className="rounded-3xl bg-danger-100 p-5 text-danger-700"><Info className="h-6 w-6" /><strong className="mt-3 block">Error</strong><p className="mt-1 text-sm">Explain what happened and how to recover.</p></div></div><div className="state-empty mt-4"><strong className="block text-ink">Empty state</strong><p className="mt-2">Explain why this area is empty and offer a next action.</p></div></section>
+  </div>;
+}
