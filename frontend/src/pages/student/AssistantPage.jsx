@@ -1,69 +1,74 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
+  ArrowLeft,
   ArrowUp,
   BookOpen,
-  CheckCircle2,
+  Check,
   ChevronDown,
-  Clock3,
+  Copy,
   Lightbulb,
-  MessageSquareText,
+  MessageCircleQuestion,
   Paperclip,
   Plus,
-  ShieldCheck,
+  RotateCcw,
   Sparkles,
+  ThumbsDown,
+  ThumbsUp,
 } from 'lucide-react';
-import { Card } from '../../shared/ui';
+import { Button, Dialog, StatusToast } from '../../shared/ui';
 import mascot from '../../assets/images/sana-mascot.png';
 
-const initialMessages = [
-  {
-    id: 1,
-    role: 'assistant',
-    text: 'Привет, Айару! Я вижу, что сейчас ты изучаешь разложение на множители. Что именно вызывает трудность?',
-  },
-  {
-    id: 2,
-    role: 'user',
-    text: 'Не понимаю, как быстро увидеть разность квадратов.',
-  },
-  {
-    id: 3,
-    role: 'assistant',
-    text: 'Посмотри на два признака: между выражениями стоит минус, а каждое из них можно представить как квадрат. Например, x² — это квадрат x, а 25 — квадрат 5.',
-    hint: 'Попробуй сама: какие два «квадрата» спрятаны в выражении 4x² − 9?',
-  },
+const starterPrompts = [
+  { icon: Lightbulb, title: 'Объясни тему проще', text: 'Разность квадратов' },
+  { icon: BookOpen, title: 'Помоги с заданием', text: 'Разберём по шагам' },
+  { icon: RotateCcw, title: 'Повтори со мной', text: 'Формулы сокращённого умножения' },
+  { icon: MessageCircleQuestion, title: 'Проверь мои знания', text: 'Задай три коротких вопроса' },
 ];
 
-const suggestions = [
-  'Объясни ещё проще',
-  'Покажи на примере из жизни',
-  'Дай похожее задание',
-];
+const followUpPrompts = ['Объясни ещё проще', 'Покажи другой пример', 'Дай похожее задание'];
 
-const history = [
-  ['Сегодня', 'Разность квадратов', '12 мин'],
-  ['Вчера', 'Линейные уравнения', '8 мин'],
-  ['14 августа', 'Графики функций', '16 мин'],
-];
+const assistantAnswer = {
+  text: 'Давай разберём без спешки. Разность квадратов можно узнать по двум признакам: между выражениями стоит минус, и каждое выражение является квадратом.',
+  hint: 'Например, в выражении x² − 25 квадратами являются x² и 5². Попробуй назвать a и b в формуле a² − b².',
+};
 
 export function AssistantPage() {
+  const navigate = useNavigate();
+  const [messages, setMessages] = useState([]);
   const [message, setMessage] = useState('');
-  const [messages, setMessages] = useState(initialMessages);
+  const [thinking, setThinking] = useState(false);
+  const [contextOpen, setContextOpen] = useState(false);
+  const [topic, setTopic] = useState('Разность квадратов');
+  const [toast, setToast] = useState('');
+  const bottomRef = useRef(null);
+  const textareaRef = useRef(null);
+  const replyTimerRef = useRef(null);
+
+  useEffect(() => () => window.clearTimeout(replyTimerRef.current), []);
+
+  useEffect(() => {
+    if (!messages.length && !thinking) return;
+    window.requestAnimationFrame(() => bottomRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'end' }));
+  }, [messages, thinking]);
+
+  const resetTextarea = () => {
+    if (textareaRef.current) textareaRef.current.style.height = '44px';
+  };
 
   const sendMessage = (text = message) => {
     const cleanMessage = text.trim();
-    if (!cleanMessage) return;
+    if (!cleanMessage || thinking) return;
 
-    setMessages((current) => [
-      ...current,
-      { id: Date.now(), role: 'user', text: cleanMessage },
-      {
-        id: Date.now() + 1,
-        role: 'assistant',
-        text: 'Хороший вопрос. Сначала найди, что возводили в квадрат слева и справа. Затем используй шаблон a² − b² = (a − b)(a + b). Я не буду спешить с ответом — напиши, чему равны a и b.',
-      },
-    ]);
+    setMessages((current) => [...current, { id: Date.now(), role: 'user', text: cleanMessage }]);
     setMessage('');
+    setThinking(true);
+    resetTextarea();
+
+    replyTimerRef.current = window.setTimeout(() => {
+      setMessages((current) => [...current, { id: Date.now() + 1, role: 'assistant', ...assistantAnswer }]);
+      setThinking(false);
+    }, 850);
   };
 
   const handleSubmit = (event) => {
@@ -71,90 +76,96 @@ export function AssistantPage() {
     sendMessage();
   };
 
+  const handleKeyDown = (event) => {
+    if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
+      event.preventDefault();
+      sendMessage();
+    }
+  };
+
+  const handleInput = (event) => {
+    setMessage(event.target.value);
+    event.target.style.height = '44px';
+    event.target.style.height = `${Math.min(event.target.scrollHeight, 144)}px`;
+  };
+
+  const newChat = () => {
+    window.clearTimeout(replyTimerRef.current);
+    setMessages([]);
+    setThinking(false);
+    setMessage('');
+    resetTextarea();
+  };
+
   return (
-    <div className="mx-auto max-w-[1500px] animate-rise">
-      <div className="mb-6 flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
-        <div>
-          <p className="eyebrow">Персональный помощник</p>
-          <h1 className="mt-2 text-3xl font-extrabold sm:text-4xl">Разберёмся вместе с SANA</h1>
-          <p className="mt-2 max-w-2xl text-stone-600">Задавай вопросы своими словами. SANA объяснит ход мысли и поможет дойти до ответа самостоятельно.</p>
+    <div className="flex h-full min-h-0 w-full flex-col bg-paper">
+      <header className="flex h-16 shrink-0 items-center gap-2 border-b border-stone-200 px-3 sm:px-5" aria-label="Панель чата">
+        <button onClick={() => navigate('/student/dashboard')} className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl text-stone-600 transition hover:bg-stone-100 lg:hidden" aria-label="Вернуться в кабинет"><ArrowLeft className="h-5 w-5" /></button>
+        <img src={mascot} alt="" className="h-10 w-10 shrink-0 rounded-2xl object-cover" />
+        <div className="min-w-0 flex-1">
+          <h1 className="font-display text-sm font-semibold sm:text-base">SANA</h1>
+          <p className="truncate text-xs text-stone-500">Учебный ассистент · {topic}</p>
         </div>
-        <button className="inline-flex min-h-12 items-center justify-between gap-4 rounded-2xl border border-stone-200 bg-paper px-4 text-left font-bold shadow-sm xl:min-w-[300px]">
-          <span><span className="block text-xs uppercase tracking-wider text-stone-400">Контекст урока</span><span className="mt-0.5 block">Математика · 9 класс</span></span>
-          <ChevronDown className="h-5 w-5 text-stone-400" />
-        </button>
-      </div>
+        <button onClick={() => setContextOpen(true)} className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl text-stone-600 transition hover:bg-stone-100 sm:hidden" aria-label="Выбрать тему разговора"><BookOpen className="h-5 w-5" /></button>
+        <button onClick={() => setContextOpen(true)} className="hidden min-h-11 items-center gap-2 rounded-2xl px-3 text-sm font-bold text-stone-600 transition hover:bg-stone-100 sm:flex"><BookOpen className="h-4 w-4 text-lavender-600" /><span className="max-w-48 truncate">{topic}</span><ChevronDown className="h-4 w-4" /></button>
+        <button onClick={newChat} className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl text-stone-600 transition hover:bg-stone-100" aria-label="Новый чат"><Plus className="h-5 w-5" /></button>
+      </header>
 
-      <div className="grid min-h-[690px] overflow-hidden rounded-4xl border border-stone-200 bg-paper shadow-soft xl:grid-cols-[290px_minmax(0,1fr)_270px]">
-        <aside className="hidden border-r border-stone-200 p-5 xl:block">
-          <button className="flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-ink px-4 font-bold text-white transition hover:bg-stone-800">
-            <Plus className="h-5 w-5" /> Новый диалог
-          </button>
-          <p className="mb-3 mt-8 text-xs font-bold uppercase tracking-[0.14em] text-stone-400">История</p>
-          <div className="space-y-2">
-            {history.map(([date, title, duration], index) => (
-              <button key={title} className={`w-full rounded-2xl p-3 text-left transition hover:bg-stone-100 ${index === 0 ? 'bg-lavender-100' : ''}`}>
-                <span className="block text-xs font-bold text-stone-400">{date}</span>
-                <span className="mt-1 block font-bold">{title}</span>
-                <span className="mt-1 inline-flex items-center gap-1 text-xs text-stone-500"><Clock3 className="h-3.5 w-3.5" /> {duration}</span>
-              </button>
-            ))}
-          </div>
-        </aside>
-
-        <section className="flex min-w-0 flex-col bg-[#FBFAF7]" aria-label="Диалог с SANA">
-          <div className="flex items-center gap-3 border-b border-stone-200 bg-paper px-4 py-3 sm:px-6">
-            <img src={mascot} alt="" className="h-12 w-12 rounded-2xl object-cover" />
-            <div className="min-w-0 flex-1">
-              <p className="font-display font-semibold">SANA</p>
-              <p className="truncate text-xs text-stone-500">В контексте темы «Разность квадратов»</p>
+      <main className="min-h-0 flex-1 overflow-y-auto overscroll-contain" aria-label="Диалог с SANA" aria-live="polite">
+        {messages.length === 0 && !thinking ? (
+          <div className="mx-auto flex min-h-full w-full max-w-3xl flex-col justify-center px-4 py-10 sm:px-6">
+            <div className="text-center">
+              <span className="mx-auto grid h-16 w-16 place-items-center rounded-3xl bg-lavender-100 text-lavender-700"><Sparkles className="h-7 w-7" /></span>
+              <h2 className="mt-6 font-display text-2xl font-semibold tracking-[-0.04em] sm:text-3xl">Чем помочь с учёбой?</h2>
+              <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-stone-500 sm:text-base">Спроси своими словами или выбери один из вариантов. SANA объяснит ход решения, но не будет делать работу за тебя.</p>
             </div>
-            <span className="hidden items-center gap-1.5 rounded-full bg-mint-100 px-3 py-1.5 text-xs font-bold text-mint-700 sm:inline-flex"><span className="h-2 w-2 rounded-full bg-mint-500" /> На связи</span>
-          </div>
-
-          <div className="flex-1 space-y-5 overflow-y-auto px-4 py-6 sm:px-7" aria-live="polite">
-            <div className="mx-auto flex max-w-xl items-center justify-center gap-2 rounded-full bg-lavender-100 px-4 py-2 text-center text-xs font-bold text-lavender-700">
-              <BookOpen className="h-4 w-4 shrink-0" /> SANA использует материалы текущего урока
+            <div className="mt-8 grid gap-3 sm:grid-cols-2">
+              {starterPrompts.map(({ icon: Icon, title, text }) => (
+                <button key={title} onClick={() => sendMessage(`${title}: ${text}`)} className="flex min-h-20 items-center gap-4 rounded-3xl border border-stone-200 bg-paper p-4 text-left transition hover:border-lavender-300 hover:bg-lavender-50">
+                  <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-lavender-100 text-lavender-700"><Icon className="h-5 w-5" /></span>
+                  <span><span className="block text-sm font-extrabold">{title}</span><span className="mt-1 block text-xs text-stone-500">{text}</span></span>
+                </button>
+              ))}
             </div>
-            {messages.map((item) => (
-              <div key={item.id} className={`flex gap-3 ${item.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                {item.role === 'assistant' && <span className="mt-1 grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-lavender-600 text-white"><Sparkles className="h-4 w-4" /></span>}
-                <div className={`max-w-[86%] rounded-3xl px-5 py-4 text-sm leading-7 sm:max-w-[75%] ${item.role === 'user' ? 'rounded-tr-md bg-ink text-white' : 'rounded-tl-md border border-stone-200 bg-paper text-stone-700'}`}>
-                  <p>{item.text}</p>
-                  {item.hint && <div className="mt-4 rounded-2xl bg-lime/25 p-4 font-semibold text-ink"><span className="mb-1 flex items-center gap-2 text-xs font-extrabold uppercase tracking-wider text-[#52670A]"><Lightbulb className="h-4 w-4" /> Твой ход</span>{item.hint}</div>}
-                </div>
-              </div>
-            ))}
           </div>
-
-          <div className="border-t border-stone-200 bg-paper p-4 sm:p-5">
-            <div className="mb-3 flex gap-2 overflow-x-auto pb-1">
-              {suggestions.map((suggestion) => <button key={suggestion} onClick={() => sendMessage(suggestion)} className="min-h-10 shrink-0 rounded-full border border-stone-200 bg-paper px-4 text-xs font-bold transition hover:border-lavender-300 hover:bg-lavender-50">{suggestion}</button>)}
+        ) : (
+          <div className="mx-auto w-full max-w-3xl px-4 py-7 sm:px-6 sm:py-10">
+            <div className="mb-8 flex items-center justify-center gap-2 text-xs font-bold text-stone-500"><BookOpen className="h-4 w-4 text-lavender-600" /> SANA использует материалы темы «{topic}»</div>
+            <div className="space-y-7">
+              {messages.map((item) => (
+                <article key={item.id} className={`flex gap-3 sm:gap-4 ${item.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                  {item.role === 'assistant' && <span className="mt-1 grid h-9 w-9 shrink-0 place-items-center rounded-2xl bg-lavender-600 text-white"><Sparkles className="h-4 w-4" /></span>}
+                  <div className={item.role === 'user' ? 'max-w-[88%] rounded-3xl rounded-br-md bg-ink px-5 py-3 text-sm leading-7 text-white sm:max-w-[75%]' : 'min-w-0 max-w-[calc(100%-52px)] text-sm leading-7 text-stone-700 sm:text-base'}>
+                    <p>{item.text}</p>
+                    {item.hint && <div className="mt-4 rounded-2xl bg-lime/25 p-4"><p className="flex items-center gap-2 text-xs font-extrabold uppercase tracking-wider text-[#52670A]"><Lightbulb className="h-4 w-4" /> Твой ход</p><p className="mt-2 text-sm font-semibold leading-6 text-ink">{item.hint}</p></div>}
+                    {item.role === 'assistant' && <div className="mt-3 flex gap-1 text-stone-400"><button onClick={() => { navigator.clipboard?.writeText(`${item.text} ${item.hint || ''}`); setToast('Ответ скопирован'); }} className="grid h-9 w-9 place-items-center rounded-xl hover:bg-stone-100 hover:text-ink" aria-label="Скопировать ответ"><Copy className="h-4 w-4" /></button><button onClick={() => setToast('Спасибо за оценку ответа')} className="grid h-9 w-9 place-items-center rounded-xl hover:bg-stone-100 hover:text-ink" aria-label="Полезный ответ"><ThumbsUp className="h-4 w-4" /></button><button onClick={() => setToast('SANA учтёт, что объяснение не помогло')} className="grid h-9 w-9 place-items-center rounded-xl hover:bg-stone-100 hover:text-ink" aria-label="Ответ не помог"><ThumbsDown className="h-4 w-4" /></button></div>}
+                  </div>
+                </article>
+              ))}
+              {thinking && <div className="flex items-center gap-4"><span className="grid h-9 w-9 shrink-0 place-items-center rounded-2xl bg-lavender-600 text-white"><Sparkles className="h-4 w-4" /></span><div className="flex items-center gap-1 rounded-2xl bg-stone-100 px-4 py-3" aria-label="SANA формулирует ответ"><span className="h-2 w-2 animate-pulse rounded-full bg-stone-400" /><span className="h-2 w-2 animate-pulse rounded-full bg-stone-400 [animation-delay:150ms]" /><span className="h-2 w-2 animate-pulse rounded-full bg-stone-400 [animation-delay:300ms]" /></div></div>}
             </div>
-            <form onSubmit={handleSubmit} className="flex items-end gap-2 rounded-3xl border border-stone-300 bg-white p-2 focus-within:border-lavender-500 focus-within:ring-4 focus-within:ring-lavender-100">
-              <button type="button" className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl text-stone-500 hover:bg-stone-100" aria-label="Прикрепить файл"><Paperclip className="h-5 w-5" /></button>
-              <label className="sr-only" htmlFor="assistant-message">Сообщение для SANA</label>
-              <textarea id="assistant-message" rows="1" value={message} onChange={(event) => setMessage(event.target.value)} placeholder="Напиши, что осталось непонятным…" className="max-h-32 min-h-11 flex-1 resize-none border-0 bg-transparent px-2 py-2.5 text-sm outline-none placeholder:text-stone-400" />
-              <button type="submit" className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-lavender-600 text-white transition hover:bg-lavender-700" aria-label="Отправить сообщение"><ArrowUp className="h-5 w-5" /></button>
-            </form>
-            <p className="mt-2 text-center text-[11px] text-stone-400">SANA может ошибаться. Проверяй важные факты и решения.</p>
+            <div ref={bottomRef} className="h-2" />
           </div>
-        </section>
+        )}
+      </main>
 
-        <aside className="hidden border-l border-stone-200 p-5 xl:block">
-          <p className="eyebrow">Текущий фокус</p>
-          <h2 className="mt-2 text-lg font-extrabold">Разность квадратов</h2>
-          <div className="mt-5 space-y-3">
-            <Card className="p-4 shadow-none"><CheckCircle2 className="h-5 w-5 text-mint-700" /><p className="mt-3 text-sm font-bold">Распознать формулу</p><p className="mt-1 text-xs leading-5 text-stone-500">Уверенность 72%</p></Card>
-            <Card className="border-lavender-300 bg-lavender-50 p-4 shadow-none"><MessageSquareText className="h-5 w-5 text-lavender-600" /><p className="mt-3 text-sm font-bold">Раскрыть скобки</p><p className="mt-1 text-xs leading-5 text-stone-500">Разбираем сейчас</p></Card>
-          </div>
-          <div className="mt-6 rounded-3xl bg-mint-100 p-4">
-            <ShieldCheck className="h-5 w-5 text-mint-700" />
-            <p className="mt-3 text-sm font-bold">Безопасный режим</p>
-            <p className="mt-1 text-xs leading-5 text-stone-600">Ассистент не выдаёт готовый ответ до твоей попытки и объясняет источник подсказки.</p>
-          </div>
-        </aside>
-      </div>
+      <footer className="shrink-0 border-t border-stone-200 bg-paper px-3 pb-[max(10px,env(safe-area-inset-bottom))] pt-3 sm:px-5 sm:pb-4">
+        <div className="mx-auto w-full max-w-3xl">
+          {messages.length > 0 && !thinking && <div className="mb-2 flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none]">{followUpPrompts.map((prompt) => <button key={prompt} onClick={() => sendMessage(prompt)} className="min-h-10 shrink-0 rounded-full border border-stone-200 px-4 text-xs font-bold text-stone-600 transition hover:border-lavender-300 hover:bg-lavender-50">{prompt}</button>)}</div>}
+          <form onSubmit={handleSubmit} className="flex items-end gap-1 rounded-3xl border border-stone-300 bg-white p-2 shadow-sm transition focus-within:border-lavender-500 focus-within:ring-4 focus-within:ring-lavender-100">
+            <button type="button" onClick={() => setToast('Загрузка фото задания будет доступна после подключения API')} className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl text-stone-500 hover:bg-stone-100" aria-label="Прикрепить задание"><Paperclip className="h-5 w-5" /></button>
+            <label className="sr-only" htmlFor="assistant-message">Сообщение для SANA</label>
+            <textarea ref={textareaRef} id="assistant-message" rows="1" value={message} onChange={handleInput} onKeyDown={handleKeyDown} placeholder="Сообщение для SANA" className="min-h-11 max-h-36 flex-1 resize-none overflow-y-auto border-0 bg-transparent px-2 py-2.5 text-base leading-6 outline-none placeholder:text-stone-400" />
+            <button type="submit" disabled={!message.trim() || thinking} className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-lavender-600 text-white transition hover:bg-lavender-700 disabled:bg-stone-200 disabled:text-stone-400" aria-label="Отправить сообщение"><ArrowUp className="h-5 w-5" /></button>
+          </form>
+          <p className="mt-2 text-center text-[11px] leading-4 text-stone-400">SANA может ошибаться. Проверяй важные факты и решения.</p>
+        </div>
+      </footer>
+
+      <Dialog open={contextOpen} onClose={() => setContextOpen(false)} title="Контекст разговора" description="SANA будет опираться на выбранную тему." footer={<><Button variant="ghost" onClick={() => setContextOpen(false)}>Отмена</Button><Button onClick={() => { setContextOpen(false); setToast('Контекст разговора обновлён'); }}><Check className="h-5 w-5" /> Применить</Button></>}>
+        <div className="space-y-5"><div><label className="field-label" htmlFor="assistant-subject">Предмет</label><select id="assistant-subject" className="field-control"><option>Математика</option><option>Физика</option><option>Химия</option></select></div><div><label className="field-label" htmlFor="assistant-topic">Тема</label><select id="assistant-topic" value={topic} onChange={(event) => setTopic(event.target.value)} className="field-control"><option>Разность квадратов</option><option>Линейные уравнения</option><option>Графики функций</option></select></div><label className="flex min-h-12 cursor-pointer items-center gap-3 rounded-2xl bg-lavender-50 p-4 text-sm font-semibold"><input type="checkbox" defaultChecked className="h-5 w-5 accent-lavender-600" /> Учитывать мой учебный прогресс</label></div>
+      </Dialog>
+      <StatusToast message={toast} onClose={() => setToast('')} />
     </div>
   );
 }

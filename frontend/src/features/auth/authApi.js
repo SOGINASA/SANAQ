@@ -11,6 +11,8 @@ export const authApi = {
     saveAccessToken(await apiRequest({ method: 'POST', url: '/auth/register', data: payload })),
   login: async (payload) =>
     saveAccessToken(await apiRequest({ method: 'POST', url: '/auth/login', data: payload })),
+  forgotPassword: (email) =>
+    apiRequest({ method: 'POST', url: '/auth/forgot-password', data: { email } }),
   me: () => apiRequest({ method: 'GET', url: '/auth/me' }),
   logout: async () => {
     try {
