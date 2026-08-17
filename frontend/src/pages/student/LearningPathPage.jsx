@@ -8,6 +8,8 @@ const paceOptions = [
   ['light', 'Лёгкий', '10–15 минут'], ['balanced', 'Сбалансированный', '20 минут'], ['intensive', 'Интенсивный', '30–40 минут'],
 ];
 
+const minutesByPace = { light: 15, balanced: 20, intensive: 40 };
+
 export function LearningPathPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -49,9 +51,15 @@ export function LearningPathPage() {
     try {
       await learningPathApi.update(path.id, { pace });
       const recalculated = await learningPathApi.recalculate(path.id);
+      await learningPathApi.previewStudyPlan({
+        subject_id: recalculated.data.learning_path.subject_id || 'mathematics',
+        weekday_minutes: minutesByPace[pace],
+        weekend_minutes: Math.min(minutesByPace[pace] + 15, 60),
+        max_skills: 20,
+      });
       setPath(recalculated.data.learning_path);
       setSettingsOpen(false);
-      setStatus('Параметры маршрута сохранены в backend');
+      setStatus('Темп сохранён, календарный план пересчитан');
       await loadPath();
     } catch (requestError) {
       setError(requestError.message);

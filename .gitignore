@@ -14,8 +14,13 @@ coverage/
 .idea/
 .vscode/
 *.log
-backend/ml/artifacts/
+backend/ml/artifacts/*
+!backend/ml/artifacts/pathnet-v2-outcomes-notebook.pt
 
 # Temporary artifacts
 tmp/
 *.tmp
+
+# Local Docker state and real production secrets
+postgres-data/
+!.env.production.example

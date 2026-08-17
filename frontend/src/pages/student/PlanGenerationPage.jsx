@@ -22,6 +22,7 @@ export function PlanGenerationPage() {
   const requestedPathId = searchParams.get('path');
   const [activeStep, setActiveStep] = useState(0);
   const [path, setPath] = useState(null);
+  const [studyPlan, setStudyPlan] = useState(null);
   const [error, setError] = useState('');
   const complete = activeStep >= generationSteps.length;
   const progress = complete ? 100 : progressByStep[activeStep];
@@ -38,11 +39,20 @@ export function PlanGenerationPage() {
           pathId = list.data.items?.[0]?.id;
         }
         if (!pathId) throw new Error('Backend ещё не создал учебный маршрут');
+        if (active) setActiveStep(1);
         const response = isRefresh
           ? await learningPathApi.recalculate(pathId)
           : await learningPathApi.get(pathId);
+        if (active) setActiveStep(3);
+        const preview = await learningPathApi.previewStudyPlan({
+          subject_id: response.data.learning_path.subject_id || 'mathematics',
+          weekday_minutes: 20,
+          weekend_minutes: 30,
+          max_skills: 20,
+        });
         if (active) {
           setPath(response.data.learning_path);
+          setStudyPlan(preview.data.study_plan);
           setActiveStep(generationSteps.length);
         }
       } catch (requestError) {
@@ -78,7 +88,22 @@ export function PlanGenerationPage() {
             </div>
             <ProgressBar className="mt-4" value={progress} />
 
-            <ol className="mt-8 space-y-3" aria-label="Этапы создания плана">
+            {complete && studyPlan && (
+              <div className="mt-6 grid grid-cols-3 gap-2 rounded-2xl bg-stone-100 p-3 sm:gap-3 sm:p-4" aria-label="Сводка учебного плана">
+                {[
+                  [studyPlan.summary?.selected_skills || 0, 'навыков'],
+                  [studyPlan.summary?.scheduled_days || 0, 'учебных дней'],
+                  [studyPlan.summary?.planned_minutes || 0, 'минут'],
+                ].map(([value, label]) => (
+                  <div key={label} className="min-w-0 text-center">
+                    <p className="font-display text-lg font-semibold text-lavender-700 tabular-nums sm:text-xl">{value}</p>
+                    <p className="mt-1 truncate text-[10px] font-bold text-stone-500 sm:text-xs">{label}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <ol className={`${complete && studyPlan ? 'mt-5' : 'mt-8'} space-y-3`} aria-label="Этапы создания плана">
               {generationSteps.map(([stepTitle, description], index) => {
                 const done = index < activeStep || complete;
                 const active = index === activeStep && !complete;

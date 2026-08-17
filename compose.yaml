@@ -1,0 +1,110 @@
+name: sanaq
+
+services:
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        REACT_APP_API_URL: /api/v1
+        REACT_APP_AI_STREAM_URL: /api/v1
+        REACT_APP_DEFAULT_LOCALE: ${DEFAULT_LOCALE:-ru}
+        REACT_APP_ENABLE_MOCKS: "false"
+    restart: unless-stopped
+    ports:
+      - "${HTTP_PORT:-80}:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - public
+
+  backend:
+    build:
+      context: ./backend
+      args:
+        TORCH_VERSION: ${TORCH_VERSION:-2.11.0}
+    restart: unless-stopped
+    expose:
+      - "8000"
+    environment:
+      FLASK_ENV: production
+      SECRET_KEY: ${SECRET_KEY:?Set SECRET_KEY in .env}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:?Set JWT_SECRET_KEY in .env}
+      DATABASE_URL: postgresql+psycopg://sanaq:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5432/sanaq
+      CORS_ORIGINS: ${PUBLIC_ORIGIN:-http://localhost}
+      AUTO_CREATE_DB: ${AUTO_CREATE_DB:-true}
+      MIGRATE_RUNTIME_SCHEMA: ${MIGRATE_RUNTIME_SCHEMA:-true}
+      SEED_DEMO_DATA: ${SEED_DEMO_DATA:-true}
+      DATA_MODE: ${DATA_MODE:-demo_seed}
+      DEFAULT_LOCALE: ${DEFAULT_LOCALE:-ru}
+      JWT_COOKIE_SECURE: ${JWT_COOKIE_SECURE:-false}
+      AI_PROVIDER: ollama
+      AI_BASE_URL: http://ollama:11434
+      AI_MODEL: ${AI_MODEL:-qwen3:8b}
+      AI_PROMPT_VERSION: sana-tutor-v1
+      AI_TIMEOUT_SECONDS: ${AI_TIMEOUT_SECONDS:-120}
+      AI_TEMPERATURE: ${AI_TEMPERATURE:-0.3}
+      AI_MAX_TOKENS: ${AI_MAX_TOKENS:-500}
+      AI_CONTEXT_TOKENS: ${AI_CONTEXT_TOKENS:-8192}
+      AI_THINKING: ${AI_THINKING:-false}
+      PATHNET_MODE: shadow
+      PATHNET_MODEL_PATH: /app/ml/artifacts/pathnet-v2-outcomes-notebook.pt
+      PATHNET_TOP_K: ${PATHNET_TOP_K:-20}
+      GUNICORN_WORKERS: ${GUNICORN_WORKERS:-2}
+      GUNICORN_THREADS: ${GUNICORN_THREADS:-4}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      ollama:
+        condition: service_healthy
+    networks:
+      - public
+      - private
+
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: sanaq
+      POSTGRES_USER: sanaq
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sanaq -d sanaq"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    networks:
+      - private
+
+  ollama:
+    image: ollama/ollama:latest
+    restart: unless-stopped
+    expose:
+      - "11434"
+    environment:
+      OLLAMA_CONTEXT_LENGTH: ${AI_CONTEXT_TOKENS:-8192}
+      OLLAMA_NUM_PARALLEL: ${OLLAMA_NUM_PARALLEL:-1}
+      OLLAMA_MAX_LOADED_MODELS: "1"
+      OLLAMA_MAX_QUEUE: ${OLLAMA_MAX_QUEUE:-32}
+      OLLAMA_KEEP_ALIVE: ${OLLAMA_KEEP_ALIVE:-10m}
+    volumes:
+      - ollama_data:/root/.ollama
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 20s
+    networks:
+      - private
+
+volumes:
+  postgres_data:
+  ollama_data:
+
+networks:
+  public:
+  private:

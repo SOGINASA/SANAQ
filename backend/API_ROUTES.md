@@ -253,6 +253,7 @@
 |---|---|---|---|
 | GET | `/admin/users` | admin | Поиск и управление пользователями |
 | PATCH | `/admin/users/:userId/status` | admin | Блокировка/восстановление |
+| GET | `/admin/pathnet/metrics` | admin | Метрики shadow-сравнения PathNet и deterministic planner |
 | GET | `/admin/content/review` | admin | Очередь модерации контента |
 | POST | `/admin/content/:contentId/approve` | admin | Одобрить публикацию |
 | POST | `/admin/content/:contentId/reject` | admin | Вернуть с причиной |

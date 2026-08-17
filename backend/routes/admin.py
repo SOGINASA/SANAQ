@@ -1,11 +1,18 @@
 from flask import Blueprint, request
 
 from models import USER_ROLES, User, db
+from services.pathnet_metrics import shadow_metrics
 from utils.decorators import admin_required
 from utils.responses import api_error, success
 
 
 admin_bp = Blueprint("admin", __name__)
+
+
+@admin_bp.get("/pathnet/metrics")
+@admin_required
+def pathnet_metrics():
+    return success(shadow_metrics(request.args.get("model_version") or None))
 
 
 @admin_bp.get("/users")

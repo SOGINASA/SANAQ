@@ -15,18 +15,28 @@ def health():
 
 @system_bp.get("/ready")
 def ready():
+    checks = {
+        "database": "ok",
+        "pathnet": "disabled",
+        "ai": f"{current_app.config['AI_PROVIDER']}_configured_with_fallback",
+    }
     try:
         db.session.execute(text("SELECT 1"))
     except Exception:
         current_app.logger.exception("Readiness database check failed")
         return api_error("SERVICE_UNAVAILABLE", "База данных недоступна", 503)
+    if current_app.config["PATHNET_MODE"] == "shadow":
+        try:
+            from services.pathnet_inference import load_pathnet
+
+            _model, version = load_pathnet(current_app.config["PATHNET_MODEL_PATH"])
+            checks["pathnet"] = f"ok:{version}"
+        except Exception as error:
+            current_app.logger.exception("Readiness PathNet check failed", exc_info=error)
+            return api_error("SERVICE_UNAVAILABLE", "PathNet недоступен", 503)
     return success({
         "status": "ready",
-        "checks": {
-            "database": "ok",
-            "cache": "not_required_for_mvp",
-            "ai": f"{current_app.config['AI_PROVIDER']}_configured_with_fallback",
-        },
+        "checks": checks,
     })
 
 

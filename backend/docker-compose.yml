@@ -23,6 +23,9 @@ services:
       AI_MODEL: ${AI_MODEL:-qwen3:8b}
       AI_TIMEOUT_SECONDS: ${AI_TIMEOUT_SECONDS:-60}
       AI_THINKING: ${AI_THINKING:-false}
+      PATHNET_MODE: shadow
+      PATHNET_MODEL_PATH: /app/ml/artifacts/pathnet-v2-outcomes-notebook.pt
+      PATHNET_TOP_K: ${PATHNET_TOP_K:-20}
     volumes:
       - ./database:/app/database
     restart: unless-stopped

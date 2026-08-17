@@ -1,19 +1,77 @@
 import argparse
+import gzip
 import json
 import random
 from datetime import date, timedelta
 from functools import lru_cache
 from pathlib import Path
 
-from ml.features import FEATURE_NAMES, encode_skill_state
+from ml.features import FEATURE_SCHEMA_VERSION, encode_skill_state
 from services.curriculum import build_curriculum_edges, load_math_curriculum
-from services.planner import PlannerConfig, generate_deterministic_plan
+from services.planner import PlannerConfig
 
 
 STATUS_PRIORITY = {
     "review_due": 0.90, "gap": 0.82, "learning": 0.70,
     "ready": 0.58, "blocked": 0.10, "mastered": 0.0,
 }
+DATASET_VERSION = "synthetic-outcomes-v2"
+
+
+def _clamp(value, minimum=0.0, maximum=1.0):
+    return max(minimum, min(maximum, value))
+
+
+def _simulate_outcome(item, ability, engagement, config, rng):
+    difficulty_fit = 1.0 - abs(float(item["difficulty"]) - ability)
+    average_daily_minutes = (config.weekday_minutes * 5 + config.weekend_minutes * 2) / 7
+    required_minutes = item["learning_minutes"] + item["practice_minutes"]
+    time_fit = min(1.0, average_daily_minutes / max(required_minutes, 1))
+    blocked = bool(item["blocked_by"])
+    completion_probability = _clamp(
+        0.12 + engagement * 0.48 + difficulty_fit * 0.22 + time_fit * 0.18
+        - (0.55 if blocked else 0.0)
+    )
+    knowledge_headroom = 1.0 - float(item["mastery"])
+    expected_mastery_gain = _clamp(
+        knowledge_headroom
+        * (0.16 + difficulty_fit * 0.30)
+        * completion_probability
+        * (0.75 + float(item["importance"]) * 0.25),
+        0.0,
+        0.55,
+    )
+    urgency = {
+        "review_due": 0.24,
+        "gap": 0.18,
+        "learning": 0.11,
+        "ready": 0.06,
+        "blocked": 0.0,
+        "mastered": 0.0,
+    }[item["status"]]
+    if item["is_target_grade"]:
+        urgency += 0.08
+    if (config.target_date - config.start_date).days <= 21:
+        urgency += 0.07
+    expected_utility = _clamp(
+        expected_mastery_gain * (0.65 + float(item["importance"]) * 0.35) + urgency
+    )
+    if blocked:
+        expected_utility *= 0.12
+    if item["status"] == "mastered":
+        expected_utility = 0.0
+
+    completed = rng.random() < completion_probability
+    realized_gain = _clamp(
+        rng.gauss(expected_mastery_gain, 0.045), 0.0, knowledge_headroom
+    ) if completed else 0.0
+    return {
+        "completion_probability": round(completion_probability, 4),
+        "expected_mastery_gain": round(expected_mastery_gain, 4),
+        "expected_utility": round(expected_utility, 4),
+        "completed": completed,
+        "realized_mastery_gain": round(realized_gain, 4),
+    }
 
 
 @lru_cache(maxsize=1)
@@ -108,18 +166,36 @@ def simulate_student(index, seed=42):
         weekend_minutes=rng.choice((30, 45, 60, 90)),
         max_skills=rng.randint(8, 24),
     )
-    state = {"subject_id": "mathematics", "target_grade": grade, "items": items}
-    plan = generate_deterministic_plan(state, config)
+    outcomes = {
+        item["id"]: _simulate_outcome(item, ability, engagement, config, rng)
+        for item in items
+    }
+    total_capacity = sum(
+        config.weekend_minutes if day.weekday() >= 5 else config.weekday_minutes
+        for day in (
+            config.start_date + timedelta(days=offset)
+            for offset in range((config.target_date - config.start_date).days + 1)
+        )
+    )
+    selection_limit = min(
+        config.max_skills,
+        max(3, total_capacity // 50),
+    )
+    actionable = [
+        item for item in items
+        if item["status"] != "mastered" and not item["blocked_by"]
+    ]
     selected = {
-        item["skill_id"]
-        for day in plan["days"]
-        for item in day["items"]
-        if item["activity"] != "spaced_review"
+        item["id"]
+        for item in sorted(
+            actionable,
+            key=lambda item: (-outcomes[item["id"]]["expected_utility"], item["id"]),
+        )[:selection_limit]
     }
     return {
         "student_id": f"sim-{index:06d}", "grade": grade,
         "ability": round(ability, 4), "engagement": round(engagement, 4),
-        "config": config, "items": items, "selected": selected,
+        "config": config, "items": items, "selected": selected, "outcomes": outcomes,
     }
 
 
@@ -127,35 +203,67 @@ def simulation_rows(student_count, seed=42):
     for index in range(student_count):
         student = simulate_student(index, seed)
         for item in student["items"]:
+            outcome = student["outcomes"][item["id"]]
             yield {
                 "student_id": student["student_id"],
                 "skill_id": item["id"],
                 "features": encode_skill_state(item),
                 "selected": float(item["id"] in student["selected"]),
-                "priority": float(item["priority_score"]),
-                "feature_schema": FEATURE_NAMES,
+                "priority": float(outcome["expected_utility"]),
+                "feature_schema_version": FEATURE_SCHEMA_VERSION,
+                "dataset_version": DATASET_VERSION,
+                "status": item["status"],
+                "is_blocked": bool(item["blocked_by"]),
+                "simulated_outcome": outcome,
             }
 
 
 def write_dataset(path, student_count, seed=42):
     output = Path(path)
     output.parent.mkdir(parents=True, exist_ok=True)
-    with output.open("w", encoding="utf-8") as target:
+    opener = gzip.open if output.suffix == ".gz" else open
+    with opener(output, "wt", encoding="utf-8") as target:
         for row in simulation_rows(student_count, seed):
             target.write(json.dumps(row, ensure_ascii=False) + "\n")
     return output
 
 
+def dataset_statistics(path):
+    rows = selected = completed = 0
+    utility_sum = gain_sum = 0.0
+    students = set()
+    path = Path(path)
+    opener = gzip.open if path.suffix == ".gz" else open
+    with opener(path, "rt", encoding="utf-8") as source:
+        for line in source:
+            row = json.loads(line)
+            rows += 1
+            students.add(row["student_id"])
+            selected += int(row["selected"])
+            completed += int(row["simulated_outcome"]["completed"])
+            utility_sum += float(row["priority"])
+            gain_sum += float(row["simulated_outcome"]["realized_mastery_gain"])
+    return {
+        "dataset_version": DATASET_VERSION,
+        "students": len(students),
+        "rows": rows,
+        "selection_rate": round(selected / rows, 4) if rows else 0.0,
+        "completion_rate": round(completed / rows, 4) if rows else 0.0,
+        "mean_expected_utility": round(utility_sum / rows, 4) if rows else 0.0,
+        "mean_realized_mastery_gain": round(gain_sum / rows, 4) if rows else 0.0,
+    }
+
+
 def main():
-    parser = argparse.ArgumentParser(description="Generate a deterministic PathNet dataset")
+    parser = argparse.ArgumentParser(description="Generate an outcome-oriented PathNet dataset")
     parser.add_argument("--students", type=int, default=1000)
     parser.add_argument("--seed", type=int, default=42)
-    parser.add_argument("--output", default="ml/artifacts/simulated_students.jsonl")
+    parser.add_argument("--output", default="ml/artifacts/synthetic-outcomes-v2.jsonl.gz")
     args = parser.parse_args()
     if not 1 <= args.students <= 1_000_000:
         parser.error("--students must be in 1..1000000")
     path = write_dataset(args.output, args.students, args.seed)
-    print(f"dataset={path} students={args.students} seed={args.seed}")
+    print(json.dumps({"dataset": str(path), "seed": args.seed, **dataset_statistics(path)}))
 
 
 if __name__ == "__main__":

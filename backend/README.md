@@ -53,11 +53,17 @@ ollama pull qwen3:8b
 python -m pytest -q
 ```
 
-Docker:
+Backend-only Docker для локальной проверки:
 
 ```powershell
 docker compose up --build
 ```
+
+Полный контур с frontend, PostgreSQL, PathNet и Ollama запускается из корня
+репозитория по инструкции `docs/MVP_DEPLOYMENT.md`.
+
+Отдельный технический handoff для backend/DevOps со всеми командами хоста:
+[`docs/BACKEND_HOST_HANDOFF.md`](docs/BACKEND_HOST_HANDOFF.md).
 
 ## Реализованные группы маршрутов
 
@@ -142,6 +148,22 @@ python -m flask --app app seed-curriculum
 Симулятор и компактный PathNet расположены в `ml/`. Полная инструкция по
 созданию датасета и обучению приведена в `ml/README.md`. PyTorch вынесен в
 `requirements-ml.txt` и не требуется обычному API-процессу.
+
+Для пошагового запуска и визуального анализа есть Jupyter Notebook
+`notebooks/pathnet_training_v2.ipynb`: он показывает распределения данных,
+loss/F1/MAE по эпохам, confusion matrix, сравнение с baseline и примеры
+предсказаний.
+
+PathNet подключается к API только через `PATHNET_MODE=shadow`: его прогнозы не
+меняют пользовательский маршрут, а сравниваются с deterministic planner. Метрики
+доступны администратору через `GET /api/v1/admin/pathnet/metrics`. Любая ошибка
+загрузки или inference автоматически оставляет deterministic план рабочим.
+
+Текущий локальный baseline `pathnet-v2-synthetic-outcomes` обучен на 10 000
+симулированных учеников и 973 143 состояниях навыков. Его целевая функция —
+ожидаемый учебный результат, а не простое копирование deterministic planner.
+Метрики этого checkpoint характеризуют только синтетическую holdout-выборку и
+не доказывают эффективность на реальных школьниках.
 
 При `SEED_DEMO_DATA=true` создаются один предмет, три темы математики 9 класса,
 шесть навыков, шесть диагностических вопросов, три урока и шесть заданий. Seed можно

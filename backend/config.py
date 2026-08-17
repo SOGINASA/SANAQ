@@ -38,6 +38,13 @@ class Config:
     AI_CONTEXT_TOKENS = int(os.environ.get("AI_CONTEXT_TOKENS", "8192"))
     AI_THINKING = _as_bool("AI_THINKING", False)
 
+    PATHNET_MODE = os.environ.get("PATHNET_MODE", "off").strip().lower()
+    PATHNET_MODEL_PATH = os.environ.get(
+        "PATHNET_MODEL_PATH",
+        str(BACKEND_DIR / "ml" / "artifacts" / "pathnet-v2-outcomes-notebook.pt"),
+    )
+    PATHNET_TOP_K = int(os.environ.get("PATHNET_TOP_K", "20"))
+
     SECRET_KEY = os.environ.get("SECRET_KEY", "sanaq-development-secret-key-only")
     SQLALCHEMY_DATABASE_URI = os.environ.get("DATABASE_URL") or (
         f"sqlite:///{(DATABASE_DIR / 'sanaq.db').as_posix()}"
@@ -72,13 +79,14 @@ class TestingConfig(Config):
     SEED_DEMO_DATA = False
     AI_BASE_URL = "http://127.0.0.1:1"
     AI_TIMEOUT_SECONDS = 0.1
+    PATHNET_MODE = "off"
 
 
 class ProductionConfig(Config):
     DEBUG = False
     AUTO_CREATE_DB = _as_bool("AUTO_CREATE_DB", False)
     SEED_DEMO_DATA = _as_bool("SEED_DEMO_DATA", False)
-    JWT_COOKIE_SECURE = True
+    JWT_COOKIE_SECURE = _as_bool("JWT_COOKIE_SECURE", True)
 
 
 CONFIG_BY_ENV = {

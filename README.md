@@ -59,6 +59,22 @@ python app.py
 Backend запускается на `http://localhost:8000/api/v1`. Подробности находятся в
 [`backend/README.md`](backend/README.md).
 
+## Запуск всего MVP через Docker
+
+Production-like контур включает React/Nginx, Flask/Gunicorn, PostgreSQL,
+PathNet и Ollama/Qwen3:
+
+```bash
+cp .env.production.example .env
+# Заменить change-me значения в .env.
+docker compose up -d postgres ollama
+docker compose exec ollama ollama pull qwen3:8b
+docker compose up -d --build backend frontend
+```
+
+Приложение будет доступно на `http://localhost`, API — через тот же домен по
+`/api/v1`. Полная серверная инструкция: [MVP deployment](docs/MVP_DEPLOYMENT.md).
+
 ## Текущее состояние
 
 - frontend создан официальным Create React App, без Vite;

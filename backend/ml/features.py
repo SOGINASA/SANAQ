@@ -2,8 +2,9 @@ FEATURE_NAMES = [
     "mastery", "confidence", "difficulty", "importance", "grade_normalized",
     "is_target_grade", "learning_minutes_normalized", "practice_minutes_normalized",
     "blocked_count_normalized", "status_ready", "status_blocked", "status_learning",
-    "status_gap", "status_mastered", "status_review_due", "priority_score",
+    "status_gap", "status_mastered", "status_review_due",
 ]
+FEATURE_SCHEMA_VERSION = "pathnet-features-v2"
 
 
 def encode_skill_state(item):
@@ -24,5 +25,4 @@ def encode_skill_state(item):
         float(status == "gap"),
         float(status == "mastered"),
         float(status == "review_due"),
-        float(item["priority_score"]),
     ]
