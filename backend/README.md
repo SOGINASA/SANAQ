@@ -28,6 +28,21 @@ python app.py
 
 API будет доступен по адресу `http://localhost:8000/api/v1`.
 
+### Локальная Qwen3 для SANA
+
+Ollama запускается нативно на компьютере, отдельно от Flask:
+
+```bash
+ollama serve
+ollama pull qwen3:8b
+```
+
+При обычном запуске Flask используется `AI_BASE_URL=http://127.0.0.1:11434`.
+При запуске backend через Docker Compose адрес автоматически меняется на
+`http://host.docker.internal:11434`. Остальные параметры модели перечислены в
+`.env.example`. Если Ollama остановлена или не успела ответить, API сохраняет вопрос и
+возвращает явно помеченный безопасный fallback вместо скрытой заглушки.
+
 Проверки:
 
 ```powershell
@@ -63,8 +78,8 @@ docker compose up --build
 | GET/POST/PATCH | `/api/v1/learning-paths...` | Персональный маршрут и следующий шаг |
 | GET | `/api/v1/modules...`, `/lessons...`, `/tasks...` | Учебный контент без скрытых ответов |
 | POST/GET | `/api/v1/attempts...` | Ответ, завершение попытки и результат |
+| GET/POST | `/api/v1/ai/conversations...` | История и потоковые ответы Qwen3 через Ollama |
 | POST | `/api/v1/ai/explanations`, `/api/v1/ai/hints` | Серверный учебный движок на проверенном контенте |
-| POST/GET | `/api/v1/ai/conversations...` | Сохраняемые диалоги учебного ассистента |
 | GET | `/api/v1/students/me/progress...` | Прогресс и слабые навыки |
 | GET | `/api/v1/students/me/knowledge-map` | Узлы mastery и зависимости |
 | GET/POST/PATCH | `/api/v1/classes...`, `/api/v1/assignments...` | Классы, ученики и назначения учителя |

@@ -28,6 +28,16 @@ class Config:
     DEFAULT_LOCALE = os.environ.get("DEFAULT_LOCALE", "ru")
     DATA_MODE = os.environ.get("DATA_MODE", "demo_seed")
 
+    AI_PROVIDER = os.environ.get("AI_PROVIDER", "ollama")
+    AI_BASE_URL = os.environ.get("AI_BASE_URL", "http://127.0.0.1:11434").rstrip("/")
+    AI_MODEL = os.environ.get("AI_MODEL", "qwen3:8b")
+    AI_PROMPT_VERSION = os.environ.get("AI_PROMPT_VERSION", "sana-tutor-v1")
+    AI_TIMEOUT_SECONDS = float(os.environ.get("AI_TIMEOUT_SECONDS", "60"))
+    AI_TEMPERATURE = float(os.environ.get("AI_TEMPERATURE", "0.3"))
+    AI_MAX_TOKENS = int(os.environ.get("AI_MAX_TOKENS", "500"))
+    AI_CONTEXT_TOKENS = int(os.environ.get("AI_CONTEXT_TOKENS", "8192"))
+    AI_THINKING = _as_bool("AI_THINKING", False)
+
     SECRET_KEY = os.environ.get("SECRET_KEY", "sanaq-development-secret-key-only")
     SQLALCHEMY_DATABASE_URI = os.environ.get("DATABASE_URL") or (
         f"sqlite:///{(DATABASE_DIR / 'sanaq.db').as_posix()}"

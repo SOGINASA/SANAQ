@@ -33,7 +33,14 @@ def create_app(config_object=None):
         app,
         origins=app.config["CORS_ORIGINS"],
         supports_credentials=True,
-        allow_headers=["Authorization", "Content-Type", "X-CSRF-TOKEN", "X-Request-ID"],
+        allow_headers=[
+            "Accept",
+            "Accept-Language",
+            "Authorization",
+            "Content-Type",
+            "X-CSRF-TOKEN",
+            "X-Request-ID",
+        ],
         expose_headers=["X-Request-ID", "X-Data-Mode"],
     )
 
@@ -87,6 +94,8 @@ def create_app(config_object=None):
     if app.config["AUTO_CREATE_DB"]:
         with app.app_context():
             db.create_all()
+            from services.schema import ensure_runtime_schema
+            ensure_runtime_schema()
             if app.config["SEED_DEMO_DATA"]:
                 from services.seed import seed_demo_data
                 seed_demo_data()

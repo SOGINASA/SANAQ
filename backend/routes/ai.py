@@ -1,11 +1,13 @@
-from datetime import datetime, timedelta, timezone
-
 import json
+import time
 
-from flask import Blueprint, Response, request
+from flask import Blueprint, Response, current_app, request, stream_with_context
 from flask_jwt_extended import get_jwt_identity
 
-from models import AIConversation, AIMessage, Attempt, KnowledgeState, Skill, Task, TaskAnswer, db
+from models import AIConversation, AIMessage, Attempt, Task, TaskAnswer, db, utc_now
+from services.ai import OllamaError, SANAOrchestrator
+from services.ai.fallback import fallback_answer
+from services.ai.guardrails import urgent_safety_response, validate_user_message
 from utils.decorators import roles_required
 from utils.localization import localized
 from utils.responses import api_error, success
@@ -14,16 +16,7 @@ from utils.responses import api_error, success
 ai_bp = Blueprint("ai", __name__)
 
 
-def _message_payload(message):
-    return {
-        "id": message.id,
-        "role": message.role,
-        "content": message.content,
-        "created_at": message.created_at.isoformat(),
-    }
-
-
-def _conversation_or_error(conversation_id):
+def _owned_conversation(conversation_id):
     conversation = db.session.get(AIConversation, conversation_id)
     if not conversation:
         return None, api_error("CONVERSATION_NOT_FOUND", "Диалог не найден", 404)
@@ -32,22 +25,212 @@ def _conversation_or_error(conversation_id):
     return conversation, None
 
 
-def _tutor_reply(student_id, topic, question):
-    state = db.session.scalar(
-        db.select(KnowledgeState)
-        .where(KnowledgeState.student_id == student_id)
-        .order_by(KnowledgeState.mastery.asc())
+def _save_assistant_message(conversation, content, started_at, generated_by_ai, model_version):
+    message = AIMessage(
+        conversation_id=conversation.id,
+        role="assistant",
+        content=content,
+        generated_by_ai=generated_by_ai,
+        model_version=model_version,
+        prompt_version=current_app.config["AI_PROMPT_VERSION"],
+        latency_ms=round((time.monotonic() - started_at) * 1000),
     )
-    skill = db.session.get(Skill, state.skill_id) if state else None
-    focus = localized(skill.name) if skill else (topic or "текущая тема")
-    normalized = question.lower()
-    if any(word in normalized for word in ("ответ", "реши", "готовое")):
-        return f"Не буду сразу выдавать готовый ответ. Для навыка «{focus}» сначала назови известные данные и формулу, которую можно применить."
-    if any(word in normalized for word in ("пример", "жизн")):
-        return f"Свяжем «{focus}» с простой ситуацией: разбей сложную задачу на известные части, вычисли каждую отдельно и затем проверь обратным действием."
-    if any(word in normalized for word in ("проще", "не понимаю", "объясни")):
-        return f"Объясню проще. В теме «{focus}» сначала найди повторяющуюся структуру, затем примени к ней одно правило. Пришли конкретное выражение — разберём следующий шаг."
-    return f"Работаем с темой «{focus}». Что уже известно из условия и на каком шаге возникло затруднение? Я дам следующую подсказку без раскрытия ответа."
+    conversation.updated_at = utc_now()
+    db.session.add(message)
+    db.session.commit()
+    return message
+
+
+def _sse(event, payload):
+    return f"event: {event}\ndata: {json.dumps(payload, ensure_ascii=False)}\n\n"
+
+
+@ai_bp.get("/ai/conversations")
+@roles_required("student")
+def conversations():
+    items = db.session.scalars(
+        db.select(AIConversation)
+        .where(
+            AIConversation.student_id == get_jwt_identity(),
+            AIConversation.status == "active",
+        )
+        .order_by(AIConversation.updated_at.desc())
+        .limit(50)
+    ).all()
+    return success({"items": [item.to_dict() for item in items], "total": len(items)})
+
+
+@ai_bp.post("/ai/conversations")
+@roles_required("student")
+def create_conversation():
+    data = request.get_json(silent=True) or {}
+    try:
+        grade = int(data.get("grade", 9))
+    except (TypeError, ValueError):
+        return api_error("VALIDATION_ERROR", "Класс должен быть числом от 7 до 12", 422)
+    if grade not in range(7, 13):
+        return api_error("VALIDATION_ERROR", "Допустимы классы с 7 по 12", 422)
+
+    locale = str(data.get("locale") or request.accept_languages.best_match(["ru", "kk"]) or "ru")
+    if locale not in {"ru", "kk"}:
+        locale = "ru"
+    conversation = AIConversation(
+        student_id=get_jwt_identity(),
+        title=str(data.get("title") or "Новый диалог").strip()[:120] or "Новый диалог",
+        subject=str(data.get("subject") or "Математика").strip()[:80],
+        topic=str(data.get("topic") or "Общий вопрос").strip()[:160],
+        grade=grade,
+        locale=locale,
+    )
+    db.session.add(conversation)
+    legacy_client = bool(data.get("topic")) and "subject" not in data and "grade" not in data
+    if legacy_client:
+        db.session.flush()
+        db.session.add(AIMessage(
+            conversation_id=conversation.id,
+            role="assistant",
+            content=f"Готова помочь по теме «{conversation.topic}». С какого шага начнём?",
+            generated_by_ai=False,
+            model_version="deterministic-tutor-v1",
+        ))
+    db.session.commit()
+    payload = conversation.to_dict(include_messages=True)
+    payload["conversation"] = conversation.to_dict()
+    return success(payload, status=201)
+
+
+@ai_bp.get("/ai/conversations/<conversationId>")
+@roles_required("student")
+def conversation_details(conversationId):
+    conversation, error = _owned_conversation(conversationId)
+    if error:
+        return error
+    return success(conversation.to_dict(include_messages=True))
+
+
+def _stream_model_answer(conversation_id, locale, orchestrator, model_messages, safety_answer=None):
+    started_at = time.monotonic()
+    chunks = []
+    generated_by_ai = safety_answer is None
+    model_version = current_app.config["AI_MODEL"] if generated_by_ai else "safety-policy-v1"
+
+    try:
+        source = [safety_answer] if safety_answer else orchestrator.stream_messages(model_messages)
+        for chunk in source:
+            chunks.append(chunk)
+            yield _sse("token", {"text": chunk})
+        content = "".join(chunks).strip()
+        if not content:
+            raise OllamaError("Ollama returned an empty response")
+    except Exception as error:
+        current_app.logger.exception("AI stream fallback used", exc_info=error)
+        content = fallback_answer(locale)
+        generated_by_ai = False
+        model_version = "deterministic-fallback-v1"
+        yield _sse("token", {"text": content})
+
+    conversation = db.session.get(AIConversation, conversation_id)
+    if not conversation:
+        yield _sse("error", {"message": "Диалог был удалён во время ответа"})
+        return
+    message = _save_assistant_message(conversation, content, started_at, generated_by_ai, model_version)
+    yield _sse("done", {
+        "message": message.to_dict(),
+        "warning": "SANA может ошибаться — проверяй важные факты и решения.",
+    })
+
+
+@ai_bp.post("/ai/conversations/<conversationId>/messages")
+@roles_required("student")
+def send_conversation_message(conversationId):
+    conversation, error = _owned_conversation(conversationId)
+    if error:
+        return error
+    data = request.get_json(silent=True) or {}
+    try:
+        content = validate_user_message(data.get("content"))
+    except ValueError as error:
+        return api_error("VALIDATION_ERROR", str(error), 422)
+
+    legacy_client = any(
+        item.model_version == "deterministic-tutor-v1" for item in conversation.messages
+    )
+    user_message = AIMessage(
+        conversation_id=conversation.id,
+        role="user",
+        content=content,
+        generated_by_ai=False,
+    )
+    if conversation.title == "Новый диалог":
+        conversation.title = content[:57] + ("…" if len(content) > 57 else "")
+    conversation.updated_at = utc_now()
+    db.session.add(user_message)
+    db.session.commit()
+
+    safety_answer = urgent_safety_response(content, conversation.locale)
+    wants_stream = data.get("stream") is True or "text/event-stream" in request.headers.get("Accept", "")
+    if wants_stream:
+        orchestrator = SANAOrchestrator()
+        model_messages = None if safety_answer else orchestrator.build_messages(conversation)
+        response = Response(
+            stream_with_context(_stream_model_answer(
+                conversation.id,
+                conversation.locale,
+                orchestrator,
+                model_messages,
+                safety_answer,
+            )),
+            mimetype="text/event-stream",
+        )
+        response.headers["Cache-Control"] = "no-cache, no-transform"
+        response.headers["X-Accel-Buffering"] = "no"
+        return response
+
+    started_at = time.monotonic()
+    generated_by_ai = safety_answer is None
+    model_version = current_app.config["AI_MODEL"] if generated_by_ai else "safety-policy-v1"
+    try:
+        content_chunks = [safety_answer] if safety_answer else SANAOrchestrator().stream(conversation)
+        answer = "".join(content_chunks).strip()
+        if not answer:
+            raise OllamaError("Ollama returned an empty response")
+    except OllamaError as error:
+        current_app.logger.warning("AI fallback used: %s", error)
+        answer = fallback_answer(conversation.locale)
+        generated_by_ai = False
+        model_version = "deterministic-fallback-v1"
+    assistant_message = _save_assistant_message(
+        conversation, answer, started_at, generated_by_ai, model_version
+    )
+    payload = {
+        "message": assistant_message.to_dict(),
+        "warning": "SANA может ошибаться — проверяй важные факты и решения.",
+    }
+    if legacy_client:
+        payload.update({
+            "user_message": user_message.to_dict(),
+            "assistant_message": assistant_message.to_dict(),
+            "generated_by_ai": assistant_message.generated_by_ai,
+            "model_version": assistant_message.model_version,
+        })
+    return success(payload, status=201 if legacy_client else 200)
+
+
+@ai_bp.get("/ai/conversations/<conversationId>/stream")
+@roles_required("student")
+def conversation_stream(conversationId):
+    conversation, error = _owned_conversation(conversationId)
+    if error:
+        return error
+    latest = next((item for item in reversed(conversation.messages) if item.role == "assistant"), None)
+    if not latest:
+        return api_error("MESSAGE_NOT_FOUND", "В диалоге ещё нет ответа SANA", 404)
+
+    def replay():
+        yield _sse("token", {"text": latest.content})
+        yield _sse("done", {"message": latest.to_dict()})
+
+    return Response(stream_with_context(replay()), mimetype="text/event-stream")
 
 
 def _task_from_payload(data):
@@ -62,10 +245,7 @@ def _explanation_content(task, mode):
     if mode == "short":
         return explanation.split(".")[0].strip() + "."
     if mode == "steps":
-        return {
-            "title": "Разберём по шагам",
-            "steps": [localized(task.hint), explanation],
-        }
+        return {"title": "Разберём по шагам", "steps": [localized(task.hint), explanation]}
     return {
         "title": "Связь с жизненной ситуацией",
         "example": "Представьте, что большое выражение нужно разложить на простые детали, как набор конструктора.",
@@ -116,106 +296,3 @@ def hint():
         "generated_by_ai": False,
         "model_version": "content-tutor-v1",
     })
-
-
-@ai_bp.post("/ai/conversations")
-@roles_required("student")
-def create_conversation():
-    data = request.get_json(silent=True) or {}
-    topic = str(data.get("topic", "")).strip()[:200] or None
-    conversation = AIConversation(student_id=get_jwt_identity(), topic=topic)
-    db.session.add(conversation)
-    db.session.flush()
-    welcome = AIMessage(
-        conversation_id=conversation.id,
-        role="assistant",
-        content=f"Готова помочь по теме «{topic}». С какого шага начнём?" if topic else "Готова помочь. Опиши задачу и место, где стало непонятно.",
-    )
-    db.session.add(welcome)
-    db.session.commit()
-    return success({
-        "conversation": {"id": conversation.id, "topic": conversation.topic},
-        "messages": [_message_payload(welcome)],
-        "generated_by_ai": False,
-        "model_version": "deterministic-tutor-v1",
-    }, status=201)
-
-
-@ai_bp.get("/ai/conversations")
-@roles_required("student")
-def list_conversations():
-    conversations = db.session.scalars(
-        db.select(AIConversation).where(AIConversation.student_id == get_jwt_identity())
-        .order_by(AIConversation.updated_at.desc()).limit(30)
-    ).all()
-    return success({"items": [{
-        "id": item.id, "topic": item.topic, "created_at": item.created_at.isoformat(),
-        "updated_at": item.updated_at.isoformat(),
-    } for item in conversations]})
-
-
-@ai_bp.get("/ai/conversations/<conversationId>")
-@roles_required("student")
-def get_conversation(conversationId):
-    conversation, error = _conversation_or_error(conversationId)
-    if error:
-        return error
-    messages = db.session.scalars(
-        db.select(AIMessage)
-        .where(AIMessage.conversation_id == conversation.id)
-        .order_by(AIMessage.created_at, AIMessage.id)
-    ).all()
-    return success({
-        "conversation": {"id": conversation.id, "topic": conversation.topic},
-        "messages": [_message_payload(message) for message in messages],
-    })
-
-
-@ai_bp.get("/ai/conversations/<conversationId>/stream")
-@roles_required("student")
-def stream_conversation(conversationId):
-    conversation, error = _conversation_or_error(conversationId)
-    if error:
-        return error
-    messages = db.session.scalars(
-        db.select(AIMessage).where(AIMessage.conversation_id == conversation.id)
-        .order_by(AIMessage.created_at, AIMessage.id)
-    ).all()
-
-    def generate():
-        for message in messages:
-            yield f"event: message\ndata: {json.dumps(_message_payload(message), ensure_ascii=False)}\n\n"
-        yield "event: done\ndata: {}\n\n"
-
-    return Response(generate(), mimetype="text/event-stream", headers={"Cache-Control": "no-cache"})
-
-
-@ai_bp.post("/ai/conversations/<conversationId>/messages")
-@roles_required("student")
-def send_conversation_message(conversationId):
-    conversation, error = _conversation_or_error(conversationId)
-    if error:
-        return error
-    data = request.get_json(silent=True) or {}
-    content = str(data.get("content", "")).strip()
-    if not content or len(content) > 2000:
-        return api_error("VALIDATION_ERROR", "Сообщение должно содержать от 1 до 2000 символов", 422)
-    message_time = datetime.now(timezone.utc)
-    user_message = AIMessage(
-        conversation_id=conversation.id, role="user", content=content, created_at=message_time,
-    )
-    assistant_message = AIMessage(
-        conversation_id=conversation.id,
-        role="assistant",
-        content=_tutor_reply(conversation.student_id, conversation.topic, content),
-        created_at=message_time + timedelta(microseconds=1),
-    )
-    db.session.add_all([user_message, assistant_message])
-    db.session.commit()
-    return success({
-        "user_message": _message_payload(user_message),
-        "assistant_message": _message_payload(assistant_message),
-        "generated_by_ai": False,
-        "model_version": "deterministic-tutor-v1",
-        "warning": "Ответ сформирован серверным учебным движком; внешняя генеративная модель не используется.",
-    }, status=201)

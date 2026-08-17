@@ -408,10 +408,37 @@ class AIConversation(db.Model):
 
     id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
     student_id = db.Column(db.String(36), db.ForeignKey("users.id"), nullable=False, index=True)
-    topic = db.Column(db.String(200))
+    title = db.Column(db.String(120), nullable=False, default="Новый диалог")
+    subject = db.Column(db.String(80), nullable=False, default="Математика")
+    topic = db.Column(db.String(160), nullable=False, default="Общий вопрос")
+    grade = db.Column(db.Integer, nullable=False, default=9)
+    locale = db.Column(db.String(5), nullable=False, default="ru")
+    status = db.Column(db.String(20), nullable=False, default="active", index=True)
     created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utc_now)
     updated_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utc_now, onupdate=utc_now)
 
+    messages = db.relationship(
+        "AIMessage",
+        back_populates="conversation",
+        cascade="all, delete-orphan",
+        order_by="AIMessage.created_at",
+    )
+
+    def to_dict(self, include_messages=False):
+        payload = {
+            "id": self.id,
+            "title": self.title,
+            "subject": self.subject,
+            "topic": self.topic,
+            "grade": self.grade,
+            "locale": self.locale,
+            "status": self.status,
+            "created_at": utc_iso(self.created_at),
+            "updated_at": utc_iso(self.updated_at),
+        }
+        if include_messages:
+            payload["messages"] = [message.to_dict() for message in self.messages]
+        return payload
 
 class AIMessage(db.Model):
     __tablename__ = "ai_messages"
@@ -420,7 +447,29 @@ class AIMessage(db.Model):
     conversation_id = db.Column(db.String(36), db.ForeignKey("ai_conversations.id"), nullable=False, index=True)
     role = db.Column(db.String(20), nullable=False)
     content = db.Column(db.Text, nullable=False)
+    generated_by_ai = db.Column(db.Boolean, nullable=False, default=False)
+    model_version = db.Column(db.String(120))
+    prompt_version = db.Column(db.String(80))
+    latency_ms = db.Column(db.Integer)
+    source_ids = db.Column(db.JSON, nullable=False, default=list)
+    safety_flags = db.Column(db.JSON, nullable=False, default=list)
     created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utc_now)
+
+    conversation = db.relationship("AIConversation", back_populates="messages")
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "role": self.role,
+            "content": self.content,
+            "generated_by_ai": self.generated_by_ai,
+            "model_version": self.model_version,
+            "prompt_version": self.prompt_version,
+            "latency_ms": self.latency_ms,
+            "source_ids": self.source_ids or [],
+            "safety_flags": self.safety_flags or [],
+            "created_at": utc_iso(self.created_at),
+        }
 
 
 class StudentGoal(db.Model):

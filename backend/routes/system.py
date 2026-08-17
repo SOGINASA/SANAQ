@@ -25,7 +25,7 @@ def ready():
         "checks": {
             "database": "ok",
             "cache": "not_required_for_mvp",
-            "ai": "server_tutor_ready",
+            "ai": f"{current_app.config['AI_PROVIDER']}_configured_with_fallback",
         },
     })
 
@@ -49,7 +49,8 @@ def meta():
             "progress": True,
             "knowledge_map": True,
             "ai_tutor": True,
-            "ai_provider": "server_tutor",
+            "ai_provider": current_app.config["AI_PROVIDER"],
+            "ai_model": current_app.config["AI_MODEL"],
             "teacher_dashboard": True,
         },
     })
