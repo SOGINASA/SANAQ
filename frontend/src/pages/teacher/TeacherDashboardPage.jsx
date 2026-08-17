@@ -1,0 +1,15 @@
+import { AlertTriangle, BookOpenCheck, Plus, TrendingUp, Users } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Button, Card } from '../../shared/ui';
+import { ClassHeatmap } from '../../features/teacher-dashboard/ClassHeatmap';
+import { StudentTable } from '../../features/teacher-dashboard/StudentTable';
+
+export function TeacherDashboardPage() {
+  const navigate = useNavigate();
+  return <div className="mx-auto max-w-7xl animate-rise"><div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between"><div><p className="eyebrow">Кабинет учителя</p><h1 className="mt-2 text-3xl font-extrabold sm:text-4xl">Добрый день, Алия Сериковна</h1><p className="mt-2 text-stone-600">Главное по 9A за последние 7 дней.</p></div><Button onClick={() => navigate('/teacher/content/new')}><Plus className="h-5 w-5" /> Добавить материал</Button></div><div className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">{[
+    { icon: Users, value: '24', label: 'Ученика в классе', tone: 'bg-lavender-100 text-lavender-700' },
+    { icon: TrendingUp, value: '71%', label: 'Средний прогресс', tone: 'bg-mint-100 text-mint-700' },
+    { icon: BookOpenCheck, value: '18', label: 'Активны сегодня', tone: 'bg-lime/30 text-[#52670A]' },
+    { icon: AlertTriangle, value: '3', label: 'Нужна поддержка', tone: 'bg-[#FFE8E2] text-[#A74735]' },
+  ].map(({ icon: Icon, value, label, tone }) => <Card key={label} className="p-5"><span className={`grid h-11 w-11 place-items-center rounded-2xl ${tone}`}><Icon className="h-5 w-5" /></span><p className="mt-5 font-display text-3xl font-semibold">{value}</p><p className="mt-1 text-sm text-stone-500">{label}</p></Card>)}</div><div className="mt-6 grid gap-6 xl:grid-cols-[1.1fr_0.9fr]"><Card className="p-6 sm:p-8"><div className="flex items-start justify-between gap-4"><div><p className="eyebrow">Карта класса</p><h2 className="mt-2 text-2xl font-extrabold">Где классу нужна помощь</h2></div><button className="min-h-11 rounded-xl px-3 text-sm font-bold text-lavender-700">Подробнее</button></div><div className="mt-7"><ClassHeatmap /></div></Card><Card className="p-6 sm:p-8"><p className="eyebrow">AI-наблюдение</p><h2 className="mt-2 text-2xl font-extrabold">Один общий пробел</h2><div className="mt-6 rounded-3xl bg-ink p-6 text-white"><p className="text-sm font-bold text-lime">14 из 24 учеников</p><h3 className="mt-3 text-xl font-bold">Путают разность квадратов и квадрат разности</h3><p className="mt-3 text-sm leading-6 text-stone-400">Рекомендуем 12-минутный разбор и два контрастных примера.</p><Button className="mt-6 w-full" onClick={() => navigate('/teacher/assignments')}>Создать назначение</Button></div></Card></div><Card className="mt-6 p-6 sm:p-8"><div className="flex items-center justify-between gap-4"><div><p className="eyebrow">Последняя активность</p><h2 className="mt-2 text-2xl font-extrabold">Ученики 9A</h2></div><button onClick={() => navigate('/teacher/classes/9a')} className="min-h-11 rounded-xl px-3 text-sm font-bold text-lavender-700">Весь класс</button></div><div className="mt-4"><StudentTable limit={4} /></div></Card></div>;
+}

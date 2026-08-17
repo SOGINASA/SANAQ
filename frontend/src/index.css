@@ -1,3 +1,117 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: light;
+    --color-canvas: #f7f6f2;
+    --color-paper: #fefdf9;
+    --color-ink: #232329;
+    --color-muted: #696874;
+    --color-primary: #5b3fa8;
+    --color-primary-soft: #e9e2ff;
+    --color-success: #16735a;
+    --color-border: #e5e2da;
+    --focus-ring: #7459c9;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    margin: 0;
+    min-width: 320px;
+    min-height: 100vh;
+    background: var(--color-canvas);
+    color: var(--color-ink);
+    font-family: 'Manrope Variable', Manrope, sans-serif;
+    font-size: 16px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  button,
+  input,
+  select,
+  textarea {
+    font: inherit;
+  }
+
+  button,
+  a {
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+
+  :focus-visible {
+    outline: 3px solid var(--focus-ring);
+    outline-offset: 3px;
+  }
+
+  ::selection {
+    background: #d4c5ff;
+    color: #232329;
+  }
+}
+
+@layer components {
+  .page-container {
+    @apply mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8;
+  }
+
+  .surface-card {
+    @apply rounded-3xl border border-stone-200/80 bg-paper shadow-soft;
+  }
+
+  .eyebrow {
+    @apply font-display text-[11px] font-semibold uppercase tracking-[0.16em] text-lavender-600;
+  }
+
+  .page-title {
+    @apply font-display text-3xl font-semibold leading-tight tracking-[-0.04em] sm:text-4xl lg:text-5xl;
+  }
+
+  .field-label {
+    @apply mb-2 block text-sm font-bold text-ink;
+  }
+
+  .field-control {
+    @apply min-h-12 w-full rounded-2xl border border-stone-300 bg-paper px-4 text-base text-ink placeholder:text-stone-400 transition focus:border-lavender-500 focus:outline-none focus:ring-4 focus:ring-lavender-100;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+.large-text {
+  font-size: 112.5%;
+}
+
+.high-contrast {
+  --color-muted: #3f3f46;
+  --color-border: #78716c;
+}
+
+.reduce-motion *,
+.reduce-motion *::before,
+.reduce-motion *::after {
+  scroll-behavior: auto !important;
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+}
