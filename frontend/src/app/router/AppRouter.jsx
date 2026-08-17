@@ -18,6 +18,7 @@ import { ProgressPage } from '../../pages/student/ProgressPage';
 import { AchievementsPage } from '../../pages/student/AchievementsPage';
 import { SettingsPage } from '../../pages/student/SettingsPage';
 import { AssistantPage } from '../../pages/student/AssistantPage';
+import { PlanGenerationPage } from '../../pages/student/PlanGenerationPage';
 import { TeacherDashboardPage } from '../../pages/teacher/TeacherDashboardPage';
 import { ClassDetailsPage } from '../../pages/teacher/ClassDetailsPage';
 import { StudentDetailsPage } from '../../pages/teacher/StudentDetailsPage';
@@ -38,6 +39,7 @@ export function AppRouter() {
     <Route path="/student" element={<StudentLayout />}>
       <Route path="onboarding" element={<OnboardingPage />} />
       <Route path="diagnostic" element={<DiagnosticPage />} />
+      <Route path="generating-plan" element={<PlanGenerationPage />} />
       <Route path="dashboard" element={<StudentDashboardPage />} />
       <Route path="path" element={<LearningPathPage />} />
       <Route path="knowledge-map" element={<KnowledgeMapPage />} />

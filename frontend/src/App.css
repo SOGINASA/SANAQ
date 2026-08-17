@@ -10,41 +10,6 @@
   filter: drop-shadow(0 22px 32px rgba(91, 63, 168, 0.18));
 }
 
-.knowledge-map {
-  position: relative;
-  min-height: 500px;
-  overflow: hidden;
-  background-image: radial-gradient(circle at 20% 10%, rgba(212, 197, 255, 0.42), transparent 38%),
-    radial-gradient(circle at 82% 85%, rgba(155, 226, 203, 0.42), transparent 32%);
-}
-
-.knowledge-line {
-  position: absolute;
-  height: 2px;
-  background: rgba(91, 63, 168, 0.25);
-  transform-origin: left center;
-}
-
-.knowledge-node {
-  position: absolute;
-  z-index: 2;
-  display: grid;
-  width: 116px;
-  min-height: 96px;
-  place-items: center;
-  border: 2px solid rgba(255, 255, 255, 0.85);
-  border-radius: 28px;
-  padding: 12px;
-  box-shadow: 0 14px 35px rgba(35, 35, 41, 0.14);
-  text-align: center;
-  transition: transform 200ms ease, box-shadow 200ms ease;
-}
-
-.knowledge-node:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 18px 40px rgba(35, 35, 41, 0.18);
-}
-
 .bar-chart {
   display: flex;
   height: 160px;
@@ -62,17 +27,4 @@
 .heat-cell {
   aspect-ratio: 1;
   border-radius: 10px;
-}
-
-@media (max-width: 640px) {
-  .knowledge-map {
-    min-height: 620px;
-  }
-
-  .knowledge-node {
-    width: 102px;
-    min-height: 86px;
-    border-radius: 24px;
-    font-size: 13px;
-  }
 }
