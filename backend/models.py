@@ -344,3 +344,141 @@ class TaskAnswer(db.Model):
     is_correct = db.Column(db.Boolean, nullable=False)
     attempt_number = db.Column(db.Integer, nullable=False, default=1)
     answered_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utc_now)
+
+
+class Classroom(db.Model):
+    __tablename__ = "classrooms"
+
+    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    teacher_id = db.Column(db.String(36), db.ForeignKey("users.id"), nullable=False, index=True)
+    name = db.Column(db.String(100), nullable=False)
+    subject_id = db.Column(db.String(64), db.ForeignKey("subjects.id"), nullable=False)
+    grade = db.Column(db.Integer, nullable=False)
+    join_code = db.Column(db.String(20), unique=True, nullable=False, index=True)
+    created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utc_now)
+
+
+class ClassEnrollment(db.Model):
+    __tablename__ = "class_enrollments"
+
+    class_id = db.Column(db.String(36), db.ForeignKey("classrooms.id"), primary_key=True)
+    student_id = db.Column(db.String(36), db.ForeignKey("users.id"), primary_key=True)
+    joined_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utc_now)
+
+
+class Assignment(db.Model):
+    __tablename__ = "assignments"
+
+    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    class_id = db.Column(db.String(36), db.ForeignKey("classrooms.id"), nullable=False, index=True)
+    teacher_id = db.Column(db.String(36), db.ForeignKey("users.id"), nullable=False, index=True)
+    title = db.Column(db.String(200), nullable=False)
+    module_id = db.Column(db.String(64), db.ForeignKey("learning_modules.id"))
+    task_id = db.Column(db.String(64), db.ForeignKey("tasks.id"))
+    due_at = db.Column(db.DateTime(timezone=True))
+    status = db.Column(db.String(20), nullable=False, default="draft", index=True)
+    created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utc_now)
+
+
+class TeacherComment(db.Model):
+    __tablename__ = "teacher_comments"
+
+    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    teacher_id = db.Column(db.String(36), db.ForeignKey("users.id"), nullable=False, index=True)
+    student_id = db.Column(db.String(36), db.ForeignKey("users.id"), nullable=False, index=True)
+    message = db.Column(db.Text, nullable=False)
+    add_to_plan = db.Column(db.Boolean, nullable=False, default=False)
+    created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utc_now)
+
+
+class Notification(db.Model):
+    __tablename__ = "notifications"
+
+    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = db.Column(db.String(36), db.ForeignKey("users.id"), nullable=False, index=True)
+    title = db.Column(db.String(200), nullable=False)
+    body = db.Column(db.Text, nullable=False)
+    link = db.Column(db.String(300))
+    read_at = db.Column(db.DateTime(timezone=True))
+    created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utc_now)
+
+
+class AIConversation(db.Model):
+    __tablename__ = "ai_conversations"
+
+    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    student_id = db.Column(db.String(36), db.ForeignKey("users.id"), nullable=False, index=True)
+    topic = db.Column(db.String(200))
+    created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utc_now)
+    updated_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utc_now, onupdate=utc_now)
+
+
+class AIMessage(db.Model):
+    __tablename__ = "ai_messages"
+
+    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    conversation_id = db.Column(db.String(36), db.ForeignKey("ai_conversations.id"), nullable=False, index=True)
+    role = db.Column(db.String(20), nullable=False)
+    content = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utc_now)
+
+
+class StudentGoal(db.Model):
+    __tablename__ = "student_goals"
+
+    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    student_id = db.Column(db.String(36), db.ForeignKey("users.id"), nullable=False, index=True)
+    title = db.Column(db.String(200), nullable=False)
+    target_date = db.Column(db.Date)
+    status = db.Column(db.String(20), nullable=False, default="active", index=True)
+    created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utc_now)
+    updated_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utc_now, onupdate=utc_now)
+
+
+class MaterialUpload(db.Model):
+    __tablename__ = "material_uploads"
+
+    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    owner_id = db.Column(db.String(36), db.ForeignKey("users.id"), nullable=False, index=True)
+    filename = db.Column(db.String(255), nullable=False)
+    content_type = db.Column(db.String(100), nullable=False, default="application/octet-stream")
+    upload_token = db.Column(db.String(64), unique=True, nullable=False, index=True)
+    content = db.Column(db.LargeBinary)
+    status = db.Column(db.String(20), nullable=False, default="pending")
+    created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utc_now)
+
+
+class AIReport(db.Model):
+    __tablename__ = "ai_reports"
+
+    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    reporter_id = db.Column(db.String(36), db.ForeignKey("users.id"), nullable=False, index=True)
+    feedback_id = db.Column(db.String(100), nullable=False, index=True)
+    reason = db.Column(db.Text, nullable=False)
+    status = db.Column(db.String(20), nullable=False, default="open", index=True)
+    resolution = db.Column(db.Text)
+    created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utc_now)
+    updated_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utc_now, onupdate=utc_now)
+
+
+class AuditLog(db.Model):
+    __tablename__ = "audit_logs"
+
+    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    actor_id = db.Column(db.String(36), db.ForeignKey("users.id"), nullable=False, index=True)
+    action = db.Column(db.String(100), nullable=False, index=True)
+    entity_type = db.Column(db.String(50), nullable=False)
+    entity_id = db.Column(db.String(100))
+    details = db.Column(db.JSON, nullable=False, default=dict)
+    created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utc_now)
+
+
+class ProductEvent(db.Model):
+    __tablename__ = "product_events"
+
+    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = db.Column(db.String(36), db.ForeignKey("users.id"), nullable=False, index=True)
+    event_name = db.Column(db.String(100), nullable=False, index=True)
+    properties = db.Column(db.JSON, nullable=False, default=dict)
+    occurred_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utc_now)
+    created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utc_now)

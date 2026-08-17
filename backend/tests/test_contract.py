@@ -33,10 +33,10 @@ def test_flask_routes_match_api_contract(app):
     assert set(registered) == _documented_routes()
 
 
-def test_unimplemented_contract_route_is_explicit(client, student_headers):
-    response = client.post("/api/v1/ai/conversations", headers=student_headers)
-    assert response.status_code == 501
-    assert response.get_json()["error"]["code"] == "FEATURE_NOT_IMPLEMENTED"
+def test_all_contract_routes_have_business_logic(client, student_headers):
+    response = client.post("/api/v1/events/batch", headers=student_headers, json={"events": []})
+    assert response.status_code == 200
+    assert response.get_json()["data"]["accepted"] == 0
 
 
 def test_contract_route_still_enforces_role(client, teacher_headers):

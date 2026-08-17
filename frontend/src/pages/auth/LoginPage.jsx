@@ -32,7 +32,6 @@ export function LoginPage() {
           {error && (
             <div className="mt-5 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-800" role="alert">
               <p>{error}</p>
-              <p className="mt-1 font-normal">Fallback/mock-авторизация не использовалась.</p>
             </div>
           )}
           <div className="mt-8"><LoginForm onSubmit={submit} /></div>

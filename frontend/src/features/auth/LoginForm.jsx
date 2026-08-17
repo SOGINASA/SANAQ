@@ -19,7 +19,7 @@ export function LoginForm({ onSubmit }) {
     try {
       await onSubmit(form);
     } catch (_error) {
-      // Ошибка показана страницей входа; mock/fallback не подставляется.
+      // Ошибка backend показана страницей входа.
     } finally {
       setLoading(false);
     }
@@ -39,7 +39,7 @@ export function LoginForm({ onSubmit }) {
       setRecoveryOpen(false);
       setStatus(result.data.message || 'Инструкции по восстановлению отправлены');
     } catch (error) {
-      setRecoveryError(`${error.message} Fallback-ответ не подставлялся.`);
+      setRecoveryError(error.message);
     } finally {
       setRecoveryLoading(false);
     }

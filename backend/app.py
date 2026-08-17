@@ -54,12 +54,14 @@ def create_app(config_object=None):
         auth_bp,
         catalog_bp,
         content_bp,
-        contract_bp,
+        governance_bp,
         diagnostics_bp,
         learning_paths_bp,
         profiles_bp,
         progress_bp,
         system_bp,
+        teacher_bp,
+        engagement_bp,
     )
 
     prefix = app.config["API_PREFIX"]
@@ -74,7 +76,9 @@ def create_app(config_object=None):
     app.register_blueprint(attempts_bp, url_prefix=prefix)
     app.register_blueprint(ai_bp, url_prefix=prefix)
     app.register_blueprint(progress_bp, url_prefix=prefix)
-    app.register_blueprint(contract_bp, url_prefix=prefix)
+    app.register_blueprint(teacher_bp, url_prefix=prefix)
+    app.register_blueprint(engagement_bp, url_prefix=prefix)
+    app.register_blueprint(governance_bp, url_prefix=prefix)
 
     register_error_handlers(app)
     register_jwt_callbacks(jwt)

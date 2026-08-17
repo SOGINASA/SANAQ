@@ -18,7 +18,7 @@ export const toApiError = (error) => {
       payload?.message ||
       (error.response
         ? `Backend вернул ошибку ${error.response.status}`
-        : 'Backend недоступен. Mock/fallback данные не подставлялись.'),
+        : 'Backend недоступен. Проверьте соединение и повторите запрос.'),
     status: error.response?.status || 0,
     details: payload?.details,
     requestId: payload?.request_id,

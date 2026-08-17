@@ -120,6 +120,10 @@ export function StudentDashboardPage() {
         if (!active) return;
         setSourceMeta({ ...metaResponse.meta, dataMode: metaResponse.data.data_mode });
         setProfile(profileResponse.data.profile);
+        if (!profileResponse.data.profile) {
+          navigate('/student/onboarding', { replace: true });
+          return;
+        }
         const latest = historyResponse.data.items?.[0];
         if (latest?.status === 'in_progress') {
           setDiagnostic(latest);
@@ -139,7 +143,7 @@ export function StudentDashboardPage() {
     };
     bootstrap();
     return () => { active = false; };
-  }, [loadPath, loadQuestion, refreshProgress]);
+  }, [loadPath, loadQuestion, navigate, refreshProgress]);
 
   const saveProfile = () => run(async () => {
     const response = await catalogApi.saveStudentProfile({
@@ -223,7 +227,6 @@ export function StudentDashboardPage() {
       {error && (
         <div className="mt-6 rounded-2xl border border-red-200 bg-red-50 p-4 text-red-900" role="alert">
           <strong>Backend не вернул данные.</strong> {error}
-          <span className="mt-1 block text-sm">Fallback/mock-данные не подставлялись.</span>
         </div>
       )}
 

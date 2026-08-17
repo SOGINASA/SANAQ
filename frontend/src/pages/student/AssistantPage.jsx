@@ -9,7 +9,6 @@ import {
   Copy,
   Lightbulb,
   MessageCircleQuestion,
-  Paperclip,
   Plus,
   RotateCcw,
   Sparkles,
@@ -18,6 +17,8 @@ import {
 } from 'lucide-react';
 import { Button, Dialog, StatusToast } from '../../shared/ui';
 import mascot from '../../assets/images/sana-mascot.png';
+import { aiTutorApi } from '../../features/ai-tutor/aiTutorApi';
+import { catalogApi } from '../../shared/api/catalogApi';
 
 const starterPrompts = [
   { icon: Lightbulb, title: 'Объясни тему проще', text: 'Разность квадратов' },
@@ -28,24 +29,49 @@ const starterPrompts = [
 
 const followUpPrompts = ['Объясни ещё проще', 'Покажи другой пример', 'Дай похожее задание'];
 
-const assistantAnswer = {
-  text: 'Давай разберём без спешки. Разность квадратов можно узнать по двум признакам: между выражениями стоит минус, и каждое выражение является квадратом.',
-  hint: 'Например, в выражении x² − 25 квадратами являются x² и 5². Попробуй назвать a и b в формуле a² − b².',
-};
-
 export function AssistantPage() {
   const navigate = useNavigate();
   const [messages, setMessages] = useState([]);
   const [message, setMessage] = useState('');
   const [thinking, setThinking] = useState(false);
   const [contextOpen, setContextOpen] = useState(false);
-  const [topic, setTopic] = useState('Разность квадратов');
+  const [topic, setTopic] = useState('');
+  const [topics, setTopics] = useState([]);
+  const [conversationId, setConversationId] = useState(null);
   const [toast, setToast] = useState('');
   const bottomRef = useRef(null);
   const textareaRef = useRef(null);
-  const replyTimerRef = useRef(null);
 
-  useEffect(() => () => window.clearTimeout(replyTimerRef.current), []);
+  useEffect(() => {
+    let active = true;
+    const load = async () => {
+      try {
+        const [profileResponse, conversationsResponse] = await Promise.all([
+          catalogApi.studentProfile(), aiTutorApi.conversations(),
+        ]);
+        const subjectId = profileResponse.data.profile?.subject_ids?.[0];
+        if (!subjectId) return;
+        const topicsResponse = await catalogApi.topics(subjectId);
+        if (!active) return;
+        const serverTopics = topicsResponse.data.items || [];
+        setTopics(serverTopics);
+        const latest = conversationsResponse.data.items?.[0];
+        if (latest) {
+          const history = await aiTutorApi.conversation(latest.id);
+          if (!active) return;
+          setConversationId(latest.id);
+          setTopic(latest.topic || serverTopics[0]?.name || '');
+          setMessages((history.data.messages || []).map((item) => ({ ...item, text: item.content })));
+        } else {
+          setTopic(serverTopics[0]?.name || '');
+        }
+      } catch (requestError) {
+        if (active) setToast(requestError.message);
+      }
+    };
+    load();
+    return () => { active = false; };
+  }, []);
 
   useEffect(() => {
     if (!messages.length && !thinking) return;
@@ -56,19 +82,34 @@ export function AssistantPage() {
     if (textareaRef.current) textareaRef.current.style.height = '44px';
   };
 
-  const sendMessage = (text = message) => {
+  const sendMessage = async (text = message) => {
     const cleanMessage = text.trim();
     if (!cleanMessage || thinking) return;
 
-    setMessages((current) => [...current, { id: Date.now(), role: 'user', text: cleanMessage }]);
     setMessage('');
     setThinking(true);
     resetTextarea();
-
-    replyTimerRef.current = window.setTimeout(() => {
-      setMessages((current) => [...current, { id: Date.now() + 1, role: 'assistant', ...assistantAnswer }]);
+    try {
+      let activeConversationId = conversationId;
+      let initialMessages = [];
+      if (!activeConversationId) {
+        const created = await aiTutorApi.createConversation({ topic });
+        activeConversationId = created.data.conversation.id;
+        setConversationId(activeConversationId);
+        initialMessages = created.data.messages.map((item) => ({ ...item, text: item.content }));
+      }
+      setMessages((current) => [...current, ...initialMessages, { id: `pending-${Date.now()}`, role: 'user', text: cleanMessage }]);
+      const response = await aiTutorApi.message(activeConversationId, { content: cleanMessage });
+      setMessages((current) => [
+        ...current.filter((item) => !String(item.id).startsWith('pending-')),
+        { ...response.data.user_message, text: response.data.user_message.content },
+        { ...response.data.assistant_message, text: response.data.assistant_message.content },
+      ]);
+    } catch (requestError) {
+      setToast(requestError.message);
+    } finally {
       setThinking(false);
-    }, 850);
+    }
   };
 
   const handleSubmit = (event) => {
@@ -90,11 +131,20 @@ export function AssistantPage() {
   };
 
   const newChat = () => {
-    window.clearTimeout(replyTimerRef.current);
     setMessages([]);
+    setConversationId(null);
     setThinking(false);
     setMessage('');
     resetTextarea();
+  };
+
+  const reportMessage = async (messageId) => {
+    try {
+      await aiTutorApi.report(messageId, { reason: 'Ответ не помог или содержит неточность' });
+      setToast('Жалоба сохранена и отправлена на проверку');
+    } catch (requestError) {
+      setToast(requestError.message);
+    }
   };
 
   return (
@@ -138,7 +188,7 @@ export function AssistantPage() {
                   <div className={item.role === 'user' ? 'max-w-[88%] rounded-3xl rounded-br-md bg-ink px-5 py-3 text-sm leading-7 text-white sm:max-w-[75%]' : 'min-w-0 max-w-[calc(100%-52px)] text-sm leading-7 text-stone-700 sm:text-base'}>
                     <p>{item.text}</p>
                     {item.hint && <div className="mt-4 rounded-2xl bg-lime/25 p-4"><p className="flex items-center gap-2 text-xs font-extrabold uppercase tracking-wider text-[#52670A]"><Lightbulb className="h-4 w-4" /> Твой ход</p><p className="mt-2 text-sm font-semibold leading-6 text-ink">{item.hint}</p></div>}
-                    {item.role === 'assistant' && <div className="mt-3 flex gap-1 text-stone-400"><button onClick={() => { navigator.clipboard?.writeText(`${item.text} ${item.hint || ''}`); setToast('Ответ скопирован'); }} className="grid h-9 w-9 place-items-center rounded-xl hover:bg-stone-100 hover:text-ink" aria-label="Скопировать ответ"><Copy className="h-4 w-4" /></button><button onClick={() => setToast('Спасибо за оценку ответа')} className="grid h-9 w-9 place-items-center rounded-xl hover:bg-stone-100 hover:text-ink" aria-label="Полезный ответ"><ThumbsUp className="h-4 w-4" /></button><button onClick={() => setToast('SANA учтёт, что объяснение не помогло')} className="grid h-9 w-9 place-items-center rounded-xl hover:bg-stone-100 hover:text-ink" aria-label="Ответ не помог"><ThumbsDown className="h-4 w-4" /></button></div>}
+                    {item.role === 'assistant' && <div className="mt-3 flex gap-1 text-stone-400"><button onClick={() => { navigator.clipboard?.writeText(`${item.text} ${item.hint || ''}`); setToast('Ответ скопирован'); }} className="grid h-9 w-9 place-items-center rounded-xl hover:bg-stone-100 hover:text-ink" aria-label="Скопировать ответ"><Copy className="h-4 w-4" /></button><button onClick={() => setToast('Спасибо за оценку ответа')} className="grid h-9 w-9 place-items-center rounded-xl hover:bg-stone-100 hover:text-ink" aria-label="Полезный ответ"><ThumbsUp className="h-4 w-4" /></button><button onClick={() => reportMessage(item.id)} className="grid h-9 w-9 place-items-center rounded-xl hover:bg-stone-100 hover:text-ink" aria-label="Ответ не помог"><ThumbsDown className="h-4 w-4" /></button></div>}
                   </div>
                 </article>
               ))}
@@ -153,7 +203,6 @@ export function AssistantPage() {
         <div className="mx-auto w-full max-w-3xl">
           {messages.length > 0 && !thinking && <div className="mb-2 flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none]">{followUpPrompts.map((prompt) => <button key={prompt} onClick={() => sendMessage(prompt)} className="min-h-10 shrink-0 rounded-full border border-stone-200 px-4 text-xs font-bold text-stone-600 transition hover:border-lavender-300 hover:bg-lavender-50">{prompt}</button>)}</div>}
           <form onSubmit={handleSubmit} className="flex items-end gap-1 rounded-3xl border border-stone-300 bg-white p-2 shadow-sm transition focus-within:border-lavender-500 focus-within:ring-4 focus-within:ring-lavender-100">
-            <button type="button" onClick={() => setToast('Загрузка фото задания будет доступна после подключения API')} className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl text-stone-500 hover:bg-stone-100" aria-label="Прикрепить задание"><Paperclip className="h-5 w-5" /></button>
             <label className="sr-only" htmlFor="assistant-message">Сообщение для SANA</label>
             <textarea ref={textareaRef} id="assistant-message" rows="1" value={message} onChange={handleInput} onKeyDown={handleKeyDown} placeholder="Сообщение для SANA" className="min-h-11 max-h-36 flex-1 resize-none overflow-y-auto border-0 bg-transparent px-2 py-2.5 text-base leading-6 outline-none placeholder:text-stone-400" />
             <button type="submit" disabled={!message.trim() || thinking} className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-lavender-600 text-white transition hover:bg-lavender-700 disabled:bg-stone-200 disabled:text-stone-400" aria-label="Отправить сообщение"><ArrowUp className="h-5 w-5" /></button>
@@ -163,7 +212,7 @@ export function AssistantPage() {
       </footer>
 
       <Dialog open={contextOpen} onClose={() => setContextOpen(false)} title="Контекст разговора" description="SANA будет опираться на выбранную тему." footer={<><Button variant="ghost" onClick={() => setContextOpen(false)}>Отмена</Button><Button onClick={() => { setContextOpen(false); setToast('Контекст разговора обновлён'); }}><Check className="h-5 w-5" /> Применить</Button></>}>
-        <div className="space-y-5"><div><label className="field-label" htmlFor="assistant-subject">Предмет</label><select id="assistant-subject" className="field-control"><option>Математика</option><option>Физика</option><option>Химия</option></select></div><div><label className="field-label" htmlFor="assistant-topic">Тема</label><select id="assistant-topic" value={topic} onChange={(event) => setTopic(event.target.value)} className="field-control"><option>Разность квадратов</option><option>Линейные уравнения</option><option>Графики функций</option></select></div><label className="flex min-h-12 cursor-pointer items-center gap-3 rounded-2xl bg-lavender-50 p-4 text-sm font-semibold"><input type="checkbox" defaultChecked className="h-5 w-5 accent-lavender-600" /> Учитывать мой учебный прогресс</label></div>
+        <div className="space-y-5"><div><label className="field-label" htmlFor="assistant-topic">Тема из учебного каталога</label><select id="assistant-topic" value={topic} onChange={(event) => setTopic(event.target.value)} className="field-control">{topics.map((item) => <option key={item.id} value={item.name}>{item.name}</option>)}</select></div><p className="rounded-2xl bg-lavender-50 p-4 text-sm font-semibold">Контекст прогресса и список тем загружены с сервера.</p></div>
       </Dialog>
       <StatusToast message={toast} onClose={() => setToast('')} />
     </div>

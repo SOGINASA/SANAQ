@@ -25,7 +25,7 @@ def ready():
         "checks": {
             "database": "ok",
             "cache": "not_required_for_mvp",
-            "ai": "deterministic_fallback_ready",
+            "ai": "server_tutor_ready",
         },
     })
 
@@ -49,7 +49,7 @@ def meta():
             "progress": True,
             "knowledge_map": True,
             "ai_tutor": True,
-            "ai_provider": "deterministic_fallback",
-            "teacher_dashboard": False,
+            "ai_provider": "server_tutor",
+            "teacher_dashboard": True,
         },
     })

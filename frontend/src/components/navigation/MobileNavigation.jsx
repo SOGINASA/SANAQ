@@ -1,12 +1,11 @@
 import { NavLink } from 'react-router-dom';
-import { BookOpen, LayoutDashboard, MessageCircleQuestion, Users, LibraryBig } from 'lucide-react';
+import { BookOpen, LayoutDashboard, MessageCircleQuestion, LibraryBig } from 'lucide-react';
 import { cn } from '../../shared/lib/cn';
 
 export function MobileNavigation({ role = 'student' }) {
   const items = role === 'teacher'
     ? [
         { label: 'Обзор', to: '/teacher/dashboard', icon: LayoutDashboard },
-        { label: 'Классы', to: '/teacher/classes/9a', icon: Users },
         { label: 'Контент', to: '/teacher/content', icon: LibraryBig },
       ]
     : [
