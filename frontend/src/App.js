@@ -1,18 +1,13 @@
 import './App.css';
-import { useEffect } from 'react';
-import LoginPage from './pages/auth/LoginPage';
-import StudentDashboardPage from './pages/student/StudentDashboardPage';
-import { useAuthStore } from './features/auth/authStore';
+import { AppProviders } from './app/AppProviders';
+import { AppRouter } from './app/router/AppRouter';
 
 function App() {
-  const { status, hydrate } = useAuthStore();
-
-  useEffect(() => { hydrate(); }, [hydrate]);
-
-  if (status === 'loading') {
-    return <div className="loading-screen"><div className="sana-orb">S</div><p>Соединяемся с SANAQ API…</p></div>;
-  }
-  return status === 'authenticated' ? <StudentDashboardPage /> : <LoginPage />;
+  return (
+    <AppProviders>
+      <AppRouter />
+    </AppProviders>
+  );
 }
 
 export default App;

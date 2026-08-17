@@ -8,7 +8,7 @@ export const useAuthStore = create((set) => ({
   error: null,
   hydrate: async () => {
     if (!tokenStorage.getAccessToken()) {
-      set({ status: 'anonymous', user: null });
+      set({ status: 'anonymous', user: null, error: null });
       return;
     }
     try {
@@ -23,7 +23,7 @@ export const useAuthStore = create((set) => ({
     set({ status: 'loading', error: null });
     try {
       const result = await authApi.login(payload);
-      set({ user: result.data.user, status: 'authenticated' });
+      set({ user: result.data.user, status: 'authenticated', error: null });
       return result;
     } catch (error) {
       set({ status: 'anonymous', error });
@@ -34,7 +34,7 @@ export const useAuthStore = create((set) => ({
     set({ status: 'loading', error: null });
     try {
       const result = await authApi.register(payload);
-      set({ user: result.data.user, status: 'authenticated' });
+      set({ user: result.data.user, status: 'authenticated', error: null });
       return result;
     } catch (error) {
       set({ status: 'anonymous', error });
@@ -45,7 +45,9 @@ export const useAuthStore = create((set) => ({
     try {
       await authApi.logout();
     } finally {
+      tokenStorage.clear();
       set({ user: null, status: 'anonymous', error: null });
     }
   },
+  clearError: () => set({ error: null }),
 }));

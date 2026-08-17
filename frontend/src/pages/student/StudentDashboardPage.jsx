@@ -1,18 +1,40 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { ArrowRight, CheckCircle2, LogOut, Sparkles } from 'lucide-react';
 import { DataSourceBadge } from '../../components/feedback/DataSourceBadge';
 import { aiTutorApi } from '../../features/ai-tutor/aiTutorApi';
 import { assessmentsApi } from '../../features/assessments/assessmentsApi';
+import { useAuthStore } from '../../features/auth/authStore';
 import { diagnosticsApi } from '../../features/diagnostics/diagnosticsApi';
 import { knowledgeMapApi } from '../../features/knowledge-map/knowledgeMapApi';
 import { learningPathApi } from '../../features/learning-path/learningPathApi';
 import { progressApi } from '../../features/progress/progressApi';
-import { useAuthStore } from '../../features/auth/authStore';
 import { catalogApi } from '../../shared/api/catalogApi';
+import { Button, Card, ProgressBar } from '../../shared/ui';
 
 const DEFAULT_SELECTION = { grade: 9, subject_id: 'mathematics', goal_id: 'exam' };
 
-export default function StudentDashboardPage() {
-  const { user, logout } = useAuthStore();
+function ChoiceList({ options = [], value, onChange }) {
+  return (
+    <div className="grid gap-3">
+      {options.map((option) => (
+        <button
+          key={option}
+          type="button"
+          className={`min-h-12 rounded-2xl border-2 px-4 text-left font-semibold transition ${value === option ? 'border-lavender-500 bg-lavender-100 text-lavender-700' : 'border-stone-200 bg-paper hover:border-lavender-300'}`}
+          onClick={() => onChange(option)}
+        >
+          {option}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+export function StudentDashboardPage() {
+  const user = useAuthStore((state) => state.user);
+  const logout = useAuthStore((state) => state.logout);
+  const navigate = useNavigate();
   const [sourceMeta, setSourceMeta] = useState(null);
   const [profile, setProfile] = useState(undefined);
   const [selection, setSelection] = useState(DEFAULT_SELECTION);
@@ -40,7 +62,7 @@ export default function StudentDashboardPage() {
       return await operation();
     } catch (requestError) {
       setError(requestError.message);
-      throw requestError;
+      return null;
     } finally {
       setBusy(false);
     }
@@ -159,11 +181,7 @@ export default function StudentDashboardPage() {
   });
 
   const requestExplanation = () => run(async () => {
-    const response = await aiTutorApi.explanation({
-      attempt_id: attempt.id,
-      task_id: task.id,
-      mode: explanationMode,
-    });
+    const response = await aiTutorApi.explanation({ attempt_id: attempt.id, task_id: task.id, mode: explanationMode });
     setExplanation(response.data);
   });
 
@@ -180,97 +198,108 @@ export default function StudentDashboardPage() {
     return 4;
   }, [profile, result, task]);
 
+  const mastery = Math.round((progress?.overall_mastery || 0) * 100);
+
   return (
-    <div className="app-shell">
-      <header className="topbar">
-        <div className="brand-lockup"><span className="mini-mark">S</span><strong>SANAQ</strong></div>
-        <DataSourceBadge meta={sourceMeta} />
-        <div className="user-menu"><span>{user?.name}</span><button className="text-button" onClick={logout}>Выйти</button></div>
-      </header>
-
-      <main className="dashboard">
-        <section className="hero-row">
-          <div>
-            <p className="eyebrow">Математика · 9 класс</p>
-            <h1>Твой следующий понятный шаг</h1>
-            <p>Рекомендации строятся только из ответов, сохранённых backend.</p>
-          </div>
-          <div className="stage-strip" aria-label="Этап обучения">
-            {['Профиль', 'Диагностика', 'Маршрут', 'Прогресс'].map((label, index) => (
-              <span key={label} className={stage >= index + 1 ? 'stage-active' : ''}>{index + 1}. {label}</span>
-            ))}
-          </div>
-        </section>
-
-        {error && <div className="error-banner" role="alert"><strong>Данные не заменены fallback:</strong> {error}</div>}
-
-        <div className="dashboard-grid">
-          <section className="main-column">
-            {!profile && (
-              <article className="panel onboarding-panel">
-                <p className="eyebrow">Шаг 1</p><h2>Настроим учебную цель</h2>
-                <div className="form-grid">
-                  <label>Класс<select value={selection.grade} onChange={(e) => setSelection({ ...selection, grade: e.target.value })}><option value="9">9 класс</option></select></label>
-                  <label>Предмет<select value={selection.subject_id} onChange={(e) => setSelection({ ...selection, subject_id: e.target.value })}><option value="mathematics">Математика</option></select></label>
-                  <label>Цель<select value={selection.goal_id} onChange={(e) => setSelection({ ...selection, goal_id: e.target.value })}><option value="exam">Подготовка к экзамену</option><option value="review">Повторение</option></select></label>
-                </div>
-                <button className="primary-button" onClick={saveProfile} disabled={busy}>Сохранить профиль</button>
-              </article>
-            )}
-
-            {profile && !diagnostic && (
-              <article className="panel start-panel">
-                <div className="sana-orb">S</div><p className="eyebrow">SANA готова</p>
-                <h2>Найдём точку максимального прогресса</h2>
-                <p>6 коротких вопросов. Правильные ответы не раскрываются до завершения диагностики.</p>
-                <button className="primary-button" onClick={startDiagnostic} disabled={busy}>Начать диагностику</button>
-              </article>
-            )}
-
-            {diagnostic && !result && question && (
-              <article className="panel question-panel">
-                <div className="panel-heading"><div><p className="eyebrow">Диагностика · {Math.round((diagnostic.progress || 0) * 100)}%</p><h2>{question.prompt}</h2></div><span className="difficulty">Уровень {question.difficulty}</span></div>
-                <div className="progress-track"><span style={{ width: `${(diagnostic.progress || 0) * 100}%` }} /></div>
-                {question.options?.length ? (
-                  <div className="option-list">{question.options.map((option) => <button key={option} className={diagnosticAnswer === option ? 'option selected' : 'option'} onClick={() => setDiagnosticAnswer(option)}>{option}</button>)}</div>
-                ) : <input className="answer-input" value={diagnosticAnswer} onChange={(e) => setDiagnosticAnswer(e.target.value)} placeholder="Введите ответ" />}
-                <button className="primary-button" disabled={!diagnosticAnswer || busy} onClick={submitDiagnostic}>Ответить</button>
-              </article>
-            )}
-
-            {result && (
-              <article className="panel result-panel">
-                <div><p className="eyebrow">Результат диагностики</p><h2>{Math.round(result.score * 100)}% · уровень {result.level}</h2><p>{result.explanation}</p></div>
-                <div className="result-stats"><span><strong>{result.strengths.length}</strong> сильных</span><span><strong>{result.gaps.length}</strong> пробелов</span></div>
-              </article>
-            )}
-
-            {result && task && (
-              <article className="panel task-panel">
-                <div className="panel-heading"><div><p className="eyebrow">Шаг маршрута · {nextStep?.skill_name}</p><h2>{task.prompt}</h2></div><span className="difficulty">Сложность {task.difficulty}</span></div>
-                <div className="why-box"><strong>Почему этот шаг:</strong> {nextStep?.reason}</div>
-                {!attempt ? <button className="primary-button" onClick={startAttempt} disabled={busy}>Начать задание</button> : (
-                  <>
-                    {task.options?.length ? <div className="option-list">{task.options.map((option) => <button key={option} className={taskAnswer === option ? 'option selected' : 'option'} onClick={() => setTaskAnswer(option)}>{option}</button>)}</div> : <input className="answer-input" value={taskAnswer} onChange={(e) => setTaskAnswer(e.target.value)} placeholder="Введите ответ" />}
-                    {!answerFeedback && <button className="primary-button" onClick={submitTask} disabled={!taskAnswer || busy}>Проверить</button>}
-                    {answerFeedback && <div className={answerFeedback.is_correct ? 'feedback success' : 'feedback warning'}><strong>{answerFeedback.is_correct ? 'Верно' : 'Нужен ещё шаг'}</strong><p>{answerFeedback.feedback}</p>{answerFeedback.hint && <p>Подсказка: {answerFeedback.hint}</p>}</div>}
-                    {answerFeedback && <div className="explanation-controls"><select value={explanationMode} onChange={(e) => setExplanationMode(e.target.value)}><option value="short">Коротко</option><option value="steps">Пошагово</option><option value="real_life">Жизненный пример</option></select><button className="secondary-button" onClick={requestExplanation}>Объяснить</button></div>}
-                    {explanation && <div className="fallback-panel"><DataSourceBadge ai meta={explanation} /><p className="fallback-warning">{explanation.warning}</p>{typeof explanation.content === 'string' ? <p>{explanation.content}</p> : <><strong>{explanation.content.title}</strong>{explanation.content.steps?.map((item) => <p key={item}>{item}</p>)}{explanation.content.example && <p>{explanation.content.example}</p>}{explanation.content.explanation && <p>{explanation.content.explanation}</p>}</>}</div>}
-                    {answerFeedback && <button className="primary-button" onClick={completeAttempt} disabled={busy}>Завершить и обновить прогресс</button>}
-                  </>
-                )}
-              </article>
-            )}
-
-            {result && path && !task && <article className="panel completion-panel"><div className="sana-orb complete">✓</div><h2>Маршрут на сегодня завершён</h2><p>Все доступные шаги выполнены. Следующее повторение появится по расписанию.</p></article>}
-          </section>
-
-          <aside className="side-column">
-            <article className="panel compact-panel"><p className="eyebrow">Живой прогресс</p><div className="mastery-ring" style={{ '--mastery': Math.round((progress?.overall_mastery || 0) * 100) }}><strong>{Math.round((progress?.overall_mastery || 0) * 100)}%</strong><span>mastery</span></div><div className="metric-row"><span>Освоено</span><strong>{progress?.mastered_skills || 0}/{progress?.total_skills || 6}</strong></div><div className="metric-row"><span>Пробелы</span><strong>{progress?.weak_skills ?? 6}</strong></div></article>
-            <article className="panel compact-panel"><p className="eyebrow">Созвездие знаний</p><div className="knowledge-list">{knowledgeMap?.nodes?.map((node) => <div className="knowledge-node" key={node.id}><div><strong>{node.name}</strong><span>{node.status}</span></div><div className="node-track"><span style={{ width: `${node.mastery * 100}%` }} /></div></div>) || <p className="muted">Карта появится после подключения.</p>}</div></article>
-          </aside>
+    <div className="mx-auto max-w-7xl animate-rise">
+      <div className="flex flex-col justify-between gap-5 lg:flex-row lg:items-end">
+        <div>
+          <p className="eyebrow">Математика · 9 класс</p>
+          <h1 className="page-title mt-3">{user?.name ? `${user.name}, твой следующий шаг` : 'Твой следующий понятный шаг'}</h1>
+          <p className="mt-3 max-w-2xl text-stone-600">Диагностика, маршрут и прогресс загружаются из backend и меняются после каждого сохранённого ответа.</p>
         </div>
-      </main>
+        <div className="flex flex-wrap items-center gap-3">
+          <DataSourceBadge meta={sourceMeta} />
+          <Button variant="ghost" size="sm" onClick={async () => { try { await logout(); } finally { navigate('/login'); } }}><LogOut className="h-4 w-4" /> Выйти</Button>
+        </div>
+      </div>
+
+      <div className="mt-6 flex flex-wrap gap-2" aria-label="Этап обучения">
+        {['Профиль', 'Диагностика', 'Маршрут', 'Прогресс'].map((label, index) => (
+          <span key={label} className={`rounded-full px-3 py-2 text-xs font-extrabold ${stage >= index + 1 ? 'bg-lavender-100 text-lavender-700' : 'bg-stone-200 text-stone-500'}`}>{index + 1}. {label}</span>
+        ))}
+      </div>
+
+      {error && (
+        <div className="mt-6 rounded-2xl border border-red-200 bg-red-50 p-4 text-red-900" role="alert">
+          <strong>Backend не вернул данные.</strong> {error}
+          <span className="mt-1 block text-sm">Fallback/mock-данные не подставлялись.</span>
+        </div>
+      )}
+
+      <div className="mt-7 grid gap-6 xl:grid-cols-[1.45fr_0.55fr]">
+        <div className="grid content-start gap-6">
+          {!profile && (
+            <Card className="p-6 sm:p-8">
+              <p className="eyebrow">Шаг 1</p><h2 className="mt-2 text-2xl font-extrabold">Настроим учебную цель</h2>
+              <div className="mt-6 grid gap-4 sm:grid-cols-3">
+                <label className="field-label">Класс<select className="field-control mt-2" value={selection.grade} onChange={(event) => setSelection({ ...selection, grade: event.target.value })}><option value="9">9 класс</option></select></label>
+                <label className="field-label">Предмет<select className="field-control mt-2" value={selection.subject_id} onChange={(event) => setSelection({ ...selection, subject_id: event.target.value })}><option value="mathematics">Математика</option></select></label>
+                <label className="field-label">Цель<select className="field-control mt-2" value={selection.goal_id} onChange={(event) => setSelection({ ...selection, goal_id: event.target.value })}><option value="exam">Подготовка к экзамену</option><option value="review">Повторение</option></select></label>
+              </div>
+              <Button className="mt-6" onClick={saveProfile} loading={busy}>Сохранить профиль <ArrowRight className="h-4 w-4" /></Button>
+            </Card>
+          )}
+
+          {profile && !diagnostic && (
+            <Card className="p-7 sm:p-10">
+              <span className="grid h-14 w-14 place-items-center rounded-2xl bg-lavender-100 text-lavender-700"><Sparkles className="h-6 w-6" /></span>
+              <p className="eyebrow mt-6">SANA готова</p><h2 className="mt-2 text-3xl font-extrabold">Найдём точку максимального прогресса</h2>
+              <p className="mt-3 text-stone-600">Короткая диагностика. Правильные ответы не раскрываются до завершения.</p>
+              <Button className="mt-6" onClick={startDiagnostic} loading={busy}>Начать диагностику</Button>
+            </Card>
+          )}
+
+          {diagnostic && !result && question && (
+            <Card className="p-6 sm:p-8">
+              <div className="flex flex-wrap items-start justify-between gap-4"><div><p className="eyebrow">Диагностика</p><h2 className="mt-2 text-2xl font-extrabold">{question.prompt}</h2></div><span className="rounded-full bg-stone-100 px-3 py-2 text-xs font-bold">Уровень {question.difficulty}</span></div>
+              <ProgressBar className="my-6" value={Math.round((diagnostic.progress || 0) * 100)} label="Пройдено" />
+              {question.options?.length ? <ChoiceList options={question.options} value={diagnosticAnswer} onChange={setDiagnosticAnswer} /> : <input className="field-control" value={diagnosticAnswer} onChange={(event) => setDiagnosticAnswer(event.target.value)} placeholder="Введите ответ" />}
+              <Button className="mt-6" disabled={!diagnosticAnswer} loading={busy} onClick={submitDiagnostic}>Ответить</Button>
+            </Card>
+          )}
+
+          {result && (
+            <Card className="border-mint-300 bg-mint-50 p-6 sm:p-8">
+              <p className="eyebrow text-mint-700">Результат диагностики</p>
+              <div className="mt-3 flex flex-wrap items-end justify-between gap-4"><div><h2 className="text-3xl font-extrabold">{Math.round(result.score * 100)}% · уровень {result.level}</h2><p className="mt-2 max-w-2xl text-stone-600">{result.explanation}</p></div><div className="flex gap-2"><span className="rounded-2xl bg-paper px-4 py-3 text-sm"><strong className="block text-xl">{result.strengths?.length || 0}</strong>сильных</span><span className="rounded-2xl bg-paper px-4 py-3 text-sm"><strong className="block text-xl">{result.gaps?.length || 0}</strong>пробелов</span></div></div>
+            </Card>
+          )}
+
+          {task && (
+            <Card className="p-6 sm:p-8">
+              <p className="eyebrow">Шаг маршрута · {nextStep?.skill_name}</p><h2 className="mt-2 text-2xl font-extrabold">{task.prompt}</h2>
+              <div className="mt-5 rounded-2xl border-l-4 border-lavender-500 bg-lavender-50 p-4 text-sm text-stone-700"><strong>Почему этот шаг:</strong> {nextStep?.reason}</div>
+              {!attempt ? <Button className="mt-6" onClick={startAttempt} loading={busy}>Начать задание</Button> : (
+                <div className="mt-6">
+                  {task.options?.length ? <ChoiceList options={task.options} value={taskAnswer} onChange={setTaskAnswer} /> : <input className="field-control" value={taskAnswer} onChange={(event) => setTaskAnswer(event.target.value)} placeholder="Введите ответ" />}
+                  {!answerFeedback && <Button className="mt-5" onClick={submitTask} disabled={!taskAnswer} loading={busy}>Проверить</Button>}
+                  {answerFeedback && <div className={`mt-5 rounded-2xl p-4 ${answerFeedback.is_correct ? 'bg-mint-100 text-mint-700' : 'bg-amber-100 text-amber-900'}`}><strong>{answerFeedback.is_correct ? 'Верно' : 'Нужен ещё шаг'}</strong><p className="mt-1">{answerFeedback.feedback}</p>{answerFeedback.hint && <p className="mt-1">Подсказка: {answerFeedback.hint}</p>}</div>}
+                  {answerFeedback && <div className="mt-5 flex flex-wrap gap-3"><select className="field-control max-w-xs" value={explanationMode} onChange={(event) => setExplanationMode(event.target.value)}><option value="short">Коротко</option><option value="steps">Пошагово</option><option value="real_life">Жизненный пример</option></select><Button variant="outline" onClick={requestExplanation} loading={busy}>Объяснить</Button></div>}
+                  {explanation && <div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 p-5"><DataSourceBadge ai meta={explanation} />{explanation.warning && <p className="mt-3 text-sm font-semibold text-amber-900">{explanation.warning}</p>}<div className="mt-3 text-stone-700">{typeof explanation.content === 'string' ? <p>{explanation.content}</p> : <><strong>{explanation.content?.title}</strong>{explanation.content?.steps?.map((item) => <p className="mt-2" key={item}>{item}</p>)}{explanation.content?.example && <p className="mt-2">{explanation.content.example}</p>}{explanation.content?.explanation && <p className="mt-2">{explanation.content.explanation}</p>}</>}</div></div>}
+                  {answerFeedback && <Button className="mt-5" onClick={completeAttempt} loading={busy}>Завершить и обновить прогресс</Button>}
+                </div>
+              )}
+            </Card>
+          )}
+
+          {result && path && !task && <Card className="p-8 text-center"><CheckCircle2 className="mx-auto h-12 w-12 text-mint-700" /><h2 className="mt-4 text-2xl font-extrabold">Маршрут на сегодня завершён</h2><p className="mt-2 text-stone-600">Все доступные шаги выполнены. Следующее повторение появится по расписанию.</p></Card>}
+        </div>
+
+        <aside className="grid content-start gap-6">
+          <Card className="p-6">
+            <p className="eyebrow">Живой прогресс</p><p className="mt-4 text-5xl font-extrabold tabular-nums">{mastery}%</p>
+            <ProgressBar className="mt-4" value={mastery} />
+            <dl className="mt-5 grid gap-3 text-sm"><div className="flex justify-between"><dt className="text-stone-500">Освоено</dt><dd className="font-extrabold">{progress?.mastered_skills || 0}/{progress?.total_skills || 0}</dd></div><div className="flex justify-between"><dt className="text-stone-500">Пробелы</dt><dd className="font-extrabold">{progress?.weak_skills || 0}</dd></div></dl>
+          </Card>
+          <Card className="p-6">
+            <p className="eyebrow">Карта знаний</p>
+            <div className="mt-5 grid gap-4">
+              {knowledgeMap?.nodes?.map((node) => <div key={node.id}><div className="flex justify-between gap-3 text-sm"><strong>{node.name}</strong><span className="text-stone-500">{Math.round(node.mastery * 100)}%</span></div><ProgressBar className="mt-2" value={Math.round(node.mastery * 100)} tone={node.mastery >= 0.8 ? 'mint' : 'violet'} /></div>) || <p className="text-sm text-stone-500">Карта появится после ответа backend.</p>}
+            </div>
+          </Card>
+        </aside>
+      </div>
     </div>
   );
 }

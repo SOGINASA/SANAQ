@@ -1,71 +1,50 @@
 import { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { LoginForm } from '../../features/auth/LoginForm';
 import { useAuthStore } from '../../features/auth/authStore';
+import { Brand } from '../../components/layout/Header';
+import mascot from '../../assets/images/sana-mascot.png';
 
-export default function LoginPage() {
-  const [mode, setMode] = useState('register');
-  const [form, setForm] = useState({ name: '', email: '', password: '' });
-  const [localError, setLocalError] = useState('');
-  const { login, register, status } = useAuthStore();
+export function LoginPage() {
+  const login = useAuthStore((state) => state.login);
+  const [error, setError] = useState('');
+  const navigate = useNavigate();
 
-  const update = (event) => setForm((current) => ({ ...current, [event.target.name]: event.target.value }));
-
-  const submit = async (event) => {
-    event.preventDefault();
-    setLocalError('');
+  const submit = async (form) => {
+    setError('');
     try {
-      if (mode === 'register') {
-        await register({ ...form, role: 'student', locale: 'ru' });
-      } else {
-        await login({ email: form.email, password: form.password });
-      }
-    } catch (error) {
-      setLocalError(error.message);
+      const result = await login(form);
+      navigate(result.data.user.role === 'teacher' ? '/teacher/dashboard' : '/student/dashboard');
+    } catch (requestError) {
+      setError(requestError.message);
+      throw requestError;
     }
   };
 
   return (
-    <main className="auth-page">
-      <section className="auth-story">
-        <div className="brand-mark" aria-hidden="true">S</div>
-        <p className="eyebrow">SANAQ · персональный маршрут</p>
-        <h1>Понимай, что учить следующим.</h1>
-        <p className="auth-lead">
-          Диагностика находит конкретный пробел, маршрут объясняет выбор следующего шага,
-          а прогресс обновляется после каждого реального ответа.
-        </p>
-        <div className="auth-proof">
-          <span className="status-dot" />
-          Подключено к Flask API. Mock-данные автоматически не подставляются.
-        </div>
-      </section>
-
-      <section className="auth-card" aria-labelledby="auth-title">
-        <p className="eyebrow">Учебный кабинет</p>
-        <h2 id="auth-title">{mode === 'register' ? 'Создать профиль' : 'Продолжить обучение'}</h2>
-        <form onSubmit={submit}>
-          {mode === 'register' && (
-            <label>
-              Имя
-              <input name="name" value={form.name} onChange={update} required maxLength={100} />
-            </label>
+    <main className="grid min-h-screen bg-canvas lg:grid-cols-2">
+      <div className="flex flex-col p-5 sm:p-8 lg:p-12">
+        <Brand />
+        <div className="mx-auto my-auto w-full max-w-md py-12">
+          <p className="eyebrow">С возвращением</p>
+          <h1 className="mt-4 font-display text-4xl font-semibold tracking-[-0.05em]">Продолжим с нужного места</h1>
+          <p className="mt-3 text-stone-600">Вход выполняется через SANAQ Backend API. Демо-аккаунт автоматически не подставляется.</p>
+          {error && (
+            <div className="mt-5 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-800" role="alert">
+              <p>{error}</p>
+              <p className="mt-1 font-normal">Fallback/mock-авторизация не использовалась.</p>
+            </div>
           )}
-          <label>
-            Email
-            <input name="email" type="email" value={form.email} onChange={update} required />
-          </label>
-          <label>
-            Пароль
-            <input name="password" type="password" value={form.password} onChange={update} minLength={8} required />
-          </label>
-          {localError && <div className="error-banner" role="alert">{localError}</div>}
-          <button className="primary-button" disabled={status === 'loading'}>
-            {status === 'loading' ? 'Подключаемся…' : mode === 'register' ? 'Начать' : 'Войти'}
-          </button>
-        </form>
-        <button className="text-button" type="button" onClick={() => setMode(mode === 'register' ? 'login' : 'register')}>
-          {mode === 'register' ? 'Уже есть аккаунт? Войти' : 'Нет аккаунта? Зарегистрироваться'}
-        </button>
-      </section>
+          <div className="mt-8"><LoginForm onSubmit={submit} /></div>
+          <p className="mt-7 text-center text-sm text-stone-600">Нет аккаунта? <Link className="font-bold text-lavender-700" to="/register">Зарегистрироваться</Link></p>
+        </div>
+      </div>
+      <div className="hero-grid hidden place-items-center overflow-hidden bg-lavender-100 p-12 lg:grid">
+        <div className="max-w-lg text-center">
+          <img src={mascot} alt="SANA встречает ученика" className="mascot-image mx-auto aspect-square w-[390px] rounded-full object-cover" />
+          <p className="mt-2 font-display text-2xl font-semibold">«Я сохраню твой маршрут и продолжу с нужного шага»</p>
+        </div>
+      </div>
     </main>
   );
 }
