@@ -154,6 +154,7 @@
 
 | Метод | Маршрут | Доступ | Назначение |
 |---|---|---|---|
+| GET | `/ai/conversations` | student | Список диалогов ученика |
 | POST | `/ai/conversations` | student | Создать диалог в контексте темы/задания |
 | GET | `/ai/conversations/:conversationId` | owner | История диалога |
 | POST | `/ai/conversations/:conversationId/messages` | owner | Задать вопрос; обычный JSON-ответ |

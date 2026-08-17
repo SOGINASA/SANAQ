@@ -17,6 +17,11 @@ services:
       AUTO_CREATE_DB: "true"
       SEED_DEMO_DATA: "true"
       JWT_COOKIE_SECURE: "false"
+      AI_PROVIDER: ollama
+      AI_BASE_URL: ${AI_BASE_URL:-http://host.docker.internal:11434}
+      AI_MODEL: ${AI_MODEL:-qwen3:8b}
+      AI_TIMEOUT_SECONDS: ${AI_TIMEOUT_SECONDS:-60}
+      AI_THINKING: ${AI_THINKING:-false}
     volumes:
       - ./database:/app/database
     restart: unless-stopped

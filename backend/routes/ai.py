@@ -1,13 +1,220 @@
-from flask import Blueprint, request
+import json
+import time
+
+from flask import Blueprint, Response, current_app, request, stream_with_context
 from flask_jwt_extended import get_jwt_identity
 
-from models import Attempt, Task, TaskAnswer, db
+from models import AIConversation, AIMessage, Attempt, Task, TaskAnswer, db, utc_now
+from services.ai import OllamaError, SANAOrchestrator
+from services.ai.fallback import fallback_answer
+from services.ai.guardrails import urgent_safety_response, validate_user_message
 from utils.decorators import roles_required
 from utils.localization import localized
 from utils.responses import api_error, success
 
 
 ai_bp = Blueprint("ai", __name__)
+
+
+def _owned_conversation(conversation_id):
+    conversation = db.session.get(AIConversation, conversation_id)
+    if not conversation or conversation.student_id != get_jwt_identity():
+        return None
+    return conversation
+
+
+def _save_assistant_message(conversation, content, started_at, generated_by_ai, model_version):
+    message = AIMessage(
+        conversation_id=conversation.id,
+        role="assistant",
+        content=content,
+        generated_by_ai=generated_by_ai,
+        model_version=model_version,
+        prompt_version=current_app.config["AI_PROMPT_VERSION"],
+        latency_ms=round((time.monotonic() - started_at) * 1000),
+    )
+    conversation.updated_at = utc_now()
+    db.session.add(message)
+    db.session.commit()
+    return message
+
+
+def _sse(event, payload):
+    return f"event: {event}\ndata: {json.dumps(payload, ensure_ascii=False)}\n\n"
+
+
+@ai_bp.get("/ai/conversations")
+@roles_required("student")
+def conversations():
+    items = db.session.scalars(
+        db.select(AIConversation)
+        .where(
+            AIConversation.student_id == get_jwt_identity(),
+            AIConversation.status == "active",
+        )
+        .order_by(AIConversation.updated_at.desc())
+        .limit(50)
+    ).all()
+    return success({"items": [item.to_dict() for item in items], "total": len(items)})
+
+
+@ai_bp.post("/ai/conversations")
+@roles_required("student")
+def create_conversation():
+    data = request.get_json(silent=True) or {}
+    try:
+        grade = int(data.get("grade", 9))
+    except (TypeError, ValueError):
+        return api_error("VALIDATION_ERROR", "Класс должен быть числом от 7 до 12", 422)
+    if grade not in range(7, 13):
+        return api_error("VALIDATION_ERROR", "Допустимы классы с 7 по 12", 422)
+
+    locale = str(data.get("locale") or request.accept_languages.best_match(["ru", "kk"]) or "ru")
+    if locale not in {"ru", "kk"}:
+        locale = "ru"
+    conversation = AIConversation(
+        student_id=get_jwt_identity(),
+        title=str(data.get("title") or "Новый диалог").strip()[:120] or "Новый диалог",
+        subject=str(data.get("subject") or "Математика").strip()[:80],
+        topic=str(data.get("topic") or "Общий вопрос").strip()[:160],
+        grade=grade,
+        locale=locale,
+    )
+    db.session.add(conversation)
+    db.session.commit()
+    return success(conversation.to_dict(include_messages=True), status=201)
+
+
+@ai_bp.get("/ai/conversations/<conversationId>")
+@roles_required("student")
+def conversation_details(conversationId):
+    conversation = _owned_conversation(conversationId)
+    if not conversation:
+        return api_error("CONVERSATION_NOT_FOUND", "Диалог не найден", 404)
+    return success(conversation.to_dict(include_messages=True))
+
+
+def _stream_model_answer(
+    conversation_id, locale, orchestrator, model_messages, safety_answer=None
+):
+    started_at = time.monotonic()
+    chunks = []
+    generated_by_ai = safety_answer is None
+    model_version = current_app.config["AI_MODEL"] if generated_by_ai else "safety-policy-v1"
+
+    try:
+        source = (
+            [safety_answer]
+            if safety_answer
+            else orchestrator.stream_messages(model_messages)
+        )
+        for chunk in source:
+            chunks.append(chunk)
+            yield _sse("token", {"text": chunk})
+        content = "".join(chunks).strip()
+        if not content:
+            raise OllamaError("Ollama returned an empty response")
+    except Exception as error:
+        current_app.logger.exception("AI stream fallback used", exc_info=error)
+        content = fallback_answer(locale)
+        generated_by_ai = False
+        model_version = "deterministic-fallback-v1"
+        yield _sse("token", {"text": content})
+
+    conversation = db.session.get(AIConversation, conversation_id)
+    if not conversation:
+        yield _sse("error", {"message": "Диалог был удалён во время ответа"})
+        return
+    message = _save_assistant_message(conversation, content, started_at, generated_by_ai, model_version)
+    yield _sse(
+        "done",
+        {
+            "message": message.to_dict(),
+            "warning": "SANA может ошибаться — проверяй важные факты и решения.",
+        },
+    )
+
+
+@ai_bp.post("/ai/conversations/<conversationId>/messages")
+@roles_required("student")
+def send_conversation_message(conversationId):
+    conversation = _owned_conversation(conversationId)
+    if not conversation:
+        return api_error("CONVERSATION_NOT_FOUND", "Диалог не найден", 404)
+    data = request.get_json(silent=True) or {}
+    try:
+        content = validate_user_message(data.get("content"))
+    except ValueError as error:
+        return api_error("VALIDATION_ERROR", str(error), 422)
+
+    user_message = AIMessage(
+        conversation_id=conversation.id,
+        role="user",
+        content=content,
+        generated_by_ai=False,
+    )
+    if conversation.title == "Новый диалог":
+        conversation.title = content[:57] + ("…" if len(content) > 57 else "")
+    conversation.updated_at = utc_now()
+    db.session.add(user_message)
+    db.session.commit()
+
+    safety_answer = urgent_safety_response(content, conversation.locale)
+    wants_stream = data.get("stream") is True or "text/event-stream" in request.headers.get("Accept", "")
+    if wants_stream:
+        orchestrator = SANAOrchestrator()
+        model_messages = None if safety_answer else orchestrator.build_messages(conversation)
+        response = Response(
+            stream_with_context(_stream_model_answer(
+                conversation.id,
+                conversation.locale,
+                orchestrator,
+                model_messages,
+                safety_answer,
+            )),
+            mimetype="text/event-stream",
+        )
+        response.headers["Cache-Control"] = "no-cache, no-transform"
+        response.headers["X-Accel-Buffering"] = "no"
+        return response
+
+    started_at = time.monotonic()
+    generated_by_ai = safety_answer is None
+    model_version = current_app.config["AI_MODEL"] if generated_by_ai else "safety-policy-v1"
+    try:
+        content_chunks = [safety_answer] if safety_answer else SANAOrchestrator().stream(conversation)
+        answer = "".join(content_chunks).strip()
+        if not answer:
+            raise OllamaError("Ollama returned an empty response")
+    except OllamaError as error:
+        current_app.logger.warning("AI fallback used: %s", error)
+        answer = fallback_answer(conversation.locale)
+        generated_by_ai = False
+        model_version = "deterministic-fallback-v1"
+    assistant_message = _save_assistant_message(
+        conversation, answer, started_at, generated_by_ai, model_version
+    )
+    return success({
+        "message": assistant_message.to_dict(),
+        "warning": "SANA может ошибаться — проверяй важные факты и решения.",
+    })
+
+
+@ai_bp.get("/ai/conversations/<conversationId>/stream")
+@roles_required("student")
+def conversation_stream(conversationId):
+    conversation = _owned_conversation(conversationId)
+    if not conversation:
+        return api_error("CONVERSATION_NOT_FOUND", "Диалог не найден", 404)
+    latest = next((item for item in reversed(conversation.messages) if item.role == "assistant"), None)
+    if not latest:
+        return api_error("MESSAGE_NOT_FOUND", "В диалоге ещё нет ответа SANA", 404)
+
+    def replay():
+        yield _sse("token", {"text": latest.content})
+        yield _sse("done", {"message": latest.to_dict()})
+
+    return Response(stream_with_context(replay()), mimetype="text/event-stream")
 
 
 def _task_from_payload(data):
@@ -76,4 +283,3 @@ def hint():
         "generated_by_ai": False,
         "model_version": "deterministic-fallback-v1",
     })
-

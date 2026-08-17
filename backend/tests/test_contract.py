@@ -34,7 +34,7 @@ def test_flask_routes_match_api_contract(app):
 
 
 def test_unimplemented_contract_route_is_explicit(client, student_headers):
-    response = client.post("/api/v1/ai/conversations", headers=student_headers)
+    response = client.get("/api/v1/reviews/due", headers=student_headers)
     assert response.status_code == 501
     assert response.get_json()["error"]["code"] == "FEATURE_NOT_IMPLEMENTED"
 

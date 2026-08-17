@@ -33,7 +33,14 @@ def create_app(config_object=None):
         app,
         origins=app.config["CORS_ORIGINS"],
         supports_credentials=True,
-        allow_headers=["Authorization", "Content-Type", "X-CSRF-TOKEN", "X-Request-ID"],
+        allow_headers=[
+            "Accept",
+            "Accept-Language",
+            "Authorization",
+            "Content-Type",
+            "X-CSRF-TOKEN",
+            "X-Request-ID",
+        ],
         expose_headers=["X-Request-ID", "X-Data-Mode"],
     )
 

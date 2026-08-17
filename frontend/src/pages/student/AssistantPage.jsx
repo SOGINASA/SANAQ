@@ -7,6 +7,7 @@ import {
   Check,
   ChevronDown,
   Copy,
+  History,
   Lightbulb,
   MessageCircleQuestion,
   Paperclip,
@@ -15,8 +16,12 @@ import {
   Sparkles,
   ThumbsDown,
   ThumbsUp,
+  X,
 } from 'lucide-react';
 import { Button, Dialog, StatusToast } from '../../shared/ui';
+import { assistantApi } from '../../shared/api/assistantApi';
+import { tokenStorage } from '../../shared/storage/tokenStorage';
+import { useAuthStore } from '../../features/auth/authStore';
 import mascot from '../../assets/images/sana-mascot.png';
 
 const starterPrompts = [
@@ -28,24 +33,41 @@ const starterPrompts = [
 
 const followUpPrompts = ['Объясни ещё проще', 'Покажи другой пример', 'Дай похожее задание'];
 
-const assistantAnswer = {
-  text: 'Давай разберём без спешки. Разность квадратов можно узнать по двум признакам: между выражениями стоит минус, и каждое выражение является квадратом.',
-  hint: 'Например, в выражении x² − 25 квадратами являются x² и 5². Попробуй назвать a и b в формуле a² − b².',
-};
-
 export function AssistantPage() {
   const navigate = useNavigate();
+  const authStatus = useAuthStore((state) => state.status);
   const [messages, setMessages] = useState([]);
   const [message, setMessage] = useState('');
   const [thinking, setThinking] = useState(false);
   const [contextOpen, setContextOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [conversations, setConversations] = useState([]);
+  const [conversationId, setConversationId] = useState(null);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [subject, setSubject] = useState('Математика');
   const [topic, setTopic] = useState('Разность квадратов');
   const [toast, setToast] = useState('');
   const bottomRef = useRef(null);
   const textareaRef = useRef(null);
-  const replyTimerRef = useRef(null);
+  const requestControllerRef = useRef(null);
 
-  useEffect(() => () => window.clearTimeout(replyTimerRef.current), []);
+  const refreshHistory = async () => {
+    if (!tokenStorage.getAccessToken()) return;
+    setHistoryLoading(true);
+    try {
+      const result = await assistantApi.conversations();
+      setConversations(result.data.items || []);
+    } catch (error) {
+      setToast(error.message);
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    refreshHistory();
+    return () => requestControllerRef.current?.abort();
+  }, []);
 
   useEffect(() => {
     if (!messages.length && !thinking) return;
@@ -56,19 +78,62 @@ export function AssistantPage() {
     if (textareaRef.current) textareaRef.current.style.height = '44px';
   };
 
-  const sendMessage = (text = message) => {
+  const sendMessage = async (text = message) => {
     const cleanMessage = text.trim();
     if (!cleanMessage || thinking) return;
 
-    setMessages((current) => [...current, { id: Date.now(), role: 'user', text: cleanMessage }]);
+    if (authStatus !== 'authenticated' || !tokenStorage.getAccessToken()) {
+      setToast('Сначала войди в аккаунт ученика — после входа SANA сразу начнёт отвечать.');
+      return;
+    }
+
+    const userMessage = { id: `local-user-${Date.now()}`, role: 'user', content: cleanMessage };
+    const assistantId = `stream-${Date.now()}`;
+    setMessages((current) => [...current, userMessage]);
     setMessage('');
     setThinking(true);
     resetTextarea();
 
-    replyTimerRef.current = window.setTimeout(() => {
-      setMessages((current) => [...current, { id: Date.now() + 1, role: 'assistant', ...assistantAnswer }]);
+    try {
+      let activeConversationId = conversationId;
+      if (!activeConversationId) {
+        const created = await assistantApi.createConversation({ subject, topic, grade: 9 });
+        activeConversationId = created.data.id;
+        setConversationId(activeConversationId);
+      }
+      requestControllerRef.current = new AbortController();
+      await assistantApi.streamMessage(activeConversationId, cleanMessage, {
+        signal: requestControllerRef.current.signal,
+        onToken: (chunk) => {
+          setMessages((current) => {
+            const hasAssistantMessage = current.some((item) => item.id === assistantId);
+            if (!hasAssistantMessage) {
+              return [...current, { id: assistantId, role: 'assistant', content: chunk }];
+            }
+            return current.map((item) => (
+              item.id === assistantId ? { ...item, content: `${item.content}${chunk}` } : item
+            ));
+          });
+        },
+        onDone: ({ message: savedMessage }) => {
+          setMessages((current) => {
+            if (!current.some((item) => item.id === assistantId)) return [...current, savedMessage];
+            return current.map((item) => (
+              item.id === assistantId ? { ...savedMessage, content: item.content || savedMessage.content } : item
+            ));
+          });
+        },
+      });
+      await refreshHistory();
+    } catch (error) {
+      if (error.name !== 'AbortError') {
+        setMessages((current) => current.filter((item) => item.id !== assistantId));
+        setToast(error.message || 'Не удалось получить ответ SANA');
+      }
+    } finally {
+      requestControllerRef.current = null;
       setThinking(false);
-    }, 850);
+    }
   };
 
   const handleSubmit = (event) => {
@@ -90,11 +155,30 @@ export function AssistantPage() {
   };
 
   const newChat = () => {
-    window.clearTimeout(replyTimerRef.current);
+    requestControllerRef.current?.abort();
     setMessages([]);
+    setConversationId(null);
     setThinking(false);
     setMessage('');
+    setHistoryOpen(false);
     resetTextarea();
+  };
+
+  const openConversation = async (id) => {
+    if (thinking) return;
+    setHistoryLoading(true);
+    try {
+      const result = await assistantApi.conversation(id);
+      setConversationId(id);
+      setMessages(result.data.messages || []);
+      setSubject(result.data.subject || 'Математика');
+      setTopic(result.data.topic || 'Общий вопрос');
+      setHistoryOpen(false);
+    } catch (error) {
+      setToast(error.message);
+    } finally {
+      setHistoryLoading(false);
+    }
   };
 
   return (
@@ -106,6 +190,7 @@ export function AssistantPage() {
           <h1 className="font-display text-sm font-semibold sm:text-base">SANA</h1>
           <p className="truncate text-xs text-stone-500">Учебный ассистент · {topic}</p>
         </div>
+        <button onClick={() => setHistoryOpen(true)} className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl text-stone-600 transition hover:bg-stone-100" aria-label="История чатов"><History className="h-5 w-5" /></button>
         <button onClick={() => setContextOpen(true)} className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl text-stone-600 transition hover:bg-stone-100 sm:hidden" aria-label="Выбрать тему разговора"><BookOpen className="h-5 w-5" /></button>
         <button onClick={() => setContextOpen(true)} className="hidden min-h-11 items-center gap-2 rounded-2xl px-3 text-sm font-bold text-stone-600 transition hover:bg-stone-100 sm:flex"><BookOpen className="h-4 w-4 text-lavender-600" /><span className="max-w-48 truncate">{topic}</span><ChevronDown className="h-4 w-4" /></button>
         <button onClick={newChat} className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl text-stone-600 transition hover:bg-stone-100" aria-label="Новый чат"><Plus className="h-5 w-5" /></button>
@@ -119,9 +204,16 @@ export function AssistantPage() {
               <h2 className="mt-6 font-display text-2xl font-semibold tracking-[-0.04em] sm:text-3xl">Чем помочь с учёбой?</h2>
               <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-stone-500 sm:text-base">Спроси своими словами или выбери один из вариантов. SANA объяснит ход решения, но не будет делать работу за тебя.</p>
             </div>
+            {authStatus !== 'authenticated' && (
+              <div className="mx-auto mt-6 w-full max-w-xl rounded-3xl border border-lavender-200 bg-lavender-50 p-5 text-center" role="status">
+                <p className="font-extrabold text-ink">{authStatus === 'loading' ? 'Проверяем вход…' : 'Войди, чтобы SANA могла ответить'}</p>
+                <p className="mt-2 text-sm leading-6 text-stone-600">Диалоги сохраняются в личной истории ученика, поэтому для настоящего чата нужен аккаунт.</p>
+                {authStatus !== 'loading' && <div className="mt-4 flex justify-center gap-2"><Button variant="outline" onClick={() => navigate('/register')}>Создать аккаунт</Button><Button onClick={() => navigate('/login')}>Войти</Button></div>}
+              </div>
+            )}
             <div className="mt-8 grid gap-3 sm:grid-cols-2">
               {starterPrompts.map(({ icon: Icon, title, text }) => (
-                <button key={title} onClick={() => sendMessage(`${title}: ${text}`)} className="flex min-h-20 items-center gap-4 rounded-3xl border border-stone-200 bg-paper p-4 text-left transition hover:border-lavender-300 hover:bg-lavender-50">
+                <button key={title} disabled={authStatus !== 'authenticated'} onClick={() => sendMessage(`${title}: ${text}`)} className="flex min-h-20 items-center gap-4 rounded-3xl border border-stone-200 bg-paper p-4 text-left transition hover:border-lavender-300 hover:bg-lavender-50 disabled:cursor-not-allowed disabled:opacity-50">
                   <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-lavender-100 text-lavender-700"><Icon className="h-5 w-5" /></span>
                   <span><span className="block text-sm font-extrabold">{title}</span><span className="mt-1 block text-xs text-stone-500">{text}</span></span>
                 </button>
@@ -136,13 +228,13 @@ export function AssistantPage() {
                 <article key={item.id} className={`flex gap-3 sm:gap-4 ${item.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                   {item.role === 'assistant' && <span className="mt-1 grid h-9 w-9 shrink-0 place-items-center rounded-2xl bg-lavender-600 text-white"><Sparkles className="h-4 w-4" /></span>}
                   <div className={item.role === 'user' ? 'max-w-[88%] rounded-3xl rounded-br-md bg-ink px-5 py-3 text-sm leading-7 text-white sm:max-w-[75%]' : 'min-w-0 max-w-[calc(100%-52px)] text-sm leading-7 text-stone-700 sm:text-base'}>
-                    <p>{item.text}</p>
+                    <p className="whitespace-pre-wrap">{item.content ?? item.text}</p>
                     {item.hint && <div className="mt-4 rounded-2xl bg-lime/25 p-4"><p className="flex items-center gap-2 text-xs font-extrabold uppercase tracking-wider text-[#52670A]"><Lightbulb className="h-4 w-4" /> Твой ход</p><p className="mt-2 text-sm font-semibold leading-6 text-ink">{item.hint}</p></div>}
-                    {item.role === 'assistant' && <div className="mt-3 flex gap-1 text-stone-400"><button onClick={() => { navigator.clipboard?.writeText(`${item.text} ${item.hint || ''}`); setToast('Ответ скопирован'); }} className="grid h-9 w-9 place-items-center rounded-xl hover:bg-stone-100 hover:text-ink" aria-label="Скопировать ответ"><Copy className="h-4 w-4" /></button><button onClick={() => setToast('Спасибо за оценку ответа')} className="grid h-9 w-9 place-items-center rounded-xl hover:bg-stone-100 hover:text-ink" aria-label="Полезный ответ"><ThumbsUp className="h-4 w-4" /></button><button onClick={() => setToast('SANA учтёт, что объяснение не помогло')} className="grid h-9 w-9 place-items-center rounded-xl hover:bg-stone-100 hover:text-ink" aria-label="Ответ не помог"><ThumbsDown className="h-4 w-4" /></button></div>}
+                    {item.role === 'assistant' && <div className="mt-3 flex gap-1 text-stone-400"><button onClick={() => { navigator.clipboard?.writeText(`${item.content ?? item.text ?? ''} ${item.hint || ''}`.trim()); setToast('Ответ скопирован'); }} className="grid h-9 w-9 place-items-center rounded-xl hover:bg-stone-100 hover:text-ink" aria-label="Скопировать ответ"><Copy className="h-4 w-4" /></button><button onClick={() => setToast('Спасибо за оценку ответа')} className="grid h-9 w-9 place-items-center rounded-xl hover:bg-stone-100 hover:text-ink" aria-label="Полезный ответ"><ThumbsUp className="h-4 w-4" /></button><button onClick={() => setToast('SANA учтёт, что объяснение не помогло')} className="grid h-9 w-9 place-items-center rounded-xl hover:bg-stone-100 hover:text-ink" aria-label="Ответ не помог"><ThumbsDown className="h-4 w-4" /></button></div>}
                   </div>
                 </article>
               ))}
-              {thinking && <div className="flex items-center gap-4"><span className="grid h-9 w-9 shrink-0 place-items-center rounded-2xl bg-lavender-600 text-white"><Sparkles className="h-4 w-4" /></span><div className="flex items-center gap-1 rounded-2xl bg-stone-100 px-4 py-3" aria-label="SANA формулирует ответ"><span className="h-2 w-2 animate-pulse rounded-full bg-stone-400" /><span className="h-2 w-2 animate-pulse rounded-full bg-stone-400 [animation-delay:150ms]" /><span className="h-2 w-2 animate-pulse rounded-full bg-stone-400 [animation-delay:300ms]" /></div></div>}
+              {thinking && messages[messages.length - 1]?.role !== 'assistant' && <div className="flex items-center gap-4"><span className="grid h-9 w-9 shrink-0 place-items-center rounded-2xl bg-lavender-600 text-white"><Sparkles className="h-4 w-4" /></span><div className="flex items-center gap-1 rounded-2xl bg-stone-100 px-4 py-3" aria-label="SANA формулирует ответ"><span className="h-2 w-2 animate-pulse rounded-full bg-stone-400" /><span className="h-2 w-2 animate-pulse rounded-full bg-stone-400 [animation-delay:150ms]" /><span className="h-2 w-2 animate-pulse rounded-full bg-stone-400 [animation-delay:300ms]" /></div></div>}
             </div>
             <div ref={bottomRef} className="h-2" />
           </div>
@@ -156,14 +248,30 @@ export function AssistantPage() {
             <button type="button" onClick={() => setToast('Загрузка фото задания будет доступна после подключения API')} className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl text-stone-500 hover:bg-stone-100" aria-label="Прикрепить задание"><Paperclip className="h-5 w-5" /></button>
             <label className="sr-only" htmlFor="assistant-message">Сообщение для SANA</label>
             <textarea ref={textareaRef} id="assistant-message" rows="1" value={message} onChange={handleInput} onKeyDown={handleKeyDown} placeholder="Сообщение для SANA" className="min-h-11 max-h-36 flex-1 resize-none overflow-y-auto border-0 bg-transparent px-2 py-2.5 text-base leading-6 outline-none placeholder:text-stone-400" />
-            <button type="submit" disabled={!message.trim() || thinking} className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-lavender-600 text-white transition hover:bg-lavender-700 disabled:bg-stone-200 disabled:text-stone-400" aria-label="Отправить сообщение"><ArrowUp className="h-5 w-5" /></button>
+            <button type="submit" disabled={!message.trim() || thinking || authStatus !== 'authenticated'} className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-lavender-600 text-white transition hover:bg-lavender-700 disabled:bg-stone-200 disabled:text-stone-400" aria-label="Отправить сообщение"><ArrowUp className="h-5 w-5" /></button>
           </form>
           <p className="mt-2 text-center text-[11px] leading-4 text-stone-400">SANA может ошибаться. Проверяй важные факты и решения.</p>
         </div>
       </footer>
 
+      {historyOpen && <div className="fixed inset-0 z-50 bg-ink/25" onClick={() => setHistoryOpen(false)} aria-hidden="true" />}
+      <aside className={`fixed inset-y-0 left-0 z-[60] flex w-[min(340px,88vw)] flex-col border-r border-stone-200 bg-paper shadow-2xl transition-transform duration-200 lg:left-72 ${historyOpen ? 'translate-x-0' : '-translate-x-[calc(100%+18rem)]'}`} aria-label="История чатов" aria-hidden={!historyOpen}>
+        <div className="flex h-16 items-center justify-between border-b border-stone-200 px-4">
+          <div><p className="font-display font-semibold">История</p><p className="text-xs text-stone-500">Твои диалоги с SANA</p></div>
+          <button onClick={() => setHistoryOpen(false)} className="grid h-10 w-10 place-items-center rounded-xl hover:bg-stone-100" aria-label="Закрыть историю"><X className="h-5 w-5" /></button>
+        </div>
+        <div className="p-3"><Button onClick={newChat} className="w-full"><Plus className="h-4 w-4" /> Новый чат</Button></div>
+        <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-4">
+          {historyLoading && <p className="p-4 text-center text-sm text-stone-500">Загружаем диалоги…</p>}
+          {!historyLoading && conversations.length === 0 && <p className="rounded-2xl bg-stone-100 p-4 text-sm leading-6 text-stone-500">Здесь появятся сохранённые разговоры после первого сообщения.</p>}
+          <div className="space-y-1">
+            {conversations.map((conversation) => <button key={conversation.id} onClick={() => openConversation(conversation.id)} className={`w-full rounded-2xl px-4 py-3 text-left transition hover:bg-stone-100 ${conversation.id === conversationId ? 'bg-lavender-100' : ''}`}><span className="block truncate text-sm font-bold">{conversation.title}</span><span className="mt-1 block truncate text-xs text-stone-500">{conversation.topic}</span></button>)}
+          </div>
+        </div>
+      </aside>
+
       <Dialog open={contextOpen} onClose={() => setContextOpen(false)} title="Контекст разговора" description="SANA будет опираться на выбранную тему." footer={<><Button variant="ghost" onClick={() => setContextOpen(false)}>Отмена</Button><Button onClick={() => { setContextOpen(false); setToast('Контекст разговора обновлён'); }}><Check className="h-5 w-5" /> Применить</Button></>}>
-        <div className="space-y-5"><div><label className="field-label" htmlFor="assistant-subject">Предмет</label><select id="assistant-subject" className="field-control"><option>Математика</option><option>Физика</option><option>Химия</option></select></div><div><label className="field-label" htmlFor="assistant-topic">Тема</label><select id="assistant-topic" value={topic} onChange={(event) => setTopic(event.target.value)} className="field-control"><option>Разность квадратов</option><option>Линейные уравнения</option><option>Графики функций</option></select></div><label className="flex min-h-12 cursor-pointer items-center gap-3 rounded-2xl bg-lavender-50 p-4 text-sm font-semibold"><input type="checkbox" defaultChecked className="h-5 w-5 accent-lavender-600" /> Учитывать мой учебный прогресс</label></div>
+        <div className="space-y-5"><div><label className="field-label" htmlFor="assistant-subject">Предмет</label><select id="assistant-subject" value={subject} onChange={(event) => setSubject(event.target.value)} className="field-control"><option>Математика</option><option>Физика</option><option>Химия</option></select></div><div><label className="field-label" htmlFor="assistant-topic">Тема</label><select id="assistant-topic" value={topic} onChange={(event) => setTopic(event.target.value)} className="field-control"><option>Разность квадратов</option><option>Линейные уравнения</option><option>Графики функций</option></select></div><label className="flex min-h-12 cursor-pointer items-center gap-3 rounded-2xl bg-lavender-50 p-4 text-sm font-semibold"><input type="checkbox" defaultChecked className="h-5 w-5 accent-lavender-600" /> Учитывать мой учебный прогресс</label></div>
       </Dialog>
       <StatusToast message={toast} onClose={() => setToast('')} />
     </div>
