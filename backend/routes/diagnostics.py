@@ -11,6 +11,7 @@ from models import (
     Subject,
     db,
 )
+from services.events import record_learning_event
 from services.learning import answer_is_correct, build_or_recalculate_path, complete_diagnostic_profile
 from utils.decorators import roles_required
 from utils.localization import localized
@@ -129,6 +130,13 @@ def create_diagnostic():
         grade=grade,
     )
     db.session.add(diagnostic)
+    db.session.flush()
+    record_learning_event(diagnostic.student_id, "diagnostic_started", {
+        "diagnostic_id": diagnostic.id,
+        "subject_id": diagnostic.subject_id,
+        "grade": diagnostic.grade,
+        "goal_id": diagnostic.goal_id,
+    })
     db.session.commit()
     return success({"diagnostic": _diagnostic_payload(diagnostic)}, status=201)
 
@@ -192,6 +200,14 @@ def submit_diagnostic_answer(diagnosticId):
         attempt_number=attempt_number,
     )
     db.session.add(record)
+    record_learning_event(diagnostic.student_id, "diagnostic_answer_submitted", {
+        "diagnostic_id": diagnostic.id,
+        "question_id": question.id,
+        "skill_id": question.skill_id,
+        "is_correct": is_correct,
+        "time_spent_seconds": time_spent_seconds,
+        "attempt_number": attempt_number,
+    })
     db.session.commit()
     following = _next_question(diagnostic)
     return success({
@@ -236,6 +252,14 @@ def complete_diagnostic(diagnosticId):
         diagnostic.goal_id,
         diagnostic_id=diagnostic.id,
     )
+    record_learning_event(diagnostic.student_id, "diagnostic_completed", {
+        "diagnostic_id": diagnostic.id,
+        "subject_id": diagnostic.subject_id,
+        "grade": diagnostic.grade,
+        "score": profile["score"],
+        "level": profile["level"],
+        "gap_count": len(profile["gaps"]),
+    })
     db.session.commit()
     return success({"result": _result_payload(result), "learning_path_id": path.id}, status=201)
 

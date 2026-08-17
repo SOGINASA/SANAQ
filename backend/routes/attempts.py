@@ -4,6 +4,7 @@ from flask import Blueprint, request
 from flask_jwt_extended import get_jwt, get_jwt_identity, jwt_required
 
 from models import Attempt, KnowledgeState, Task, TaskAnswer, db
+from services.events import record_learning_event
 from services.learning import answer_is_correct, apply_attempt_result, mastery_status
 from utils.decorators import roles_required
 from utils.localization import localized
@@ -62,6 +63,13 @@ def start_attempt(taskId):
         difficulty=task.difficulty,
     )
     db.session.add(attempt)
+    db.session.flush()
+    record_learning_event(get_jwt_identity(), "attempt_started", {
+        "attempt_id": attempt.id,
+        "task_id": task.id,
+        "skill_id": task.skill_id,
+        "difficulty": task.difficulty,
+    })
     db.session.commit()
     return success({"attempt": _attempt_payload(attempt)}, status=201)
 
@@ -90,6 +98,13 @@ def submit_attempt_answer(attemptId):
         attempt_number=count + 1,
     )
     db.session.add(record)
+    record_learning_event(attempt.student_id, "answer_submitted", {
+        "attempt_id": attempt.id,
+        "task_id": task.id,
+        "skill_id": task.skill_id,
+        "is_correct": is_correct,
+        "attempt_number": record.attempt_number,
+    })
     db.session.commit()
     return success({
         "answer_id": record.id,
@@ -144,6 +159,16 @@ def complete_attempt(attemptId):
     attempt.status = "completed"
     attempt.score = 1.0 if answer.is_correct and answer.attempt_number == 1 else 0.7 if answer.is_correct else 0.0
     attempt.completed_at = datetime.now(timezone.utc)
+    record_learning_event(attempt.student_id, "attempt_completed", {
+        "attempt_id": attempt.id,
+        "task_id": task.id,
+        "skill_id": task.skill_id,
+        "score": attempt.score,
+        "is_correct": answer.is_correct,
+        "mastery_before": round(previous, 3),
+        "mastery_after": round(state.mastery, 3),
+        "difficulty": task.difficulty,
+    })
     db.session.commit()
     result = _result_payload(attempt)
     result["mastery_change"] = round(state.mastery - previous, 2)
@@ -175,4 +200,3 @@ def attempt_history():
         .order_by(Attempt.started_at.desc())
     ).all()
     return success({"items": [_attempt_payload(attempt) for attempt in attempts]})
-

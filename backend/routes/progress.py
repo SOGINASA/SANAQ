@@ -1,7 +1,16 @@
 from flask import Blueprint, request
 from flask_jwt_extended import get_jwt_identity
 
-from models import KnowledgeState, LearningPath, LearningStep, Topic, db
+from models import (
+    KnowledgeState,
+    LearningPath,
+    LearningStep,
+    StudentProfile,
+    Subject,
+    Topic,
+    db,
+)
+from services.curriculum_graph import build_student_curriculum_state
 from services.learning import (
     MASTERY_THRESHOLD,
     available_learning_skills,
@@ -26,6 +35,29 @@ def _skills_and_states(subject_id):
         )
     ).all() if skills else []
     return skills, {state.skill_id: state for state in states}
+
+
+@progress_bp.get("/students/me/curriculum-state")
+@roles_required("student")
+def curriculum_state():
+    student_id = get_jwt_identity()
+    subject_id = request.args.get("subject_id", "mathematics")
+    if not db.session.get(Subject, subject_id):
+        return api_error("SUBJECT_NOT_FOUND", "Предмет не найден", 404)
+
+    grade = request.args.get("grade", type=int)
+    if request.args.get("grade") is not None and grade not in range(7, 13):
+        return api_error("VALIDATION_ERROR", "Допустимы классы с 7 по 12", 422)
+    if grade is None:
+        profile = db.session.get(StudentProfile, student_id)
+        grade = profile.grade if profile else None
+    if grade not in range(7, 13):
+        return api_error(
+            "GRADE_REQUIRED",
+            "Укажите класс в профиле или параметре grade",
+            422,
+        )
+    return success(build_student_curriculum_state(student_id, subject_id, grade))
 
 
 @progress_bp.get("/students/me/progress/summary")

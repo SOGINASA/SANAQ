@@ -14,6 +14,7 @@ coverage/
 .idea/
 .vscode/
 *.log
+backend/ml/artifacts/
 
 # Temporary artifacts
 tmp/

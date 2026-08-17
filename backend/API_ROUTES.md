@@ -112,6 +112,7 @@
 | GET | `/students/:studentId/knowledge-map` | linked teacher/admin | Карта конкретного ученика |
 | GET | `/students/me/learning-paths` | student | Список маршрутов |
 | POST | `/students/me/learning-paths` | student | Создать маршрут под цель |
+| POST | `/students/me/study-plan/preview` | student | Календарный маршрут deterministic planner v1 |
 | GET | `/learning-paths/:pathId` | owner/teacher | Шаги, прогресс, дедлайн и причины |
 | POST | `/learning-paths/:pathId/recalculate` | owner/system | Перестроить маршрут после результата |
 | GET | `/learning-paths/:pathId/next-step` | owner | Один рекомендуемый «шаг дня» |
@@ -192,6 +193,7 @@
 | Метод | Маршрут | Доступ | Назначение |
 |---|---|---|---|
 | GET | `/students/me/progress/summary` | student | Общий прогресс и шаг дня |
+| GET | `/students/me/curriculum-state?subject_id=&grade=` | student | Состояние навыков, блокировки и рекомендации для маршрута |
 | GET | `/students/me/progress/topics` | student | Освоение тем и динамика |
 | GET | `/students/me/weak-skills` | student | Приоритетные пробелы с причинами |
 | GET | `/students/me/goals` | student | Учебные цели и дедлайны |

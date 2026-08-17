@@ -6,7 +6,7 @@ from flask_jwt_extended import get_jwt, get_jwt_identity, jwt_required
 
 from models import (
     AIReport, AuditLog, ClassEnrollment, Classroom, KnowledgeState, LearningModule,
-    MaterialUpload, PrerequisiteEdge, ProductEvent, StudentGoal, Topic, db,
+    MaterialUpload, PrerequisiteEdge, StudentGoal, Topic, db,
 )
 from services.learning import (
     MASTERY_THRESHOLD,
@@ -14,6 +14,7 @@ from services.learning import (
     mastery_status,
     prerequisite_ids,
 )
+from services.events import ALLOWED_EVENTS, EventValidationError, record_learning_event
 from utils.decorators import admin_required, roles_required
 from utils.localization import localized
 from utils.responses import api_error, success
@@ -277,13 +278,6 @@ def audit_log():
     } for item in items]})
 
 
-ALLOWED_EVENTS = {
-    "onboarding_completed", "diagnostic_started", "diagnostic_completed", "recommendation_opened",
-    "recommendation_reason_viewed", "lesson_completed", "answer_submitted", "explanation_mode_changed",
-    "review_completed", "goal_created",
-}
-
-
 @governance_bp.post("/events/batch")
 @roles_required("student", "teacher", "admin")
 def events_batch():
@@ -302,11 +296,15 @@ def events_batch():
                 occurred_at = datetime.fromisoformat(str(item["occurred_at"]).replace("Z", "+00:00"))
             except ValueError:
                 return api_error("VALIDATION_ERROR", "Некорректная дата события", 422)
-        db.session.add(ProductEvent(
-            user_id=get_jwt_identity(), event_name=name,
-            properties=item.get("properties", {}) if isinstance(item.get("properties", {}), dict) else {},
-            occurred_at=occurred_at,
-        ))
+        try:
+            record_learning_event(
+                get_jwt_identity(),
+                name,
+                item.get("properties", {}),
+                occurred_at=occurred_at,
+            )
+        except EventValidationError as error:
+            return api_error("VALIDATION_ERROR", str(error), 422)
         saved += 1
     db.session.commit()
     return success({"accepted": saved})

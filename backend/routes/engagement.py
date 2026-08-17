@@ -4,6 +4,7 @@ from flask import Blueprint, request
 from flask_jwt_extended import get_jwt_identity
 
 from models import Attempt, KnowledgeState, Notification, Skill, Task, User, db
+from services.events import record_learning_event
 from utils.decorators import roles_required
 from utils.localization import localized
 from utils.responses import api_error, success
@@ -176,6 +177,11 @@ def complete_review(reviewId):
         return api_error("REVIEW_NOT_FOUND", "Повторение не найдено", 404)
     interval_days = 14 if state.mastery >= 0.8 else 7 if state.mastery >= 0.6 else 3
     state.next_review_at = datetime.now(timezone.utc) + timedelta(days=interval_days)
+    record_learning_event(get_jwt_identity(), "review_completed", {
+        "skill_id": state.skill_id,
+        "mastery": round(state.mastery, 3),
+        "next_interval_days": interval_days,
+    })
     db.session.commit()
     return success({"completed": True, "next_review_at": state.next_review_at.isoformat()})
 

@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, timedelta
 
 from flask import Blueprint, request
 from flask_jwt_extended import get_jwt, get_jwt_identity, jwt_required
@@ -8,10 +8,13 @@ from models import (
     LearningPath,
     LearningStep,
     PrerequisiteEdge,
+    StudentProfile,
     Subject,
     Topic,
     db,
 )
+from services.curriculum_graph import build_student_curriculum_state
+from services.events import record_learning_event
 from services.learning import (
     MASTERY_THRESHOLD,
     available_learning_skills,
@@ -21,12 +24,52 @@ from services.learning import (
     serialize_path,
     serialize_step,
 )
+from services.planner import PlannerConfig, PlannerValidationError, generate_deterministic_plan
 from utils.decorators import roles_required
 from utils.localization import localized
 from utils.responses import api_error, success
 
 
 learning_paths_bp = Blueprint("learning_paths", __name__)
+
+
+@learning_paths_bp.post("/students/me/study-plan/preview")
+@roles_required("student")
+def preview_study_plan():
+    data = request.get_json(silent=True) or {}
+    student_id = get_jwt_identity()
+    subject_id = str(data.get("subject_id", "mathematics"))
+    if not db.session.get(Subject, subject_id):
+        return api_error("SUBJECT_NOT_FOUND", "Предмет не найден", 404)
+    profile = db.session.get(StudentProfile, student_id)
+    grade = data.get("grade", profile.grade if profile else None)
+    if not isinstance(grade, int) or grade not in range(7, 13):
+        return api_error("GRADE_REQUIRED", "Укажите класс от 7 до 12", 422)
+    try:
+        start_date = date.fromisoformat(data.get("start_date", date.today().isoformat()))
+        target_date = date.fromisoformat(
+            data.get("target_date", (start_date + timedelta(days=30)).isoformat())
+        )
+        config = PlannerConfig(
+            start_date=start_date,
+            target_date=target_date,
+            weekday_minutes=int(data.get("weekday_minutes", 30)),
+            weekend_minutes=int(data.get("weekend_minutes", 45)),
+            max_skills=int(data.get("max_skills", 20)),
+        )
+        state = build_student_curriculum_state(student_id, subject_id, grade)
+        plan = generate_deterministic_plan(state, config)
+    except (TypeError, ValueError, PlannerValidationError) as error:
+        return api_error("VALIDATION_ERROR", str(error), 422)
+    record_learning_event(student_id, "study_plan_generated", {
+        "planner_version": plan["planner_version"],
+        "grade": grade,
+        "planned_minutes": plan["summary"]["planned_minutes"],
+        "selected_skills": plan["summary"]["selected_skills"],
+        "scheduled_days": plan["summary"]["scheduled_days"],
+    })
+    db.session.commit()
+    return success({"study_plan": plan})
 
 
 def _path_or_error(path_id, allow_teacher=False):
