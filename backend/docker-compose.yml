@@ -4,25 +4,35 @@ services:
       context: .
     container_name: sanaq-backend
     ports:
-      - "8000:8000"
+      - "127.0.0.1:${PORT:-8000}:8000"
     env_file:
       - path: .env
         required: false
     environment:
-      FLASK_ENV: production
-      SECRET_KEY: ${SECRET_KEY:-change-me-in-production}
-      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-change-me-in-production}
-      DATABASE_URL: sqlite:////app/database/sanaq.db
-      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
-      AUTO_CREATE_DB: "true"
-      MIGRATE_RUNTIME_SCHEMA: "true"
-      SEED_DEMO_DATA: "true"
-      JWT_COOKIE_SECURE: "false"
-      AI_PROVIDER: ollama
+      FLASK_ENV: ${FLASK_ENV:-production}
+      SECRET_KEY: ${SECRET_KEY:?SECRET_KEY must be set in backend/.env}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:?JWT_SECRET_KEY must be set in backend/.env}
+      DATABASE_URL: ${DATABASE_URL:-sqlite:////app/database/sanaq.db}
+      CORS_ORIGINS: ${CORS_ORIGINS:?CORS_ORIGINS must be set in backend/.env}
+      AUTO_CREATE_DB: ${AUTO_CREATE_DB:-false}
+      MIGRATE_RUNTIME_SCHEMA: ${MIGRATE_RUNTIME_SCHEMA:-true}
+      SEED_DEMO_DATA: ${SEED_DEMO_DATA:-false}
+      JWT_COOKIE_SECURE: ${JWT_COOKIE_SECURE:-true}
+      DEFAULT_LOCALE: ${DEFAULT_LOCALE:-ru}
+      DATA_MODE: ${DATA_MODE:-production}
+      GUNICORN_WORKERS: ${GUNICORN_WORKERS:-1}
+      GUNICORN_THREADS: ${GUNICORN_THREADS:-4}
+      AI_PROVIDER: ${AI_PROVIDER:-ollama}
       AI_BASE_URL: ${AI_BASE_URL:-http://host.docker.internal:11434}
       AI_MODEL: ${AI_MODEL:-qwen3:8b}
-      AI_TIMEOUT_SECONDS: ${AI_TIMEOUT_SECONDS:-60}
+      AI_PROMPT_VERSION: ${AI_PROMPT_VERSION:-sana-tutor-v1}
+      AI_TIMEOUT_SECONDS: ${AI_TIMEOUT_SECONDS:-120}
+      AI_TEMPERATURE: ${AI_TEMPERATURE:-0.3}
+      AI_MAX_TOKENS: ${AI_MAX_TOKENS:-500}
+      AI_CONTEXT_TOKENS: ${AI_CONTEXT_TOKENS:-8192}
       AI_THINKING: ${AI_THINKING:-false}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       - ./database:/app/database
     restart: unless-stopped
