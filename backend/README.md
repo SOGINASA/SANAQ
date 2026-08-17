@@ -44,6 +44,9 @@ ollama pull qwen3:8b
 `.env.example`. Если Ollama остановлена или не успела ответить, API сохраняет вопрос и
 возвращает явно помеченный безопасный fallback вместо скрытой заглушки.
 
+Инструкция для backend/DevOps по production-развёртыванию модели находится в
+[`docs/QWEN3_SERVER_DEPLOYMENT.md`](docs/QWEN3_SERVER_DEPLOYMENT.md).
+
 Проверки:
 
 ```powershell
