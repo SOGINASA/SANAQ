@@ -26,7 +26,10 @@ SANAQ/
 │       ├── shared/             общая инфраструктура и UI-kit
 │       └── widgets/            крупные блоки экранов
 └── backend/
-    └── API_ROUTES.md           контракт API для backend-команды
+    ├── app.py                  Flask application factory
+    ├── routes/                 системные, auth и admin API-маршруты
+    ├── tests/                  интеграционные тесты backend
+    └── API_ROUTES.md           полный контракт следующих этапов
 ```
 
 ## Локальный запуск frontend
@@ -44,10 +47,28 @@ cd frontend
 npm run build
 ```
 
+## Локальный запуск backend
+
+```bash
+cd backend
+python -m venv .venv
+python -m pip install -r requirements.txt
+python app.py
+```
+
+Backend запускается на `http://localhost:8000/api/v1`. Подробности находятся в
+[`backend/README.md`](backend/README.md).
+
 ## Текущее состояние
 
 - frontend создан официальным Create React App, без Vite;
 - Tailwind CSS и Zustand установлены;
 - создан модульный файловый каркас;
 - UI-файлы намеренно оставлены пустыми до следующего этапа реализации;
-- backend-код не создавался; для backend-команды подготовлен API-контракт.
+- создан стартовый Flask backend с JWT-авторизацией, SQLite, системными маршрутами,
+  Docker-конфигурацией и тестами;
+- реализован backend-срез: диагностика → карта знаний → персональный маршрут →
+  задание с объяснением → обновлённый прогресс;
+- кабинет учителя, назначения, уведомления и интервальное повторение пока зарегистрированы
+  в API как явные `501 FEATURE_NOT_IMPLEMENTED`;
+- полный согласованный контракт следующих этапов находится в `backend/API_ROUTES.md`.

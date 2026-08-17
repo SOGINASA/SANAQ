@@ -1,25 +1,18 @@
-import logo from './logo.svg';
 import './App.css';
+import { useEffect } from 'react';
+import LoginPage from './pages/auth/LoginPage';
+import StudentDashboardPage from './pages/student/StudentDashboardPage';
+import { useAuthStore } from './features/auth/authStore';
 
 function App() {
-  return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
-    </div>
-  );
+  const { status, hydrate } = useAuthStore();
+
+  useEffect(() => { hydrate(); }, [hydrate]);
+
+  if (status === 'loading') {
+    return <div className="loading-screen"><div className="sana-orb">S</div><p>Соединяемся с SANAQ API…</p></div>;
+  }
+  return status === 'authenticated' ? <StudentDashboardPage /> : <LoginPage />;
 }
 
 export default App;

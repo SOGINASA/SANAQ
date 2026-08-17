@@ -1,70 +1,46 @@
-# Getting Started with Create React App
+# SANAQ Frontend
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+React-интерфейс рабочего MVP-сценария:
 
-## Available Scripts
+```text
+регистрация → профиль → диагностика → маршрут → задание → объяснение → прогресс
+```
 
-In the project directory, you can run:
+## Запуск
 
-### `npm start`
+Сначала запустите backend на порту `8000`, затем frontend:
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+```powershell
+cd frontend
+npm ci
+Copy-Item .env.example .env
+npm start
+```
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+Frontend будет доступен на `http://localhost:3000`.
 
-### `npm test`
+Проверки:
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+```powershell
+npm test -- --watchAll=false
+$env:GENERATE_SOURCEMAP='false'; npm run build
+```
 
-### `npm run build`
+## Источники данных
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+Frontend не подставляет mock-данные при сетевой ошибке. Если backend недоступен, пользователь
+видит явное сообщение об ошибке.
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+- `Backend API · демо seed` — данные пришли из API, но созданы демонстрационным seed;
+- `Backend API · реальные данные` — backend работает в режиме `DATA_MODE=live`;
+- `Проверенный fallback · не внешний AI` — объяснение сформировано локальным
+  детерминированным алгоритмом, а не внешней AI-моделью.
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+Режим передаётся backend-заголовком `X-Data-Mode`. Автоматические mocks отключены через
+`REACT_APP_ENABLE_MOCKS=false`.
 
-### `npm run eject`
+## Авторизация
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
-
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
-
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
-
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
-
-## Learn More
-
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
-
-To learn React, check out the [React documentation](https://reactjs.org/).
-
-### Code Splitting
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
-
-### Analyzing the Bundle Size
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
-
-### Making a Progressive Web App
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
-
-### Advanced Configuration
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+Access token хранится в `localStorage` и передаётся в `Authorization: Bearer ...`.
+Refresh token остаётся в HttpOnly cookie. При обычном `401` API-клиент один раз обновляет
+access token; ошибки login/register/refresh/logout не запускают повторный refresh.
