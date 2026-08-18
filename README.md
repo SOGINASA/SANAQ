@@ -129,6 +129,10 @@ npm install
 npm start
 ```
 
+В development запросы `/api/v1` автоматически проксируются Create React App на
+Flask по адресу `http://127.0.0.1:8000`. После изменения `package.json` frontend
+нужно перезапустить.
+
 Production-сборка и тесты:
 
 ```bash
