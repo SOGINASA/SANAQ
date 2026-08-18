@@ -84,14 +84,15 @@ Train/validation делятся по ученикам целиком, поэто
 Финальное решение всегда принимает planner: заблокированный навык нельзя
 поставить раньше его основы даже при высоком прогнозе PathNet.
 
-## Shadow-mode
+## Режимы PathNet
 
 После обучения положите checkpoint по пути из `PATHNET_MODEL_PATH` и включите:
 
 ```env
 PATHNET_MODE=shadow
-PATHNET_MODEL_PATH=ml/artifacts/pathnet-v2-outcomes.pt
+PATHNET_MODEL_PATH=ml/artifacts/pathnet-v2-outcomes-notebook.pt
 PATHNET_TOP_K=20
+PATHNET_CANARY_PERCENT=0
 ```
 
 В этом режиме пользователь по-прежнему получает результат
@@ -99,6 +100,11 @@ PATHNET_TOP_K=20
 а backend сохраняет overlap@k, latency, версию модели и безопасные коды ошибок.
 Если checkpoint отсутствует, повреждён или PyTorch не установлен, запрос плана
 продолжает работать через deterministic fallback.
+
+После проверки shadow-метрик можно включить `canary` и постепенно увеличить
+`PATHNET_CANARY_PERCENT`, затем перейти в `active`. В этих режимах API всегда
+возвращает `ranking.applied`, `model_version`, `fallback_used` и при ошибке
+`failure_code`; prerequisite-граф остаётся обязательным ограничением planner.
 
 Текущую сводку видит администратор:
 

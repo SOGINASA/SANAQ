@@ -51,8 +51,10 @@ def test_pathnet_shadow_scores_without_changing_applied_planner(
     assert response.status_code == 200
     plan = response.get_json()["data"]["study_plan"]
     assert plan["ranking"] == {
+        "mode": "shadow",
         "applied": "deterministic",
         "planner_version": "deterministic-planner-v1",
+        "fallback_used": False,
         "shadow_evaluated": True,
         "shadow_model_version": "pathnet-test-v1",
     }

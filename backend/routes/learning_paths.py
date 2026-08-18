@@ -1,19 +1,17 @@
 from datetime import date, timedelta
 
-from flask import Blueprint, current_app, request
+from flask import Blueprint, request
 from flask_jwt_extended import get_jwt, get_jwt_identity, jwt_required
 
 from models import (
     KnowledgeState,
     LearningPath,
-    LearningStep,
     PrerequisiteEdge,
     StudentProfile,
     Subject,
     Topic,
     db,
 )
-from services.curriculum_graph import build_student_curriculum_state
 from services.events import record_learning_event
 from services.learning import (
     MASTERY_THRESHOLD,
@@ -24,8 +22,12 @@ from services.learning import (
     serialize_path,
     serialize_step,
 )
-from services.planner import PlannerConfig, PlannerValidationError, generate_deterministic_plan
-from services.pathnet_inference import PathNetUnavailable, compare_shadow_ranking
+from services.learning_plan import (
+    generate_student_study_plan,
+    next_recommended_step,
+    path_ranking_metadata,
+)
+from services.planner import PlannerConfig, PlannerValidationError
 from utils.decorators import roles_required
 from utils.localization import localized
 from utils.responses import api_error, success
@@ -58,38 +60,12 @@ def preview_study_plan():
             weekend_minutes=int(data.get("weekend_minutes", 45)),
             max_skills=int(data.get("max_skills", 20)),
         )
-        state = build_student_curriculum_state(student_id, subject_id, grade)
-        plan = generate_deterministic_plan(state, config)
+        plan, _state = generate_student_study_plan(
+            student_id, subject_id, grade, config
+        )
     except (TypeError, ValueError, PlannerValidationError) as error:
         return api_error("VALIDATION_ERROR", str(error), 422)
-    ranking = {
-        "applied": "deterministic",
-        "planner_version": plan["planner_version"],
-        "shadow_evaluated": False,
-    }
-    if current_app.config["PATHNET_MODE"] == "shadow":
-        try:
-            comparison = compare_shadow_ranking(
-                plan,
-                state,
-                current_app.config["PATHNET_MODEL_PATH"],
-                current_app.config["PATHNET_TOP_K"],
-            )
-            ranking.update({
-                "shadow_evaluated": True,
-                "shadow_model_version": comparison["model_version"],
-            })
-            record_learning_event(student_id, "pathnet_shadow_scored", {
-                **comparison,
-                "planner_version": plan["planner_version"],
-            })
-        except PathNetUnavailable as error:
-            ranking["shadow_failure_code"] = error.code
-            record_learning_event(student_id, "pathnet_shadow_failed", {
-                "planner_version": plan["planner_version"],
-                "failure_code": error.code,
-            })
-    plan["ranking"] = ranking
+    ranking = plan["ranking"]
     record_learning_event(student_id, "study_plan_generated", {
         "planner_version": plan["planner_version"],
         "grade": grade,
@@ -97,7 +73,9 @@ def preview_study_plan():
         "selected_skills": plan["summary"]["selected_skills"],
         "scheduled_days": plan["summary"]["scheduled_days"],
         "ranking_applied": ranking["applied"],
-        "shadow_evaluated": ranking["shadow_evaluated"],
+        "fallback_used": ranking["fallback_used"],
+        "failure_code": ranking.get("failure_code"),
+        "shadow_evaluated": ranking.get("shadow_evaluated", False),
     })
     db.session.commit()
     return success({"study_plan": plan})
@@ -169,14 +147,11 @@ def next_learning_step(pathId):
     path, error = _path_or_error(pathId)
     if error:
         return error
-    step = db.session.scalar(
-        db.select(LearningStep)
-        .where(LearningStep.path_id == path.id, LearningStep.status == "available")
-        .order_by(LearningStep.order_index)
-    )
+    step = next_recommended_step(path)
     return success({
         "step": serialize_step(step) if step else None,
         "path_completed": step is None,
+        "ranking": path_ranking_metadata(path),
     })
 
 

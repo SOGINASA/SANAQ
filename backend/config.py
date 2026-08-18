@@ -45,6 +45,7 @@ class Config:
         str(BACKEND_DIR / "ml" / "artifacts" / "pathnet-v2-outcomes-notebook.pt"),
     )
     PATHNET_TOP_K = int(os.environ.get("PATHNET_TOP_K", "20"))
+    PATHNET_CANARY_PERCENT = int(os.environ.get("PATHNET_CANARY_PERCENT", "0"))
 
     SECRET_KEY = os.environ.get("SECRET_KEY", "sanaq-development-secret-key-only")
     SQLALCHEMY_DATABASE_URI = os.environ.get("DATABASE_URL") or (
@@ -83,6 +84,7 @@ class TestingConfig(Config):
     AI_API_KEY = ""
     AI_TIMEOUT_SECONDS = 0.1
     PATHNET_MODE = "off"
+    PATHNET_CANARY_PERCENT = 0
 
 
 class ProductionConfig(Config):

@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta, timezone
 
 from models import (
+    Diagnostic,
     DiagnosticAnswer,
     DiagnosticQuestion,
     KnowledgeState,
@@ -8,6 +9,7 @@ from models import (
     LearningStep,
     PrerequisiteEdge,
     Skill,
+    StudentProfile,
     Task,
     Topic,
     db,
@@ -114,6 +116,7 @@ def complete_diagnostic_profile(diagnostic):
 
 
 def build_or_recalculate_path(student_id, subject_id, goal_id, diagnostic_id=None, path=None):
+    operation = "create" if path is None else "recalculate"
     if path is None:
         path = LearningPath(
             student_id=student_id,
@@ -129,16 +132,39 @@ def build_or_recalculate_path(student_id, subject_id, goal_id, diagnostic_id=Non
         db.session.execute(db.delete(LearningStep).where(LearningStep.path_id == path.id))
 
     skills = available_learning_skills(subject_id)
+    profile = db.session.get(StudentProfile, student_id)
+    diagnostic = db.session.get(Diagnostic, diagnostic_id) if diagnostic_id else None
+    grade = diagnostic.grade if diagnostic else profile.grade if profile else 9
+    from services.learning_plan import rank_student_curriculum, record_path_ranking
+
+    curriculum_state, ranked_ids, ranking = rank_student_curriculum(
+        student_id,
+        subject_id,
+        grade,
+        selectable_skill_ids=[skill.id for skill in skills],
+    )
+    state_item_by_skill = {item["id"]: item for item in curriculum_state["items"]}
+    completed_ids = [
+        skill.id for skill in skills
+        if state_item_by_skill.get(skill.id, {}).get("mastery", 0) >= MASTERY_THRESHOLD
+    ]
+    ordered_ids = ranked_ids + [
+        skill_id for skill_id in completed_ids if skill_id not in ranked_ids
+    ]
+    skill_by_id = {skill.id: skill for skill in skills}
+    ordered_skills = [
+        skill_by_id[skill_id] for skill_id in ordered_ids if skill_id in skill_by_id
+    ]
     states = db.session.scalars(
         db.select(KnowledgeState).where(
             KnowledgeState.student_id == student_id,
-            KnowledgeState.skill_id.in_([skill.id for skill in skills]),
+            KnowledgeState.skill_id.in_(ordered_ids),
         )
-    ).all() if skills else []
+    ).all() if ordered_ids else []
     state_by_skill = {state.skill_id: state for state in states}
 
     first_open_assigned = False
-    for order_index, skill in enumerate(skills, 1):
+    for order_index, skill in enumerate(ordered_skills, 1):
         state = state_by_skill.get(skill.id)
         mastery = state.mastery if state else 0.0
         if mastery >= MASTERY_THRESHOLD:
@@ -152,8 +178,14 @@ def build_or_recalculate_path(student_id, subject_id, goal_id, diagnostic_id=Non
             db.select(Task).filter_by(skill_id=skill.id, is_published=True).order_by(Task.difficulty)
         )
         reason = {
-            "ru": f"Навык «{localized(skill.name, 'ru')}» выбран с учётом диагностики и зависимостей тем.",
-            "kk": f"«{localized(skill.name, 'kk')}» дағдысы диагностика мен тақырып байланыстары негізінде таңдалды.",
+            "ru": (
+                f"Навык «{localized(skill.name, 'ru')}» выбран с учётом диагностики, "
+                f"зависимостей и ранжирования {ranking['applied']}."
+            ),
+            "kk": (
+                f"«{localized(skill.name, 'kk')}» дағдысы диагностика, тақырып байланыстары "
+                f"және {ranking['applied']} реттеуі негізінде таңдалды."
+            ),
         }
         db.session.add(LearningStep(
             path_id=path.id,
@@ -165,8 +197,13 @@ def build_or_recalculate_path(student_id, subject_id, goal_id, diagnostic_id=Non
             confidence=state.confidence if state else 0.5,
             completed_at=datetime.now(timezone.utc) if status == "completed" else None,
         ))
+    path.algorithm_version = ranking.get(
+        "model_version", ranking["planner_version"]
+    )[:50]
     path.updated_at = datetime.now(timezone.utc)
     db.session.flush()
+    path._ranking = ranking
+    record_path_ranking(student_id, path.id, operation, ranking)
     return path
 
 
@@ -181,6 +218,7 @@ def path_progress(path_id):
 
 def serialize_step(step, include_task=True):
     skill = db.session.get(Skill, step.skill_id)
+    path = db.session.get(LearningPath, step.path_id)
     payload = {
         "id": step.id,
         "skill_id": step.skill_id,
@@ -190,7 +228,7 @@ def serialize_step(step, include_task=True):
         "reason": localized(step.reason),
         "source_skill_ids": [step.skill_id],
         "confidence": round(step.confidence, 2),
-        "algorithm_version": ALGORITHM_VERSION,
+        "algorithm_version": path.algorithm_version if path else ALGORITHM_VERSION,
     }
     if include_task:
         payload["task_id"] = step.task_id
@@ -198,6 +236,8 @@ def serialize_step(step, include_task=True):
 
 
 def serialize_path(path, include_steps=True):
+    from services.learning_plan import path_ranking_metadata
+
     payload = {
         "id": path.id,
         "subject_id": path.subject_id,
@@ -209,6 +249,7 @@ def serialize_path(path, include_steps=True):
         "target_date": path.target_date.isoformat() if path.target_date else None,
         "progress": path_progress(path.id),
         "algorithm_version": path.algorithm_version,
+        "ranking": path_ranking_metadata(path),
     }
     if include_steps:
         steps = db.session.scalars(

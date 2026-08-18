@@ -13,6 +13,7 @@ ALLOWED_EVENTS = {
     "explanation_mode_changed", "review_completed", "goal_created",
     "curriculum_state_viewed", "study_plan_generated",
     "pathnet_shadow_scored", "pathnet_shadow_failed",
+    "learning_path_ranked",
 }
 SENSITIVE_KEYS = {"answer", "password", "token", "access_token", "refresh_token"}
 REQUIRED_PROPERTIES = {
@@ -26,6 +27,7 @@ REQUIRED_PROPERTIES = {
         "overlap_at_k", "latency_ms",
     },
     "pathnet_shadow_failed": {"planner_version", "failure_code"},
+    "learning_path_ranked": {"path_id", "operation", "applied", "fallback_used"},
 }
 
 

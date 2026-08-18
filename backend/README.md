@@ -130,8 +130,9 @@ python -m flask --app app seed-curriculum
 
 ## Планировщик, задания и ML
 
-`deterministic-planner-v1` строит календарный preview через
-`POST /api/v1/students/me/study-plan/preview`. Он соблюдает дневной лимит,
+Единый сервис планирования используется для preview, создания и пересчёта
+сохранённого маршрута и выдачи следующего шага. `deterministic-planner-v1`
+раскладывает результат ранжирования по календарю, соблюдает дневной лимит,
 разблокирует навыки только после prerequisites и добавляет интервальные
 повторения через 1, 3 и 7 дней. При нехватке времени остаток явно возвращается в
 `unscheduled`.
@@ -154,10 +155,13 @@ python -m flask --app app seed-curriculum
 loss/F1/MAE по эпохам, confusion matrix, сравнение с baseline и примеры
 предсказаний.
 
-PathNet подключается к API только через `PATHNET_MODE=shadow`: его прогнозы не
-меняют пользовательский маршрут, а сравниваются с deterministic planner. Метрики
-доступны администратору через `GET /api/v1/admin/pathnet/metrics`. Любая ошибка
-загрузки или inference автоматически оставляет deterministic план рабочим.
+PathNet поддерживает режимы `off`, `shadow`, `canary` и `active`. В `shadow` его
+прогнозы не меняют маршрут, в `canary` применяются для стабильной доли учеников,
+а в `active` — для всех. Planner всегда повторно проверяет prerequisite-граф.
+Любая ошибка checkpoint/inference или нарушение prerequisite переключает запрос
+на deterministic planner и явно возвращает `fallback_used=true` с безопасным
+`failure_code`. Применённая версия сохраняется в API и событии маршрута. Shadow-
+метрики доступны через `GET /api/v1/admin/pathnet/metrics`.
 
 Текущий локальный baseline `pathnet-v2-synthetic-outcomes` обучен на 10 000
 симулированных учеников и 973 143 состояниях навыков. Его целевая функция —

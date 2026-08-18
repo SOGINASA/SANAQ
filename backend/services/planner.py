@@ -47,8 +47,11 @@ def _candidate_sort_key(item):
     )
 
 
-def generate_deterministic_plan(curriculum_state, config):
+def generate_deterministic_plan(curriculum_state, config, ranked_skill_ids=None):
     config.validate()
+    ranking_index = {
+        skill_id: index for index, skill_id in enumerate(ranked_skill_ids or [])
+    }
     days = {
         day: {
             "date": day.isoformat(),
@@ -85,7 +88,17 @@ def generate_deterministic_plan(curriculum_state, config):
         ]
         if not eligible:
             break
-        selected = min(eligible, key=_candidate_sort_key)
+        selected = min(
+            eligible,
+            key=(
+                (lambda item: (
+                    ranking_index.get(item["id"], len(ranking_index)),
+                    _candidate_sort_key(item),
+                ))
+                if ranked_skill_ids is not None
+                else _candidate_sort_key
+            ),
+        )
         candidates.append(selected)
         selected_ids.add(selected["id"])
         remaining.pop(selected["id"])

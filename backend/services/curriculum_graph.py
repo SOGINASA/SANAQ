@@ -12,11 +12,21 @@ from services.learning import MASTERY_THRESHOLD
 from utils.localization import localized
 
 
-def load_curriculum_graph(subject_id, target_grade=None):
-    rows = db.session.execute(
+def load_curriculum_graph(subject_id, target_grade=None, include_unmanaged=False):
+    query = (
         db.select(Skill, SkillPlanningMetadata, Topic)
-        .join(SkillPlanningMetadata, SkillPlanningMetadata.skill_id == Skill.id)
         .join(Topic, Skill.topic_id == Topic.id)
+    )
+    if include_unmanaged:
+        query = query.outerjoin(
+            SkillPlanningMetadata, SkillPlanningMetadata.skill_id == Skill.id
+        )
+    else:
+        query = query.join(
+            SkillPlanningMetadata, SkillPlanningMetadata.skill_id == Skill.id
+        )
+    rows = db.session.execute(
+        query
         .where(Topic.subject_id == subject_id)
         .order_by(Topic.grade, Topic.order_index, Skill.order_index)
     ).all()
@@ -32,8 +42,9 @@ def load_curriculum_graph(subject_id, target_grade=None):
     ).all() if all_skill_ids else []
 
     included_ids = {
-        skill.id for skill, metadata, _ in rows
-        if target_grade is None or metadata.grade == target_grade
+        skill.id for skill, metadata, topic in rows
+        if target_grade is None
+        or (metadata.grade if metadata else topic.grade) == target_grade
     }
     if target_grade is not None:
         prerequisites_by_skill = {}
@@ -55,12 +66,15 @@ def load_curriculum_graph(subject_id, target_grade=None):
             "name": skill.name,
             "topic_id": topic.id,
             "topic_name": topic.name,
-            "grade": metadata.grade,
-            "learning_minutes": metadata.learning_minutes,
-            "practice_minutes": metadata.practice_minutes,
-            "difficulty": metadata.difficulty,
-            "importance": metadata.importance,
-            "is_target_grade": target_grade is None or metadata.grade == target_grade,
+            "grade": metadata.grade if metadata else topic.grade,
+            "learning_minutes": metadata.learning_minutes if metadata else 20,
+            "practice_minutes": metadata.practice_minutes if metadata else 20,
+            "difficulty": metadata.difficulty if metadata else 0.5,
+            "importance": metadata.importance if metadata else 0.8,
+            "is_target_grade": (
+                target_grade is None
+                or (metadata.grade if metadata else topic.grade) == target_grade
+            ),
         }
         for skill, metadata, topic in rows
         if skill.id in included_ids
@@ -103,7 +117,7 @@ def _review_is_due(state):
 
 
 def build_student_curriculum_state(student_id, subject_id, target_grade):
-    graph = load_curriculum_graph(subject_id, target_grade)
+    graph = load_curriculum_graph(subject_id, target_grade, include_unmanaged=True)
     node_ids = [node["id"] for node in graph["nodes"]]
     states = db.session.scalars(
         db.select(KnowledgeState).where(

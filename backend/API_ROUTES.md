@@ -112,10 +112,10 @@
 | GET | `/students/:studentId/knowledge-map` | linked teacher/admin | Карта конкретного ученика |
 | GET | `/students/me/learning-paths` | student | Список маршрутов |
 | POST | `/students/me/learning-paths` | student | Создать маршрут под цель |
-| POST | `/students/me/study-plan/preview` | student | Календарный маршрут deterministic planner v1 |
-| GET | `/learning-paths/:pathId` | owner/teacher | Шаги, прогресс, дедлайн и причины |
-| POST | `/learning-paths/:pathId/recalculate` | owner/system | Перестроить маршрут после результата |
-| GET | `/learning-paths/:pathId/next-step` | owner | Один рекомендуемый «шаг дня» |
+| POST | `/students/me/study-plan/preview` | student | Календарный маршрут с PathNet/deterministic ranking metadata |
+| GET | `/learning-paths/:pathId` | owner/teacher | Шаги, прогресс, дедлайн, причины и применённый ranking |
+| POST | `/learning-paths/:pathId/recalculate` | owner/system | Перестроить маршрут через общий сервис ранжирования |
+| GET | `/learning-paths/:pathId/next-step` | owner | Рекомендуемый шаг и версия применённого ranking |
 | PATCH | `/learning-paths/:pathId` | owner | Цель, темп, дата экзамена |
 
 Статусы узла: `locked`, `available`, `learning`, `mastered`, `review_due`. Уровень освоения хранить числом `0..1`, но показывать ученику понятную подпись.

@@ -25,7 +25,7 @@ def ready():
     except Exception:
         current_app.logger.exception("Readiness database check failed")
         return api_error("SERVICE_UNAVAILABLE", "База данных недоступна", 503)
-    if current_app.config["PATHNET_MODE"] == "shadow":
+    if current_app.config["PATHNET_MODE"] in {"shadow", "canary", "active"}:
         try:
             from services.pathnet_inference import load_pathnet
 
