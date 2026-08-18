@@ -402,6 +402,19 @@ class Assignment(db.Model):
     created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utc_now)
 
 
+class ClassAnnouncement(db.Model):
+    __tablename__ = "class_announcements"
+
+    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    class_id = db.Column(db.String(36), db.ForeignKey("classrooms.id"), nullable=False, index=True)
+    teacher_id = db.Column(db.String(36), db.ForeignKey("users.id"), nullable=False, index=True)
+    title = db.Column(db.String(160), nullable=False)
+    body = db.Column(db.Text, nullable=False)
+    is_pinned = db.Column(db.Boolean, nullable=False, default=False, index=True)
+    created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utc_now)
+    updated_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utc_now, onupdate=utc_now)
+
+
 class TeacherComment(db.Model):
     __tablename__ = "teacher_comments"
 

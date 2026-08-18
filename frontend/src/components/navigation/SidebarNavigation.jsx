@@ -1,10 +1,10 @@
 import { NavLink } from 'react-router-dom';
-import { BookOpen, ChartNoAxesColumnIncreasing, ClipboardCheck, LayoutDashboard, Map, MessageCircleQuestion, Settings, LibraryBig, ListChecks } from 'lucide-react';
+import { BookOpen, ChartNoAxesColumnIncreasing, ClipboardCheck, LayoutDashboard, Map, MessageCircleQuestion, Settings, LibraryBig, ListChecks, School } from 'lucide-react';
 import { Brand } from '../layout/Header';
 import { cn } from '../../shared/lib/cn';
 import { useI18n } from '../../shared/i18n/i18n';
 
-const studentItems = [['nav.overview', '/student/dashboard', LayoutDashboard], ['nav.path', '/student/path', BookOpen], ['nav.map', '/student/knowledge-map', Map], ['nav.assistant', '/student/assistant', MessageCircleQuestion], ['nav.progress', '/student/progress', ChartNoAxesColumnIncreasing], ['nav.achievements', '/student/achievements', ClipboardCheck], ['nav.settings', '/student/settings', Settings]];
+const studentItems = [['nav.overview', '/student/dashboard', LayoutDashboard], ['nav.classroom', '/student/class', School], ['nav.path', '/student/path', BookOpen], ['nav.map', '/student/knowledge-map', Map], ['nav.assistant', '/student/assistant', MessageCircleQuestion], ['nav.progress', '/student/progress', ChartNoAxesColumnIncreasing], ['nav.achievements', '/student/achievements', ClipboardCheck], ['nav.settings', '/student/settings', Settings]];
 const teacherItems = [['nav.classOverview', '/teacher/dashboard', LayoutDashboard], ['nav.content', '/teacher/content', LibraryBig], ['nav.assignments', '/teacher/assignments', ListChecks]];
 
 export function SidebarNavigation({ role = 'student' }) {

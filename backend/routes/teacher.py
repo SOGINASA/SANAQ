@@ -5,7 +5,7 @@ from flask import Blueprint, request
 from flask_jwt_extended import get_jwt, get_jwt_identity
 
 from models import (
-    Assignment, Attempt, ClassEnrollment, Classroom, KnowledgeState, LearningModule, LearningPath,
+    Assignment, Attempt, ClassAnnouncement, ClassEnrollment, Classroom, KnowledgeState, LearningModule, LearningPath,
     LearningStep, Notification, StudentProfile, Task, TeacherComment, User, db,
 )
 from services.learning import available_learning_skills
@@ -39,6 +39,37 @@ def _class_payload(classroom, details=False):
     if details:
         payload["teacher_id"] = classroom.teacher_id
     return payload
+
+
+def _class_for_member(class_id):
+    classroom = db.session.get(Classroom, class_id)
+    if not classroom:
+        return None, api_error("CLASS_NOT_FOUND", "Класс не найден", 404)
+    user_id = get_jwt_identity()
+    role = get_jwt().get("role")
+    if role in {"teacher", "admin"}:
+        if classroom.teacher_id != user_id and role != "admin":
+            return None, api_error("FORBIDDEN", "Нет доступа к классу", 403)
+    elif role == "student":
+        if not db.session.get(ClassEnrollment, (classroom.id, user_id)):
+            return None, api_error("FORBIDDEN", "Вы не состоите в этом классе", 403)
+    else:
+        return None, api_error("FORBIDDEN", "Нет доступа к классу", 403)
+    return classroom, None
+
+
+def _announcement_payload(announcement):
+    teacher = db.session.get(User, announcement.teacher_id)
+    return {
+        "id": announcement.id,
+        "class_id": announcement.class_id,
+        "title": announcement.title,
+        "body": announcement.body,
+        "is_pinned": announcement.is_pinned,
+        "author": teacher.name if teacher else "Учитель",
+        "created_at": announcement.created_at.isoformat(),
+        "updated_at": announcement.updated_at.isoformat(),
+    }
 
 
 def _student_rows(classroom):
@@ -123,6 +154,18 @@ def teacher_classes():
     return success({"items": [_class_payload(item) for item in items]})
 
 
+@teacher_bp.get("/students/me/classes")
+@roles_required("student")
+def student_classes():
+    items = db.session.scalars(
+        db.select(Classroom)
+        .join(ClassEnrollment, ClassEnrollment.class_id == Classroom.id)
+        .where(ClassEnrollment.student_id == get_jwt_identity())
+        .order_by(ClassEnrollment.joined_at.desc())
+    ).all()
+    return success({"items": [_class_payload(item, details=True) for item in items]})
+
+
 @teacher_bp.post("/classes")
 @roles_required("teacher")
 def create_class():
@@ -194,6 +237,80 @@ def join_class_by_code():
         db.session.add(ClassEnrollment(class_id=classroom.id, student_id=get_jwt_identity()))
         db.session.commit()
     return success({"class": _class_payload(classroom)})
+
+
+@teacher_bp.get("/classes/<classId>/feed")
+@roles_required("student", "teacher", "admin")
+def class_feed(classId):
+    classroom, error = _class_for_member(classId)
+    if error:
+        return error
+    announcements = db.session.scalars(
+        db.select(ClassAnnouncement)
+        .where(ClassAnnouncement.class_id == classroom.id)
+        .order_by(ClassAnnouncement.is_pinned.desc(), ClassAnnouncement.created_at.desc())
+    ).all()
+    assignment_query = db.select(Assignment).where(Assignment.class_id == classroom.id)
+    if get_jwt().get("role") == "student":
+        assignment_query = assignment_query.where(Assignment.status == "published")
+    assignments = db.session.scalars(
+        assignment_query.order_by(Assignment.created_at.desc())
+    ).all()
+    teacher = db.session.get(User, classroom.teacher_id)
+    return success({
+        "class": {**_class_payload(classroom, details=True), "teacher_name": teacher.name if teacher else "Учитель"},
+        "announcements": [_announcement_payload(item) for item in announcements],
+        "assignments": [_assignment_payload(item) for item in assignments],
+    })
+
+
+@teacher_bp.post("/classes/<classId>/announcements")
+@roles_required("teacher", "admin")
+def create_class_announcement(classId):
+    classroom, error = _class_or_error(classId)
+    if error:
+        return error
+    data = request.get_json(silent=True) or {}
+    title = str(data.get("title", "")).strip()
+    body = str(data.get("body", "")).strip()
+    if not title or not body:
+        return api_error("VALIDATION_ERROR", "Заполните заголовок и текст объявления", 422)
+    if len(title) > 160 or len(body) > 5000:
+        return api_error("VALIDATION_ERROR", "Объявление слишком длинное", 422)
+    announcement = ClassAnnouncement(
+        class_id=classroom.id,
+        teacher_id=get_jwt_identity(),
+        title=title,
+        body=body,
+        is_pinned=bool(data.get("is_pinned", False)),
+    )
+    db.session.add(announcement)
+    student_ids = db.session.scalars(
+        db.select(ClassEnrollment.student_id).where(ClassEnrollment.class_id == classroom.id)
+    ).all()
+    for student_id in student_ids:
+        db.session.add(Notification(
+            user_id=student_id,
+            title=f"Объявление · {classroom.name}",
+            body=title,
+            link=f"/student/classes/{classroom.id}",
+        ))
+    db.session.commit()
+    return success({"announcement": _announcement_payload(announcement)}, status=201)
+
+
+@teacher_bp.delete("/classes/<classId>/announcements/<announcementId>")
+@roles_required("teacher", "admin")
+def delete_class_announcement(classId, announcementId):
+    classroom, error = _class_or_error(classId)
+    if error:
+        return error
+    announcement = db.session.get(ClassAnnouncement, announcementId)
+    if not announcement or announcement.class_id != classroom.id:
+        return api_error("ANNOUNCEMENT_NOT_FOUND", "Объявление не найдено", 404)
+    db.session.delete(announcement)
+    db.session.commit()
+    return success({"removed": True})
 
 
 @teacher_bp.delete("/classes/<classId>/students/<studentId>")
@@ -376,7 +493,7 @@ def create_assignment():
     for student_id in student_ids:
         db.session.add(Notification(
             user_id=student_id, title="Новое назначение", body=title,
-            link="/student/dashboard",
+            link=f"/student/classes/{classroom.id}",
         ))
     db.session.commit()
     return success({"assignment": _assignment_payload(assignment)}, status=201)

@@ -6,6 +6,7 @@ import { profileApi } from '../../shared/api/profileApi';
 import { Button, Card, StatusToast } from '../../shared/ui';
 import { goalsApi } from '../../features/goals/goalsApi';
 import { useI18n } from '../../shared/i18n/i18n';
+import { useNavigate } from 'react-router-dom';
 
 function Toggle({ checked, onChange, label, description }) {
   return (
@@ -20,6 +21,7 @@ function Toggle({ checked, onChange, label, description }) {
 }
 
 export function SettingsPage() {
+  const navigate = useNavigate();
   const { t } = useI18n();
   const store = useAccessibilityStore();
   const [reviews, setReviews] = useState(true);
@@ -93,7 +95,7 @@ export function SettingsPage() {
     try {
       const response = await profileApi.joinClass(joinCode.trim().toUpperCase());
       setJoinCode('');
-      setStatus(t('settings.joined', { name: response.data.class.name }));
+      navigate(`/student/classes/${response.data.class.id}`);
     } catch (requestError) {
       setError(requestError.message);
     } finally {

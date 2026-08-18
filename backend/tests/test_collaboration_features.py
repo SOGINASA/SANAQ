@@ -21,6 +21,23 @@ def test_teacher_class_assignment_and_student_notifications(
     )
     assert joined.status_code == 200
 
+    classes = client.get("/api/v1/students/me/classes", headers=student_headers)
+    assert classes.status_code == 200
+    assert classes.get_json()["data"]["items"][0]["id"] == classroom["id"]
+
+    announced = client.post(
+        f"/api/v1/classes/{classroom['id']}/announcements",
+        headers=teacher_headers,
+        json={"title": "Контрольная в пятницу", "body": "Повторите формулы.", "is_pinned": True},
+    )
+    assert announced.status_code == 201
+
+    feed = client.get(
+        f"/api/v1/classes/{classroom['id']}/feed", headers=student_headers,
+    )
+    assert feed.status_code == 200
+    assert feed.get_json()["data"]["announcements"][0]["title"] == "Контрольная в пятницу"
+
     students = client.get(
         f"/api/v1/classes/{classroom['id']}/students", headers=teacher_headers,
     )
@@ -54,7 +71,7 @@ def test_teacher_class_assignment_and_student_notifications(
     notification_items = client.get(
         "/api/v1/notifications", headers=student_headers,
     ).get_json()["data"]["items"]
-    assert len(notification_items) == 1
+    assert len(notification_items) == 2
     assert notification_items[0]["read"] is False
 
     commented = client.post(
@@ -65,7 +82,7 @@ def test_teacher_class_assignment_and_student_notifications(
     assert commented.status_code == 201
     assert db.session.scalar(
         db.select(db.func.count()).select_from(Notification).where(Notification.user_id == student.id)
-    ) == 2
+    ) == 3
 
 
 def test_ai_conversation_is_persisted_and_owner_protected(

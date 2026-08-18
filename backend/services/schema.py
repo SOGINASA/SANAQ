@@ -3,6 +3,7 @@ from sqlalchemy import inspect, text
 from models import (
     AIConversation,
     AIMessage,
+    ClassAnnouncement,
     CurriculumTopicMetadata,
     SkillPlanningMetadata,
     db,
@@ -35,6 +36,7 @@ def ensure_runtime_schema():
     if "users" in tables:
         AIConversation.__table__.create(bind=db.engine, checkfirst=True)
         AIMessage.__table__.create(bind=db.engine, checkfirst=True)
+        ClassAnnouncement.__table__.create(bind=db.engine, checkfirst=True)
         CurriculumTopicMetadata.__table__.create(bind=db.engine, checkfirst=True)
         SkillPlanningMetadata.__table__.create(bind=db.engine, checkfirst=True)
         inspector = inspect(db.engine)
