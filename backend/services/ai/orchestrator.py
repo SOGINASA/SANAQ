@@ -3,8 +3,8 @@ from pathlib import Path
 
 from flask import current_app
 
+from services.ai.client_factory import create_ai_client
 from services.ai.guardrails import redact_personal_data
-from services.ai.ollama_client import OllamaClient
 
 
 PROMPTS_DIR = Path(__file__).resolve().parent / "prompts"
@@ -15,15 +15,7 @@ class SANAOrchestrator:
         config = current_app.config
         self.context_tokens = config["AI_CONTEXT_TOKENS"]
         self.max_tokens = config["AI_MAX_TOKENS"]
-        self.client = client or OllamaClient(
-            base_url=config["AI_BASE_URL"],
-            model=config["AI_MODEL"],
-            timeout=config["AI_TIMEOUT_SECONDS"],
-            temperature=config["AI_TEMPERATURE"],
-            max_tokens=config["AI_MAX_TOKENS"],
-            context_tokens=config["AI_CONTEXT_TOKENS"],
-            thinking=config["AI_THINKING"],
-        )
+        self.client = client
 
     @staticmethod
     def _system_prompt(conversation):
@@ -88,4 +80,6 @@ class SANAOrchestrator:
         yield from self.stream_messages(self.build_messages(conversation))
 
     def stream_messages(self, messages):
+        if self.client is None:
+            self.client = create_ai_client(current_app.config)
         yield from self.client.stream_chat(messages)

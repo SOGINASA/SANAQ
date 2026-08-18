@@ -5,7 +5,7 @@ from flask import Blueprint, Response, current_app, request, stream_with_context
 from flask_jwt_extended import get_jwt_identity
 
 from models import AIConversation, AIMessage, Attempt, Task, TaskAnswer, db, utc_now
-from services.ai import OllamaError, SANAOrchestrator
+from services.ai import AIProviderError, SANAOrchestrator
 from services.ai.fallback import fallback_answer
 from services.ai.guardrails import urgent_safety_response, validate_user_message
 from utils.decorators import roles_required
@@ -114,6 +114,8 @@ def _stream_model_answer(conversation_id, locale, orchestrator, model_messages, 
     has_visible_content = False
     generated_by_ai = safety_answer is None
     model_version = current_app.config["AI_MODEL"] if generated_by_ai else "safety-policy-v1"
+    fallback_used = False
+    failure_code = None
 
     try:
         source = [safety_answer] if safety_answer else orchestrator.stream_messages(model_messages)
@@ -123,19 +125,22 @@ def _stream_model_answer(conversation_id, locale, orchestrator, model_messages, 
             yield _sse("token", {"text": chunk})
         content = "".join(chunks).strip()
         if not content:
-            raise OllamaError("Ollama returned an empty response")
-    except OllamaError as error:
+            raise AIProviderError("AI provider returned an empty response")
+    except AIProviderError as error:
         if has_visible_content:
             current_app.logger.warning("AI stream interrupted after partial response: %s", error)
             yield _sse("error", {
                 "code": "AI_STREAM_INTERRUPTED",
                 "message": "Ответ SANA прервался. Попробуй отправить сообщение ещё раз.",
+                "fallback_used": False,
             })
             return
         current_app.logger.warning("AI stream fallback used: %s", error)
         content = fallback_answer(locale)
         generated_by_ai = False
         model_version = "deterministic-fallback-v1"
+        fallback_used = True
+        failure_code = "ai_provider_unavailable"
         yield _sse("token", {"text": content})
 
     conversation = db.session.get(AIConversation, conversation_id)
@@ -143,10 +148,14 @@ def _stream_model_answer(conversation_id, locale, orchestrator, model_messages, 
         yield _sse("error", {"message": "Диалог был удалён во время ответа"})
         return
     message = _save_assistant_message(conversation, content, started_at, generated_by_ai, model_version)
-    yield _sse("done", {
+    done_payload = {
         "message": message.to_dict(),
         "warning": "SANA может ошибаться — проверяй важные факты и решения.",
-    })
+        "fallback_used": fallback_used,
+    }
+    if failure_code:
+        done_payload["failure_code"] = failure_code
+    yield _sse("done", done_payload)
 
 
 @ai_bp.post("/ai/conversations/<conversationId>/messages")
@@ -202,8 +211,8 @@ def send_conversation_message(conversationId):
         content_chunks = [safety_answer] if safety_answer else SANAOrchestrator().stream(conversation)
         answer = "".join(content_chunks).strip()
         if not answer:
-            raise OllamaError("Ollama returned an empty response")
-    except OllamaError as error:
+            raise AIProviderError("AI provider returned an empty response")
+    except AIProviderError as error:
         current_app.logger.warning("AI fallback used: %s", error)
         answer = fallback_answer(conversation.locale)
         generated_by_ai = False
@@ -214,7 +223,10 @@ def send_conversation_message(conversationId):
     payload = {
         "message": assistant_message.to_dict(),
         "warning": "SANA может ошибаться — проверяй важные факты и решения.",
+        "fallback_used": not generated_by_ai and model_version == "deterministic-fallback-v1",
     }
+    if payload["fallback_used"]:
+        payload["failure_code"] = "ai_provider_unavailable"
     if legacy_client:
         payload.update({
             "user_message": user_message.to_dict(),

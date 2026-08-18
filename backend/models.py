@@ -480,12 +480,15 @@ class AIMessage(db.Model):
     conversation = db.relationship("AIConversation", back_populates="messages")
 
     def to_dict(self):
+        fallback_used = self.model_version == "deterministic-fallback-v1"
         return {
             "id": self.id,
             "role": self.role,
             "content": self.content,
             "generated_by_ai": self.generated_by_ai,
             "model_version": self.model_version,
+            "fallback_used": fallback_used,
+            "failure_code": "ai_provider_unavailable" if fallback_used else None,
             "prompt_version": self.prompt_version,
             "latency_ms": self.latency_ms,
             "source_ids": self.source_ids or [],

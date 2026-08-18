@@ -2,8 +2,10 @@ import json
 import urllib.error
 import urllib.request
 
+from services.ai.errors import AIProviderError
 
-class OllamaError(RuntimeError):
+
+class OllamaError(AIProviderError):
     pass
 
 

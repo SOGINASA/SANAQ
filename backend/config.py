@@ -30,6 +30,7 @@ class Config:
 
     AI_PROVIDER = os.environ.get("AI_PROVIDER", "ollama")
     AI_BASE_URL = os.environ.get("AI_BASE_URL", "http://127.0.0.1:11434").rstrip("/")
+    AI_API_KEY = os.environ.get("AI_API_KEY", "")
     AI_MODEL = os.environ.get("AI_MODEL", "qwen3:8b")
     AI_PROMPT_VERSION = os.environ.get("AI_PROMPT_VERSION", "sana-tutor-v1")
     AI_TIMEOUT_SECONDS = float(os.environ.get("AI_TIMEOUT_SECONDS", "60"))
@@ -77,7 +78,9 @@ class TestingConfig(Config):
     JWT_SECRET_KEY = "sanaq-testing-jwt-secret-key-32-bytes"
     AUTO_CREATE_DB = False
     SEED_DEMO_DATA = False
+    AI_PROVIDER = "ollama"
     AI_BASE_URL = "http://127.0.0.1:1"
+    AI_API_KEY = ""
     AI_TIMEOUT_SECONDS = 0.1
     PATHNET_MODE = "off"
 

@@ -1,10 +1,14 @@
 import json
+import urllib.error
 from types import SimpleNamespace
 
 import pytest
 from sqlalchemy import inspect
 
 from models import User, db
+from services.ai.client_factory import create_ai_client
+from services.ai.errors import AIConfigurationError
+from services.ai.groq_client import GroqClient, GroqError
 from services.ai.guardrails import urgent_safety_response
 from services.ai.ollama_client import OllamaClient, OllamaError
 from services.ai.orchestrator import SANAOrchestrator
@@ -103,6 +107,81 @@ class _FakeResponse:
 
 def _client():
     return OllamaClient("http://ollama.test", "qwen3:8b", 1, 0.3, 100, 2048, False)
+
+
+def _groq_client(api_key="test-secret-key"):
+    return GroqClient("https://api.groq.test/openai/v1", api_key, "test-model", 1, 0.3, 100)
+
+
+def test_client_factory_selects_groq_without_exposing_api_key(app):
+    app.config.update(
+        AI_PROVIDER="groq",
+        AI_BASE_URL="https://api.groq.test/openai/v1",
+        AI_API_KEY="test-secret-key",
+        AI_MODEL="test-model",
+    )
+    client = create_ai_client(app.config)
+
+    assert isinstance(client, GroqClient)
+    assert client.api_key == "test-secret-key"
+
+
+def test_client_factory_rejects_unknown_provider(app):
+    app.config["AI_PROVIDER"] = "unknown"
+
+    with pytest.raises(AIConfigurationError, match="Unsupported AI provider"):
+        create_ai_client(app.config)
+
+
+def test_groq_client_accepts_valid_completed_sse_stream(monkeypatch):
+    response = _FakeResponse([
+        b'data: {"choices":[{"delta":{"content":"one"}}]}\n',
+        b'\n',
+        b'data: {"choices":[{"delta":{"content":" two"}}]}\n',
+        b'\n',
+        b'data: [DONE]\n',
+        b'\n',
+    ])
+    monkeypatch.setattr("urllib.request.urlopen", lambda *_args, **_kwargs: response)
+
+    assert "".join(_groq_client().stream_chat([{"role": "user", "content": "test"}])) == "one two"
+
+
+def test_groq_client_sends_backend_authorization_header(monkeypatch):
+    captured = {}
+
+    def fake_urlopen(request, **_kwargs):
+        captured["request"] = request
+        return _FakeResponse([b"data: [DONE]\n", b"\n"])
+
+    monkeypatch.setattr("urllib.request.urlopen", fake_urlopen)
+    list(_groq_client().stream_chat([{"role": "user", "content": "test"}]))
+
+    assert captured["request"].full_url == "https://api.groq.test/openai/v1/chat/completions"
+    assert captured["request"].get_header("Authorization") == "Bearer test-secret-key"
+
+
+def test_groq_client_rejects_stream_without_done_event(monkeypatch):
+    response = _FakeResponse([
+        b'data: {"choices":[{"delta":{"content":"partial"}}]}\n',
+        b'\n',
+    ])
+    monkeypatch.setattr("urllib.request.urlopen", lambda *_args, **_kwargs: response)
+
+    with pytest.raises(GroqError, match="before the done event"):
+        list(_groq_client().stream_chat([{"role": "user", "content": "test"}]))
+
+
+def test_groq_http_error_does_not_leak_api_key(monkeypatch):
+    def unauthorized(request, **_kwargs):
+        raise urllib.error.HTTPError(request.full_url, 401, "Unauthorized", {}, None)
+
+    monkeypatch.setattr("urllib.request.urlopen", unauthorized)
+
+    with pytest.raises(GroqError) as error:
+        list(_groq_client().stream_chat([{"role": "user", "content": "test"}]))
+
+    assert "test-secret-key" not in str(error.value)
 
 
 def test_ollama_client_rejects_non_object_stream_event(monkeypatch):

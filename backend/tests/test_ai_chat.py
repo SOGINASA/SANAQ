@@ -54,10 +54,15 @@ def test_chat_uses_explicit_fallback_when_ollama_is_unavailable(
         json={"content": "Помоги с задачей"},
     )
     message = response.get_json()["data"]["message"]
+    payload = response.get_json()["data"]
     assert response.status_code == 200
     assert message["generated_by_ai"] is False
     assert message["model_version"] == "deterministic-fallback-v1"
-    assert "Ollama" in message["content"]
+    assert message["fallback_used"] is True
+    assert message["failure_code"] == "ai_provider_unavailable"
+    assert payload["fallback_used"] is True
+    assert payload["failure_code"] == "ai_provider_unavailable"
+    assert "временно недоступен" in message["content"]
 
 
 def test_stream_uses_fallback_when_ollama_fails_before_first_token(
@@ -79,6 +84,8 @@ def test_stream_uses_fallback_when_ollama_fails_before_first_token(
 
     body = response.get_data(as_text=True)
     assert "deterministic-fallback-v1" in body
+    assert '"fallback_used": true' in body
+    assert '"failure_code": "ai_provider_unavailable"' in body
     assert "event: done" in body
     assert "event: error" not in body
 
@@ -100,6 +107,26 @@ def test_stream_uses_fallback_after_whitespace_only_response(
     assert "deterministic-fallback-v1" in body
     assert "event: done" in body
     assert "event: error" not in body
+
+
+def test_stream_marks_fallback_for_invalid_provider_configuration(
+    app, client, student_headers
+):
+    app.config["AI_PROVIDER"] = "unknown"
+    conversation_id = client.post(
+        "/api/v1/ai/conversations", headers=student_headers, json={}
+    ).get_json()["data"]["id"]
+    response = client.post(
+        f"/api/v1/ai/conversations/{conversation_id}/messages",
+        headers={**student_headers, "Accept": "text/event-stream"},
+        json={"content": "Помоги с задачей", "stream": True},
+    )
+
+    body = response.get_data(as_text=True)
+    assert response.status_code == 200
+    assert '"fallback_used": true' in body
+    assert '"failure_code": "ai_provider_unavailable"' in body
+    assert "event: done" in body
 
 
 def test_partial_stream_failure_is_reported_and_not_persisted(
