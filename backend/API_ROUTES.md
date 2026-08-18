@@ -213,6 +213,7 @@
 |---|---|---|---|
 | GET | `/teachers/me/dashboard` | teacher | Сводка групп, риски и последние события |
 | GET | `/teachers/me/classes` | teacher | Список классов/групп |
+| GET | `/students/me/classes` | student | Классы, в которых состоит ученик |
 | POST | `/classes` | teacher/admin | Создать группу и код приглашения |
 | GET | `/classes/:classId` | linked teacher/admin | Карточка класса |
 | PATCH | `/classes/:classId` | owner/admin | Изменить группу |
@@ -222,6 +223,9 @@
 | GET | `/classes/:classId/students` | linked teacher | Ученики и краткий прогресс |
 | GET | `/classes/:classId/analytics` | linked teacher | Тепловая карта навыков класса |
 | GET | `/classes/:classId/weak-skills` | linked teacher | Общие затруднения и группы риска |
+| GET | `/classes/:classId/feed` | linked user | Объявления и назначения класса |
+| POST | `/classes/:classId/announcements` | owner/admin | Опубликовать объявление класса |
+| DELETE | `/classes/:classId/announcements/:announcementId` | owner/admin | Удалить объявление класса |
 | GET | `/teachers/students/:studentId/progress` | linked teacher | Детальный прогресс ученика |
 | POST | `/teachers/students/:studentId/comments` | linked teacher | Сохранить комментарий ученику |
 
