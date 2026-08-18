@@ -15,8 +15,10 @@ coverage/
 .idea/
 .vscode/
 *.log
-backend/ml/artifacts/*
-!backend/ml/artifacts/pathnet-v2-outcomes-notebook.pt
+# Trained checkpoints and evaluation reports are versioned. Generated training
+# datasets stay local because they are reproducible and too large for regular Git.
+backend/ml/artifacts/*.jsonl
+backend/ml/artifacts/*.jsonl.gz
 
 # Temporary artifacts
 tmp/

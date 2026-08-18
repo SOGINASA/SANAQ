@@ -1,0 +1,196 @@
+{
+  "benchmark_version": "pathnet-offline-holdout-v1",
+  "model_version": "pathnet-v2-synthetic-outcomes-notebook",
+  "model_path": "ml/artifacts/pathnet-v2-outcomes-notebook.pt",
+  "seed": 20260818,
+  "requested_plans": 1000,
+  "scored_plans": 1000,
+  "failed_plans": 0,
+  "failure_codes": {},
+  "top_k": 20,
+  "elapsed_seconds": 3.839,
+  "metrics": {
+    "plans": 1000,
+    "mean_overlap_at_k": 0.6775,
+    "overlap_p10": 0.4545,
+    "overlap_p50": 0.6667,
+    "overlap_p90": 0.9,
+    "mean_latency_ms": 0.23,
+    "latency_p50_ms": 0.231,
+    "latency_p95_ms": 0.336,
+    "latency_p99_ms": 0.366,
+    "selection_accuracy": 0.9923,
+    "selection_precision": 0.8832,
+    "selection_recall": 1.0,
+    "selection_f1": 0.938,
+    "priority_mae": 0.0069,
+    "confusion_matrix": [
+      [
+        82869,
+        685
+      ],
+      [
+        0,
+        5180
+      ]
+    ]
+  },
+  "by_grade": {
+    "7": {
+      "plans": 182,
+      "mean_overlap_at_k": 0.7325,
+      "overlap_p10": 0.5625,
+      "overlap_p50": 0.7143,
+      "overlap_p90": 0.9091,
+      "mean_latency_ms": 0.15,
+      "latency_p50_ms": 0.145,
+      "latency_p95_ms": 0.173,
+      "latency_p99_ms": 0.247,
+      "selection_accuracy": 1.0,
+      "selection_precision": 1.0,
+      "selection_recall": 1.0,
+      "selection_f1": 1.0,
+      "priority_mae": 0.008,
+      "confusion_matrix": [
+        [
+          4799,
+          0
+        ],
+        [
+          0,
+          468
+        ]
+      ]
+    },
+    "8": {
+      "plans": 159,
+      "mean_overlap_at_k": 0.7105,
+      "overlap_p10": 0.375,
+      "overlap_p50": 0.7778,
+      "overlap_p90": 0.9286,
+      "mean_latency_ms": 0.18,
+      "latency_p50_ms": 0.18,
+      "latency_p95_ms": 0.216,
+      "latency_p99_ms": 0.26,
+      "selection_accuracy": 0.9995,
+      "selection_precision": 0.9928,
+      "selection_recall": 1.0,
+      "selection_f1": 0.9964,
+      "priority_mae": 0.0077,
+      "confusion_matrix": [
+        [
+          8168,
+          4
+        ],
+        [
+          0,
+          554
+        ]
+      ]
+    },
+    "9": {
+      "plans": 169,
+      "mean_overlap_at_k": 0.6619,
+      "overlap_p10": 0.5,
+      "overlap_p50": 0.6429,
+      "overlap_p90": 0.8667,
+      "mean_latency_ms": 0.23,
+      "latency_p50_ms": 0.23,
+      "latency_p95_ms": 0.272,
+      "latency_p99_ms": 0.337,
+      "selection_accuracy": 0.9964,
+      "selection_precision": 0.9364,
+      "selection_recall": 1.0,
+      "selection_f1": 0.9672,
+      "priority_mae": 0.0069,
+      "confusion_matrix": [
+        [
+          13715,
+          52
+        ],
+        [
+          0,
+          766
+        ]
+      ]
+    },
+    "10": {
+      "plans": 190,
+      "mean_overlap_at_k": 0.6581,
+      "overlap_p10": 0.45,
+      "overlap_p50": 0.65,
+      "overlap_p90": 0.85,
+      "mean_latency_ms": 0.25,
+      "latency_p50_ms": 0.245,
+      "latency_p95_ms": 0.305,
+      "latency_p99_ms": 0.349,
+      "selection_accuracy": 0.9966,
+      "selection_precision": 0.943,
+      "selection_recall": 1.0,
+      "selection_f1": 0.9707,
+      "priority_mae": 0.0062,
+      "confusion_matrix": [
+        [
+          18211,
+          66
+        ],
+        [
+          0,
+          1092
+        ]
+      ]
+    },
+    "11": {
+      "plans": 153,
+      "mean_overlap_at_k": 0.6471,
+      "overlap_p10": 0.4118,
+      "overlap_p50": 0.65,
+      "overlap_p90": 0.8889,
+      "mean_latency_ms": 0.29,
+      "latency_p50_ms": 0.281,
+      "latency_p95_ms": 0.346,
+      "latency_p99_ms": 0.408,
+      "selection_accuracy": 0.989,
+      "selection_precision": 0.8238,
+      "selection_recall": 1.0,
+      "selection_f1": 0.9034,
+      "priority_mae": 0.0067,
+      "confusion_matrix": [
+        [
+          18515,
+          218
+        ],
+        [
+          0,
+          1019
+        ]
+      ]
+    },
+    "12": {
+      "plans": 147,
+      "mean_overlap_at_k": 0.6486,
+      "overlap_p10": 0.45,
+      "overlap_p50": 0.65,
+      "overlap_p90": 0.8667,
+      "mean_latency_ms": 0.31,
+      "latency_p50_ms": 0.308,
+      "latency_p95_ms": 0.373,
+      "latency_p99_ms": 0.406,
+      "selection_accuracy": 0.9836,
+      "selection_precision": 0.7878,
+      "selection_recall": 1.0,
+      "selection_f1": 0.8813,
+      "priority_mae": 0.0071,
+      "confusion_matrix": [
+        [
+          19461,
+          345
+        ],
+        [
+          0,
+          1281
+        ]
+      ]
+    }
+  }
+}
