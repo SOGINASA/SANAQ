@@ -8,6 +8,7 @@ from models import AIConversation, AIMessage, Attempt, Task, TaskAnswer, db, utc
 from services.ai import AIProviderError, SANAOrchestrator
 from services.ai.fallback import fallback_answer
 from services.ai.guardrails import urgent_safety_response, validate_user_message
+from services.ai.limits import AILimitExceeded, enforce_ai_limits
 from utils.decorators import roles_required
 from utils.localization import localized
 from utils.responses import api_error, success
@@ -165,6 +166,12 @@ def send_conversation_message(conversationId):
     if error:
         return error
     data = request.get_json(silent=True) or {}
+    try:
+        enforce_ai_limits(get_jwt_identity())
+    except AILimitExceeded as error:
+        response, status = api_error(error.code, error.message, 429)
+        response.headers["Retry-After"] = str(error.retry_after)
+        return response, status
     try:
         content = validate_user_message(data.get("content"))
     except ValueError as error:

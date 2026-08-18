@@ -38,6 +38,8 @@ class Config:
     AI_MAX_TOKENS = int(os.environ.get("AI_MAX_TOKENS", "500"))
     AI_CONTEXT_TOKENS = int(os.environ.get("AI_CONTEXT_TOKENS", "8192"))
     AI_THINKING = _as_bool("AI_THINKING", False)
+    AI_RATE_LIMIT_PER_MINUTE = int(os.environ.get("AI_RATE_LIMIT_PER_MINUTE", "10"))
+    AI_DAILY_TOKEN_LIMIT = int(os.environ.get("AI_DAILY_TOKEN_LIMIT", "20000"))
 
     PATHNET_MODE = os.environ.get("PATHNET_MODE", "off").strip().lower()
     PATHNET_MODEL_PATH = os.environ.get(

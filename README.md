@@ -62,13 +62,13 @@ SANAQ — AI-платформа персонального обучения дл
 - API диагностики, каталога, учебного маршрута, заданий, прогресса, контента, назначений и уведомлений;
 - модели знаний, попыток, комментариев учителя и учебного контента;
 - конфигурация SQLite для локальной разработки и PostgreSQL для production-контура;
-- Docker Compose для React/Nginx, Flask/Gunicorn, PostgreSQL, PathNet и Ollama/Qwen3;
+- Docker Compose для React/Nginx, Flask/Gunicorn, PostgreSQL, PathNet и Groq;
 - интеграционные тесты основных backend-сценариев.
 
 ### Последние проверки
 
 - frontend: 14 тестов пройдено;
-- backend: 77 тестов пройдено;
+- backend: 94 теста пройдено, 2 torch-зависимых теста пропущены в окружении без PyTorch;
 - frontend production build: успешно;
 - паритет ключей переводов RU/KK/EN: проверяется автоматическим тестом.
 
@@ -164,8 +164,7 @@ python -m pytest
 ```bash
 cp .env.production.example .env
 # Заменить значения change-me в .env.
-docker compose up -d postgres ollama
-docker compose exec ollama ollama pull qwen3:8b
+docker compose up -d postgres
 docker compose up -d --build backend frontend
 ```
 

@@ -1,3 +1,5 @@
+import urllib.error
+
 from services.ai.ollama_client import OllamaClient, OllamaError
 
 
@@ -129,6 +131,38 @@ def test_stream_marks_fallback_for_invalid_provider_configuration(
     assert "event: done" in body
 
 
+def test_groq_failure_fallback_does_not_leak_api_key(
+    app, client, student_headers, monkeypatch, caplog
+):
+    secret = "test-groq-key-must-not-leak"
+    app.config.update(
+        AI_PROVIDER="groq",
+        AI_BASE_URL="https://api.groq.test/openai/v1",
+        AI_API_KEY=secret,
+        AI_MODEL="test-model",
+    )
+
+    def rate_limited(request, **_kwargs):
+        raise urllib.error.HTTPError(request.full_url, 429, "Rate limited", {}, None)
+
+    monkeypatch.setattr("urllib.request.urlopen", rate_limited)
+    conversation_id = client.post(
+        "/api/v1/ai/conversations", headers=student_headers, json={}
+    ).get_json()["data"]["id"]
+    response = client.post(
+        f"/api/v1/ai/conversations/{conversation_id}/messages",
+        headers=student_headers,
+        json={"content": "Помоги с задачей"},
+    )
+
+    body = response.get_data(as_text=True)
+    assert response.status_code == 200
+    assert '"fallback_used":true' in body
+    assert '"failure_code":"ai_provider_unavailable"' in body
+    assert secret not in body
+    assert secret not in caplog.text
+
+
 def test_partial_stream_failure_is_reported_and_not_persisted(
     client, student_headers, monkeypatch
 ):
@@ -160,3 +194,69 @@ def test_partial_stream_failure_is_reported_and_not_persisted(
 def test_teacher_cannot_access_student_chat(client, teacher_headers):
     response = client.get("/api/v1/ai/conversations", headers=teacher_headers)
     assert response.status_code == 403
+
+
+def test_ai_rate_limit_returns_429_before_provider_call(
+    app, client, student_headers, monkeypatch
+):
+    app.config.update(AI_RATE_LIMIT_PER_MINUTE=1, AI_DAILY_TOKEN_LIMIT=20_000)
+    calls = 0
+
+    def answer(_self, _messages):
+        nonlocal calls
+        calls += 1
+        return iter(["Первый ответ"])
+
+    monkeypatch.setattr(OllamaClient, "stream_chat", answer)
+    conversation_id = client.post(
+        "/api/v1/ai/conversations", headers=student_headers, json={}
+    ).get_json()["data"]["id"]
+    first = client.post(
+        f"/api/v1/ai/conversations/{conversation_id}/messages",
+        headers=student_headers,
+        json={"content": "Первый вопрос"},
+    )
+    second = client.post(
+        f"/api/v1/ai/conversations/{conversation_id}/messages",
+        headers=student_headers,
+        json={"content": "Второй вопрос"},
+    )
+
+    assert first.status_code == 200
+    assert second.status_code == 429
+    assert second.get_json()["error"]["code"] == "AI_RATE_LIMITED"
+    assert second.headers["Retry-After"] == "60"
+    assert calls == 1
+
+
+def test_ai_daily_token_limit_returns_429_before_provider_call(
+    app, client, student_headers, monkeypatch
+):
+    app.config.update(AI_RATE_LIMIT_PER_MINUTE=0, AI_DAILY_TOKEN_LIMIT=1)
+    calls = 0
+
+    def answer(_self, _messages):
+        nonlocal calls
+        calls += 1
+        return iter(["Ответ длиннее одного токена"])
+
+    monkeypatch.setattr(OllamaClient, "stream_chat", answer)
+    conversation_id = client.post(
+        "/api/v1/ai/conversations", headers=student_headers, json={}
+    ).get_json()["data"]["id"]
+    first = client.post(
+        f"/api/v1/ai/conversations/{conversation_id}/messages",
+        headers=student_headers,
+        json={"content": "Первый вопрос"},
+    )
+    second = client.post(
+        f"/api/v1/ai/conversations/{conversation_id}/messages",
+        headers=student_headers,
+        json={"content": "Второй вопрос"},
+    )
+
+    assert first.status_code == 200
+    assert second.status_code == 429
+    assert second.get_json()["error"]["code"] == "AI_DAILY_TOKEN_LIMIT"
+    assert int(second.headers["Retry-After"]) > 0
+    assert calls == 1

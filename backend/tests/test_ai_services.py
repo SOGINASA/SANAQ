@@ -172,16 +172,59 @@ def test_groq_client_rejects_stream_without_done_event(monkeypatch):
         list(_groq_client().stream_chat([{"role": "user", "content": "test"}]))
 
 
-def test_groq_http_error_does_not_leak_api_key(monkeypatch):
-    def unauthorized(request, **_kwargs):
-        raise urllib.error.HTTPError(request.full_url, 401, "Unauthorized", {}, None)
+@pytest.mark.parametrize("status", [401, 429])
+def test_groq_http_error_does_not_leak_api_key(monkeypatch, status):
+    def failed_request(request, **_kwargs):
+        raise urllib.error.HTTPError(request.full_url, status, "Request failed", {}, None)
 
-    monkeypatch.setattr("urllib.request.urlopen", unauthorized)
+    monkeypatch.setattr("urllib.request.urlopen", failed_request)
 
     with pytest.raises(GroqError) as error:
         list(_groq_client().stream_chat([{"role": "user", "content": "test"}]))
 
     assert "test-secret-key" not in str(error.value)
+
+
+def test_groq_timeout_is_safe_and_explicit(monkeypatch):
+    monkeypatch.setattr(
+        "urllib.request.urlopen",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(TimeoutError("test-secret-key")),
+    )
+
+    with pytest.raises(GroqError, match="TimeoutError") as error:
+        list(_groq_client().stream_chat([{"role": "user", "content": "test"}]))
+
+    assert "test-secret-key" not in str(error.value)
+
+
+def test_groq_partial_stream_raises_after_returning_first_token(monkeypatch):
+    def interrupted_events():
+        yield b'data: {"choices":[{"delta":{"content":"partial"}}]}\n'
+        yield b"\n"
+        raise TimeoutError("connection lost")
+
+    monkeypatch.setattr(
+        "urllib.request.urlopen", lambda *_args, **_kwargs: _FakeResponse(interrupted_events())
+    )
+    stream = _groq_client().stream_chat([{"role": "user", "content": "test"}])
+
+    assert next(stream) == "partial"
+    with pytest.raises(GroqError, match="TimeoutError"):
+        next(stream)
+
+
+def test_groq_requires_backend_api_key_before_network_call(monkeypatch):
+    called = False
+
+    def unexpected_call(*_args, **_kwargs):
+        nonlocal called
+        called = True
+
+    monkeypatch.setattr("urllib.request.urlopen", unexpected_call)
+
+    with pytest.raises(GroqError, match="not configured"):
+        list(_groq_client(api_key="").stream_chat([{"role": "user", "content": "test"}]))
+    assert called is False
 
 
 def test_ollama_client_rejects_non_object_stream_event(monkeypatch):

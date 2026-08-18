@@ -1,7 +1,7 @@
 # SANAQ MVP: Docker deployment
 
 Канонический production-like запуск выполняется из корня репозитория через
-`compose.yaml`. Он поднимает четыре сервиса:
+`compose.yaml`. Compose поднимает три сервиса:
 
 ```text
 Internet / HTTPS proxy
@@ -10,146 +10,123 @@ Internet / HTTPS proxy
 frontend (Nginx + React) :80
           |
           v
-backend (Gunicorn + Flask + PathNet) :8000
-       |                         |
-       v                         v
-PostgreSQL                    Ollama / Qwen3
+backend (Gunicorn + Flask + CPU PathNet) :8000
+          |
+          v
+PostgreSQL
+
+backend -- HTTPS --> Groq Chat Completions API
 ```
 
-PostgreSQL, backend и Ollama не публикуют порты хоста. Браузер обращается только
-к frontend Nginx; `/api/*` проксируется в backend, включая SSE-ответы чата.
+PostgreSQL и backend не публикуют порты хоста. Браузер обращается только к
+frontend Nginx; Groq API key существует только в окружении backend.
 
 ## 1. Требования
 
 - Linux-сервер с Docker Engine и Docker Compose v2;
-- минимум 16 GB RAM для CPU-запуска `qwen3:8b`;
-- не менее 15 GB свободного диска для образов и Ollama volume;
+- исходящий HTTPS-доступ к `api.groq.com`;
+- минимум 2 GB RAM и 3 GB свободного диска;
 - домен и внешний HTTPS reverse proxy для публичной эксплуатации.
-
-PathNet занимает около 15 KB. Основной объём диска и памяти использует Qwen3.
 
 ## 2. Production environment
 
-Из корня репозитория:
-
 ```bash
 cp .env.production.example .env
+chmod 600 .env
 openssl rand -hex 32
 openssl rand -hex 32
 openssl rand -hex 32
 ```
 
-Три результата записать соответственно в `SECRET_KEY`, `JWT_SECRET_KEY` и
-`POSTGRES_PASSWORD`. Для публичного HTTPS изменить:
+Три результата записать в `SECRET_KEY`, `JWT_SECRET_KEY` и
+`POSTGRES_PASSWORD`. Отдельно создать Groq key и записать только в
+`GROQ_API_KEY`. Для публичного HTTPS установить:
 
 ```dotenv
 PUBLIC_ORIGIN=https://sanaq.example.kz
 JWT_COOKIE_SECURE=true
 SEED_DEMO_DATA=false
 DATA_MODE=production
+
+AI_MODEL=llama-3.1-8b-instant
+AI_RATE_LIMIT_PER_MINUTE=10
+AI_DAILY_TOKEN_LIMIT=20000
+PATHNET_MODE=shadow
+PATHNET_CANARY_PERCENT=0
 ```
 
-Файл `.env` нельзя коммитить.
+Файл `.env` нельзя коммитить, отправлять во frontend или выводить в CI logs.
 
-## 3. Проверка конфигурации и сборка
+## 3. Проверка и запуск
 
 ```bash
 docker compose config --quiet
 docker compose build backend frontend
-```
-
-Backend image устанавливает CPU-only PyTorch и содержит проверенный checkpoint
-`pathnet-v2-outcomes-notebook.pt`. Jupyter, pandas и тренировочный датасет в
-production image не входят.
-
-## 4. PostgreSQL и Qwen3
-
-```bash
-docker compose up -d postgres ollama
-docker compose ps
-docker compose exec ollama ollama pull qwen3:8b
-docker compose exec ollama ollama list
-```
-
-Веса Qwen сохраняются в named volume `ollama_data` и не скачиваются заново после
-пересборки приложения.
-
-Для NVIDIA GPU после установки NVIDIA Container Toolkit использовать:
-
-```bash
-docker compose -f compose.yaml -f compose.gpu.yaml up -d
-```
-
-## 5. Запуск приложения
-
-```bash
-docker compose up -d backend frontend
+docker compose up -d
 docker compose ps
 docker compose logs --tail=100 backend
 ```
 
-Локальная проверка без внешнего HTTPS proxy:
+Backend image содержит CPU-only PyTorch и checkpoint
+`pathnet-v2-outcomes-notebook.pt`. Ollama, GPU overlay и model volume в
+production-контуре отсутствуют.
+
+Проверка:
 
 ```bash
 curl -fsS http://127.0.0.1/api/v1/health
 curl -fsS http://127.0.0.1/api/v1/ready
 ```
 
-В readiness ожидаются:
+В readiness ожидаются `database=ok`, `ai=groq_configured_with_fallback` и при
+`PATHNET_MODE=shadow|canary|active` — версия загруженного checkpoint.
+
+## 4. Проверка AI
+
+Отправить тестовое сообщение через штатный `/api/v1/ai/conversations/...`
+поток. Успешное сообщение должно иметь модель из `AI_MODEL` и
+`fallback_used=false`.
+
+Если Groq недоступен, API честно возвращает:
 
 ```json
 {
-  "status": "ready",
-  "checks": {
-    "database": "ok",
-    "pathnet": "ok:pathnet-v2-synthetic-outcomes-notebook",
-    "ai": "ollama_configured_with_fallback"
-  }
+  "fallback_used": true,
+  "failure_code": "ai_provider_unavailable"
 }
 ```
 
-Проверить Qwen из backend-сети:
+Это проверяет только отказоустойчивость. Такой ответ не подтверждает работу
+Groq и не должен засчитываться как успешный cloud AI test.
 
-```bash
-docker compose exec backend python -c "import urllib.request; print(urllib.request.urlopen('http://ollama:11434/api/tags', timeout=5).status)"
-```
+## 5. PathNet rollout
 
-## 6. Режимы отказа
+1. Оставить `PATHNET_MODE=shadow` и собрать метрики.
+2. Включить `canary` с `PATHNET_CANARY_PERCENT=10`.
+3. Проверить нулевое число prerequisite violations и fallback rate.
+4. После проверки включить `active`.
 
-- Если Qwen временно недоступна, чат возвращает явно помеченный безопасный
-  fallback; остальные страницы продолжают работать.
-- Если PathNet не загрузилась, `/ready` возвращает `503`, но deterministic planner
-  остаётся реализацией маршрута.
-- PathNet работает в `shadow`: она измеряет альтернативное ранжирование, но не
-  может нарушить prerequisite-граф или сломать план ученика.
+Ответы preview, маршрута и next-step содержат `ranking.applied`,
+`model_version`, `fallback_used` и безопасный `failure_code` при отказе.
 
-## 7. Бэкап и обновление
-
-Бэкап PostgreSQL:
+## 6. Бэкап и обновление
 
 ```bash
 docker compose exec -T postgres pg_dump -U sanaq -d sanaq > sanaq-backup.sql
-```
-
-Обновление:
-
-```bash
 git pull
 docker compose build backend frontend
 docker compose up -d
 docker compose ps
-curl -fsS http://127.0.0.1/api/v1/ready
 ```
 
-Не выполнять `docker compose down -v`, если нужно сохранить PostgreSQL и
-скачанные веса Qwen.
+Не выполнять `docker compose down -v`, если нужно сохранить PostgreSQL.
 
-## 8. Что обязательно сделать перед публичным трафиком
+## 7. Перед публичным трафиком
 
-- поставить HTTPS reverse proxy и установить `JWT_COOKIE_SECURE=true`;
-- отключить demo seed после создания нужных аккаунтов и контента;
+- включить HTTPS и `JWT_COOKIE_SECURE=true`;
+- отключить demo seed;
 - настроить ежедневный backup PostgreSQL;
-- ограничить доступ к SSH и Docker socket;
-- настроить мониторинг RAM/CPU/GPU, места на диске и `5xx`;
-- добавить rate limit для AI-чата перед нагрузочным запуском;
-- продолжать PathNet shadow-сбор на реальных обезличенных событиях.
+- проверить rate limit и дневной token budget AI-чата под ожидаемой нагрузкой;
+- настроить мониторинг Groq `401`, `429`, timeout и fallback rate;
+- проверить русские и казахские ответы на тестовом аккаунте;
+- провести PathNet shadow/canary rollout до `active`.

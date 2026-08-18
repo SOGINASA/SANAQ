@@ -38,10 +38,10 @@ ollama pull qwen3:8b
 ```
 
 При обычном запуске Flask используется `AI_BASE_URL=http://127.0.0.1:11434`.
-При запуске backend через Docker Compose адрес автоматически меняется на
-`http://host.docker.internal:11434`. Остальные параметры модели перечислены в
-`.env.example`. Если Ollama остановлена или не успела ответить, API сохраняет вопрос и
-возвращает явно помеченный безопасный fallback вместо скрытой заглушки.
+Эта конфигурация предназначена только для локальной разработки. Production
+Docker Compose использует Groq через backend-only ключ; браузер ключ не получает.
+Если выбранный провайдер недоступен, API сохраняет вопрос и возвращает явно
+помеченный безопасный fallback вместо скрытой заглушки.
 
 При запуске `MIGRATE_RUNTIME_SCHEMA=true` backend идемпотентно создаёт недостающие
 таблицы AI-диалогов и добавляет совместимые AI-колонки, не изменяя существующие данные.
@@ -59,7 +59,7 @@ Backend-only Docker для локальной проверки:
 docker compose up --build
 ```
 
-Полный контур с frontend, PostgreSQL, PathNet и Ollama запускается из корня
+Полный контур с frontend, PostgreSQL, PathNet и Groq запускается из корня
 репозитория по инструкции `docs/MVP_DEPLOYMENT.md`.
 
 Отдельный технический handoff для backend/DevOps со всеми командами хоста:
@@ -88,7 +88,7 @@ docker compose up --build
 | GET/POST/PATCH | `/api/v1/learning-paths...` | Персональный маршрут и следующий шаг |
 | GET | `/api/v1/modules...`, `/lessons...`, `/tasks...` | Учебный контент без скрытых ответов |
 | POST/GET | `/api/v1/attempts...` | Ответ, завершение попытки и результат |
-| GET/POST | `/api/v1/ai/conversations...` | История и потоковые ответы Qwen3 через Ollama |
+| GET/POST | `/api/v1/ai/conversations...` | История и потоковые ответы выбранного AI provider |
 | POST | `/api/v1/ai/explanations`, `/api/v1/ai/hints` | Серверный учебный движок на проверенном контенте |
 | GET | `/api/v1/students/me/progress...` | Прогресс и слабые навыки |
 | GET | `/api/v1/students/me/knowledge-map` | Узлы mastery и зависимости |
