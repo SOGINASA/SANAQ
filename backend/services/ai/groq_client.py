@@ -92,3 +92,17 @@ class GroqClient:
             OSError,
         ) as error:
             raise GroqError(f"Groq unavailable: {type(error).__name__}") from error
+
+    def health(self):
+        if not self.api_key:
+            return False
+        request = urllib.request.Request(
+            f"{self.base_url}/models",
+            headers={"Authorization": f"Bearer {self.api_key}"},
+            method="GET",
+        )
+        try:
+            with urllib.request.urlopen(request, timeout=min(self.timeout, 2)) as response:
+                return response.status == 200
+        except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError, OSError):
+            return False

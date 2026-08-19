@@ -16,7 +16,7 @@ export function AdminClassesPage() {
   const [toast, setToast] = useState('');
   const load = useCallback(async () => {
     setLoading(true); setError('');
-    try { const [classResponse, teacherResponse] = await Promise.all([adminApi.classes(), adminApi.users({ role: 'teacher' })]); setClasses(classResponse.data.items || []); setTeachers(teacherResponse.data.items || []); }
+    try { const [classResponse, teacherResponse] = await Promise.all([adminApi.classes(), adminApi.allUsers({ role: 'teacher' })]); if (!Array.isArray(classResponse.data.items) || !Array.isArray(teacherResponse.data.items)) throw new Error('Backend вернул некорректные данные классов'); setClasses(classResponse.data.items); setTeachers(teacherResponse.data.items); }
     catch (requestError) { setError(requestError.message); }
     finally { setLoading(false); }
   }, []);

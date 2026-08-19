@@ -2,6 +2,8 @@ from flask import Blueprint, current_app
 from sqlalchemy import text
 
 from models import db
+from services.ai.client_factory import create_ai_client
+from services.ai.errors import AIProviderError
 from utils.responses import api_error, success
 
 
@@ -15,16 +17,27 @@ def health():
 
 @system_bp.get("/ready")
 def ready():
+    provider = str(current_app.config["AI_PROVIDER"]).strip().lower()
     checks = {
         "database": "ok",
         "pathnet": "disabled",
-        "ai": f"{current_app.config['AI_PROVIDER']}_configured_with_fallback",
+        "ai": f"unavailable:{provider}",
     }
     try:
         db.session.execute(text("SELECT 1"))
     except Exception:
         current_app.logger.exception("Readiness database check failed")
         return api_error("SERVICE_UNAVAILABLE", "База данных недоступна", 503)
+    try:
+        ai_client = create_ai_client(current_app.config)
+        if ai_client.health():
+            checks["ai"] = f"ok:{provider}"
+    except AIProviderError as error:
+        current_app.logger.warning("Readiness AI configuration check failed: %s", error)
+    except Exception as error:
+        current_app.logger.warning(
+            "Readiness AI provider check failed: %s", type(error).__name__
+        )
     if current_app.config["PATHNET_MODE"] in {"shadow", "canary", "active"}:
         try:
             from services.pathnet_inference import load_pathnet
@@ -35,7 +48,7 @@ def ready():
             current_app.logger.exception("Readiness PathNet check failed", exc_info=error)
             return api_error("SERVICE_UNAVAILABLE", "PathNet недоступен", 503)
     return success({
-        "status": "ready",
+        "status": "ready" if checks["ai"].startswith("ok:") else "degraded",
         "checks": checks,
     })
 

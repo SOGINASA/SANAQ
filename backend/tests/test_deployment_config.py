@@ -13,6 +13,9 @@ def test_production_compose_uses_groq_without_ollama_service():
     assert "llama-3.1-8b-instant" in compose
     assert "  ollama:" not in compose
     assert "ollama_data" not in compose
+    assert "SEED_DEMO_DATA: ${SEED_DEMO_DATA:-false}" in compose
+    assert "DATA_MODE: ${DATA_MODE:-production}" in compose
+    assert 'REACT_APP_SHOW_DEMO_LOGIN: "false"' in compose
     assert not (ROOT / "compose.gpu.yaml").exists()
 
 
@@ -37,9 +40,21 @@ def test_production_examples_keep_groq_key_out_of_frontend():
     assert "GROQ_API_KEY=" in backend_env
     assert "PATHNET_MODE=shadow" in root_env
     assert "PATHNET_CANARY_PERCENT=0" in root_env
+    assert "SEED_DEMO_DATA=false" in root_env
+    assert "DATA_MODE=production" in root_env
     assert "GROQ_API_KEY" not in frontend_text
     assert "AI_API_KEY" not in frontend_text
     assert "gsk_" not in frontend_text
+
+
+def test_production_frontend_hides_demo_login_by_default():
+    dockerfile = (ROOT / "frontend" / "Dockerfile").read_text(encoding="utf-8")
+    login_page = (
+        ROOT / "frontend" / "src" / "pages" / "auth" / "LoginPage.jsx"
+    ).read_text(encoding="utf-8")
+
+    assert "ARG REACT_APP_SHOW_DEMO_LOGIN=false" in dockerfile
+    assert "REACT_APP_SHOW_DEMO_LOGIN === 'true'" in login_page
 
 
 def test_checked_pathnet_checkpoint_is_packaged_for_production():
