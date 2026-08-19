@@ -17,13 +17,9 @@ export function AdminModerationPage() {
   const [error, setError] = useState('');
   const [toast, setToast] = useState('');
   const load = useCallback(async () => {
-    setLoading(true);
-    setError('');
-    try {
-      const [contentResponse, reportResponse] = await Promise.all([adminApi.reviewQueue(), adminApi.aiReports()]);
-      setContent(contentResponse.data.items || []);
-      setReports(reportResponse.data.items || []);
-    } catch (requestError) { setError(requestError.message); }
+    setLoading(true); setError('');
+    try { const [contentResponse, reportResponse] = await Promise.all([adminApi.reviewQueue(), adminApi.aiReports()]); if (!Array.isArray(contentResponse.data.items) || !Array.isArray(reportResponse.data.items)) throw new Error('Backend вернул некорректные данные модерации'); setContent(contentResponse.data.items); setReports(reportResponse.data.items); }
+    catch (requestError) { setError(requestError.message); }
     finally { setLoading(false); }
   }, []);
   useEffect(() => { load(); }, [load]);

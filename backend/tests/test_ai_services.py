@@ -227,6 +227,35 @@ def test_groq_requires_backend_api_key_before_network_call(monkeypatch):
     assert called is False
 
 
+def test_groq_health_checks_authenticated_models_endpoint(monkeypatch):
+    captured = {}
+
+    def fake_urlopen(request, **_kwargs):
+        captured["request"] = request
+        return _FakeResponse([])
+
+    monkeypatch.setattr("urllib.request.urlopen", fake_urlopen)
+
+    assert _groq_client().health() is True
+    assert captured["request"].full_url == "https://api.groq.test/openai/v1/models"
+    assert captured["request"].get_header("Authorization") == "Bearer test-secret-key"
+
+
+def test_groq_health_is_false_without_key_or_when_provider_fails(monkeypatch):
+    called = False
+
+    def failed_request(*_args, **_kwargs):
+        nonlocal called
+        called = True
+        raise urllib.error.URLError("offline")
+
+    monkeypatch.setattr("urllib.request.urlopen", failed_request)
+
+    assert _groq_client(api_key="").health() is False
+    assert called is False
+    assert _groq_client().health() is False
+
+
 def test_ollama_client_rejects_non_object_stream_event(monkeypatch):
     response = _FakeResponse([json.dumps([]).encode() + b"\n"])
     monkeypatch.setattr("urllib.request.urlopen", lambda *_args, **_kwargs: response)

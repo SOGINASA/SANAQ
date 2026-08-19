@@ -91,6 +91,7 @@ class TestingConfig(Config):
 
 class ProductionConfig(Config):
     DEBUG = False
+    DATA_MODE = os.environ.get("DATA_MODE", "production")
     AUTO_CREATE_DB = _as_bool("AUTO_CREATE_DB", False)
     SEED_DEMO_DATA = _as_bool("SEED_DEMO_DATA", False)
     JWT_COOKIE_SECURE = _as_bool("JWT_COOKIE_SECURE", True)
