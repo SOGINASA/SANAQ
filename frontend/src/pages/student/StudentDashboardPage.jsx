@@ -205,23 +205,24 @@ export function StudentDashboardPage() {
   const mastery = Math.round((progress?.overall_mastery || 0) * 100);
 
   return (
-    <div className="mx-auto max-w-7xl animate-rise">
-      <div className="flex flex-col justify-between gap-5 lg:flex-row lg:items-end">
-        <div>
+    <div className="mx-auto max-w-6xl animate-rise">
+      <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
+        <div className="min-w-0">
           <p className="eyebrow">Математика · 9 класс</p>
-          <h1 className="page-title mt-3">{user?.name ? `${user.name}, твой следующий шаг` : 'Твой следующий понятный шаг'}</h1>
-          <p className="mt-3 max-w-2xl text-stone-600">Диагностика, маршрут и прогресс загружаются из backend и меняются после каждого сохранённого ответа.</p>
+          <h1 className="mt-2 break-words text-2xl font-extrabold sm:text-3xl">{user?.name ? `${user.name}, твой следующий шаг` : 'Твой следующий шаг'}</h1>
         </div>
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
           <DataSourceBadge meta={sourceMeta} />
           <Button variant="ghost" size="sm" onClick={async () => { try { await logout(); } finally { navigate('/login'); } }}><LogOut className="h-4 w-4" /> Выйти</Button>
         </div>
       </div>
 
-      <div className="mt-6 flex flex-wrap gap-2" aria-label="Этап обучения">
-        {['Профиль', 'Диагностика', 'Маршрут', 'Прогресс'].map((label, index) => (
-          <span key={label} className={`rounded-full px-3 py-2 text-xs font-extrabold ${stage >= index + 1 ? 'bg-lavender-100 text-lavender-700' : 'bg-stone-200 text-stone-500'}`}>{index + 1}. {label}</span>
-        ))}
+      <div className="mt-5 flex items-center gap-4 rounded-2xl border border-stone-200 bg-paper px-4 py-3" aria-label="Этап обучения">
+        <span className="shrink-0 text-sm font-bold text-stone-600">Этап {stage} из 4</span>
+        <div className="grid min-w-0 flex-1 grid-cols-4 gap-1.5" aria-hidden="true">
+          {[1, 2, 3, 4].map((item) => <span key={item} className={`h-2 rounded-full ${stage >= item ? 'bg-lavender-500' : 'bg-stone-200'}`} />)}
+        </div>
+        <span className="hidden text-sm font-semibold text-lavender-700 sm:block">{['Профиль', 'Диагностика', 'Маршрут', 'Прогресс'][stage - 1]}</span>
       </div>
 
       {error && (
@@ -230,7 +231,7 @@ export function StudentDashboardPage() {
         </div>
       )}
 
-      <div className="mt-7 grid gap-6 xl:grid-cols-[1.45fr_0.55fr]">
+      <div className="mt-6 grid gap-5 xl:grid-cols-[minmax(0,1fr)_280px]">
         <div className="grid content-start gap-6">
           {!profile && (
             <Card className="p-6 sm:p-8">
@@ -262,7 +263,7 @@ export function StudentDashboardPage() {
             </Card>
           )}
 
-          {result && (
+          {result && !task && (
             <Card className="border-mint-300 bg-mint-50 p-6 sm:p-8">
               <p className="eyebrow text-mint-700">Результат диагностики</p>
               <div className="mt-3 flex flex-wrap items-end justify-between gap-4"><div><h2 className="text-3xl font-extrabold">{Math.round(result.score * 100)}% · уровень {result.level}</h2><p className="mt-2 max-w-2xl text-stone-600">{result.explanation}</p></div><div className="flex gap-2"><span className="rounded-2xl bg-paper px-4 py-3 text-sm"><strong className="block text-xl">{result.strengths?.length || 0}</strong>сильных</span><span className="rounded-2xl bg-paper px-4 py-3 text-sm"><strong className="block text-xl">{result.gaps?.length || 0}</strong>пробелов</span></div></div>
@@ -289,17 +290,18 @@ export function StudentDashboardPage() {
           {result && path && !task && <Card className="p-8 text-center"><CheckCircle2 className="mx-auto h-12 w-12 text-mint-700" /><h2 className="mt-4 text-2xl font-extrabold">Маршрут на сегодня завершён</h2><p className="mt-2 text-stone-600">Все доступные шаги выполнены. Следующее повторение появится по расписанию.</p></Card>}
         </div>
 
-        <aside className="grid content-start gap-6">
-          <Card className="p-6">
+        <aside className="grid content-start gap-5">
+          <Card className="p-5">
             <p className="eyebrow">Живой прогресс</p><p className="mt-4 text-5xl font-extrabold tabular-nums">{mastery}%</p>
             <ProgressBar className="mt-4" value={mastery} />
             <dl className="mt-5 grid gap-3 text-sm"><div className="flex justify-between"><dt className="text-stone-500">Освоено</dt><dd className="font-extrabold">{progress?.mastered_skills || 0}/{progress?.total_skills || 0}</dd></div><div className="flex justify-between"><dt className="text-stone-500">Пробелы</dt><dd className="font-extrabold">{progress?.weak_skills || 0}</dd></div></dl>
           </Card>
-          <Card className="p-6">
+          <Card className="p-5">
             <p className="eyebrow">Карта знаний</p>
             <div className="mt-5 grid gap-4">
-              {knowledgeMap?.nodes?.map((node) => <div key={node.id}><div className="flex justify-between gap-3 text-sm"><strong>{node.name}</strong><span className="text-stone-500">{Math.round(node.mastery * 100)}%</span></div><ProgressBar className="mt-2" value={Math.round(node.mastery * 100)} tone={node.mastery >= 0.8 ? 'mint' : 'violet'} /></div>) || <p className="text-sm text-stone-500">Карта появится после ответа backend.</p>}
+              {knowledgeMap?.nodes?.length ? knowledgeMap.nodes.slice(0, 4).map((node) => <div key={node.id}><div className="flex justify-between gap-3 text-sm"><strong className="min-w-0 truncate">{node.name}</strong><span className="shrink-0 text-stone-500">{Math.round(node.mastery * 100)}%</span></div><ProgressBar className="mt-2" value={Math.round(node.mastery * 100)} tone={node.mastery >= 0.8 ? 'mint' : 'violet'} /></div>) : <p className="text-sm text-stone-500">Карта появится после диагностики.</p>}
             </div>
+            {knowledgeMap?.nodes?.length > 4 && <Button className="mt-5 w-full" size="sm" variant="ghost" onClick={() => navigate('/student/knowledge-map')}>Открыть всю карту</Button>}
           </Card>
         </aside>
       </div>

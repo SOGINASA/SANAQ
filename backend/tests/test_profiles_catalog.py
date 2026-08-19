@@ -29,6 +29,16 @@ def test_user_preferences(client, student_headers):
     assert response.get_json()["data"]["preferences"]["theme"] == "dark"
 
 
+def test_catalog_goals_are_localized_strings(client):
+    expected = {"ru": "Подготовка к экзамену", "kk": "Емтиханға дайындық", "en": "Exam preparation"}
+    for locale, label in expected.items():
+        response = client.get("/api/v1/catalog/goals", headers={"Accept-Language": locale})
+        assert response.status_code == 200
+        goal = response.get_json()["data"]["items"][0]
+        assert goal["name"] == label
+        assert isinstance(goal["name"], str)
+
+
 def test_catalog_contains_mathematics_curriculum_for_grades_7_to_12(
     client, student_headers
 ):

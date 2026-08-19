@@ -3,10 +3,13 @@ import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, Check, Target } from 'lucide-react';
 import { Button, Card } from '../../shared/ui';
 import { catalogApi } from '../../shared/api/catalogApi';
+import { useI18n } from '../../shared/i18n/i18n';
+import { localizedText } from '../../shared/i18n/localizedText';
 
 const steps = ['Профиль', 'Предмет', 'Цель'];
 
 export function OnboardingPage() {
+  const { locale } = useI18n();
   const navigate = useNavigate();
   const [step, setStep] = useState(0);
   const [profile, setProfile] = useState({ grade: '', subject_id: '', goal_id: '' });
@@ -20,7 +23,11 @@ export function OnboardingPage() {
     Promise.all([catalogApi.grades(), catalogApi.subjects(), catalogApi.goals(), catalogApi.studentProfile()])
       .then(([grades, subjects, goals, current]) => {
         if (!active) return;
-        setCatalog({ grades: grades.data.items, subjects: subjects.data.items, goals: goals.data.items });
+        setCatalog({
+          grades: grades.data.items,
+          subjects: (subjects.data.items || []).map((item) => ({ ...item, name: localizedText(item.name, locale) })),
+          goals: (goals.data.items || []).map((item) => ({ ...item, name: localizedText(item.name, locale) })),
+        });
         setProfile({
           grade: current.data.profile?.grade || grades.data.items?.[0] || '',
           subject_id: current.data.profile?.subject_ids?.[0] || subjects.data.items?.[0]?.id || '',
@@ -30,7 +37,7 @@ export function OnboardingPage() {
       .catch((requestError) => setError(requestError.message))
       .finally(() => setLoading(false));
     return () => { active = false; };
-  }, []);
+  }, [locale]);
 
   const next = async () => {
     if (step < 2) {

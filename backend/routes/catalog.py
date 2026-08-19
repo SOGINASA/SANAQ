@@ -18,9 +18,9 @@ from utils.responses import api_error, success
 catalog_bp = Blueprint("catalog", __name__)
 
 GOALS = [
-    {"id": "exam", "name": {"ru": "Подготовка к экзамену", "kk": "Емтиханға дайындық"}},
-    {"id": "olympiad", "name": {"ru": "Подготовка к олимпиаде", "kk": "Олимпиадаға дайындық"}},
-    {"id": "review", "name": {"ru": "Повторение темы", "kk": "Тақырыпты қайталау"}},
+    {"id": "exam", "name": {"ru": "Подготовка к экзамену", "kk": "Емтиханға дайындық", "en": "Exam preparation"}},
+    {"id": "olympiad", "name": {"ru": "Подготовка к олимпиаде", "kk": "Олимпиадаға дайындық", "en": "Olympiad preparation"}},
+    {"id": "review", "name": {"ru": "Повторение темы", "kk": "Тақырыпты қайталау", "en": "Topic review"}},
 ]
 
 
@@ -111,7 +111,9 @@ def knowledge_graph(subjectId):
 
 @catalog_bp.get("/catalog/goals")
 def goals():
-    return success({"items": GOALS})
+    return success({"items": [
+        {"id": item["id"], "name": localized(item["name"])} for item in GOALS
+    ]})
 
 
 @catalog_bp.get("/catalog/locales")
