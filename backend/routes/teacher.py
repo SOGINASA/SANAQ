@@ -17,6 +17,22 @@ from utils.responses import api_error, success
 teacher_bp = Blueprint("teacher", __name__)
 
 
+def _notification_title(locale, kind, context=""):
+    language = locale if locale in {"ru", "kk", "en"} else "ru"
+    copies = {
+        "announcement": {
+            "ru": f"Объявление · {context}", "kk": f"Хабарландыру · {context}", "en": f"Announcement · {context}",
+        },
+        "comment": {
+            "ru": "Новый комментарий учителя", "kk": "Мұғалімнің жаңа пікірі", "en": "New teacher comment",
+        },
+        "assignment": {
+            "ru": "Новое назначение", "kk": "Жаңа тапсырма", "en": "New assignment",
+        },
+    }
+    return copies[kind][language]
+
+
 def _class_or_error(class_id):
     classroom = db.session.get(Classroom, class_id)
     if not classroom:
@@ -289,9 +305,10 @@ def create_class_announcement(classId):
         db.select(ClassEnrollment.student_id).where(ClassEnrollment.class_id == classroom.id)
     ).all()
     for student_id in student_ids:
+        student = db.session.get(User, student_id)
         db.session.add(Notification(
             user_id=student_id,
-            title=f"Объявление · {classroom.name}",
+            title=_notification_title(student.locale if student else "ru", "announcement", classroom.name),
             body=title,
             link=f"/student/classes/{classroom.id}",
         ))
@@ -444,12 +461,14 @@ def add_teacher_comment(studentId):
         ) if path else None
         if step:
             reason = dict(step.reason or {})
-            for locale in ("ru", "kk"):
+            comment_labels = {"ru": "Комментарий учителя", "kk": "Мұғалім пікірі", "en": "Teacher comment"}
+            for locale in ("ru", "kk", "en"):
                 prefix = f"{reason.get(locale, '').strip()}\n" if reason.get(locale) else ""
-                reason[locale] = f"{prefix}Комментарий учителя: {message}"
+                reason[locale] = f"{prefix}{comment_labels[locale]}: {message}"
             step.reason = reason
+    student = db.session.get(User, studentId)
     db.session.add(Notification(
-        user_id=studentId, title="Новый комментарий учителя", body=message,
+        user_id=studentId, title=_notification_title(student.locale if student else "ru", "comment"), body=message,
         link="/student/path",
     ))
     db.session.commit()
@@ -491,8 +510,9 @@ def create_assignment():
         db.select(ClassEnrollment.student_id).where(ClassEnrollment.class_id == classroom.id)
     ).all()
     for student_id in student_ids:
+        student = db.session.get(User, student_id)
         db.session.add(Notification(
-            user_id=student_id, title="Новое назначение", body=title,
+            user_id=student_id, title=_notification_title(student.locale if student else "ru", "assignment"), body=title,
             link=f"/student/classes/{classroom.id}",
         ))
     db.session.commit()

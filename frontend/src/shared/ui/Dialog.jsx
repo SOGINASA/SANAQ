@@ -59,7 +59,7 @@ export function Dialog({ open, onClose, title, description, children, footer, si
           <button ref={closeRef} type="button" onClick={onClose} className="grid h-11 w-11 shrink-0 cursor-pointer place-items-center rounded-2xl bg-stone-100 transition hover:bg-stone-200" aria-label={t('ui.close')}><X className="h-5 w-5" /></button>
         </header>
         <div className="p-5 sm:p-7">{children}</div>
-        {footer && <footer className="sticky bottom-0 flex flex-col-reverse gap-3 border-t border-stone-200 bg-paper/95 px-5 py-4 backdrop-blur-xl sm:flex-row sm:justify-end sm:px-7">{footer}</footer>}
+        {footer && <footer className="sticky bottom-0 flex flex-col-reverse gap-3 border-t border-stone-200 bg-paper/95 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-4 backdrop-blur-xl min-[360px]:px-5 sm:flex-row sm:justify-end sm:px-7">{footer}</footer>}
       </section>
     </div>,
     document.body

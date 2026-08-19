@@ -15,12 +15,20 @@ def success(data=None, status=200, meta=None):
 
 
 def api_error(code, message, status, details=None):
+    # Human-readable copy belongs to the client locale. Keep ``message`` in the
+    # signature while routes migrate, but never expose its server-language text.
     payload = {
         "code": code,
-        "message": message,
+        "message": code,
+        "message_code": code,
         "request_id": request_id(),
     }
     if details:
-        payload["details"] = details
+        payload["details"] = [
+            {key: value for key, value in detail.items() if key != "message"}
+            | {"code": detail.get("code", code)}
+            if isinstance(detail, dict) else detail
+            for detail in details
+        ]
     return jsonify({"error": payload}), status
 

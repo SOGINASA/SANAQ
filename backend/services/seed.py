@@ -50,12 +50,17 @@ def _demo_user(identity, email, name, role):
     return user
 
 
+def _add_en(value, text):
+    """Return a localized JSON value with an explicit English variant."""
+    return {**value, "en": text}
+
+
 def seed_demo_data():
     seed_math_curriculum(commit=False)
     _upsert(
         Subject,
         "mathematics",
-        name={"ru": "Математика", "kk": "Математика"},
+        name={"ru": "Математика", "kk": "Математика", "en": "Mathematics"},
         grades=[7, 8, 9, 10, 11, 12],
     )
 
@@ -64,12 +69,17 @@ def seed_demo_data():
         ("quadratic-equations", {"ru": "Квадратные уравнения", "kk": "Квадрат теңдеулер"}, 2),
         ("quadratic-functions", {"ru": "Квадратичная функция", "kk": "Квадраттық функция"}, 3),
     ]
+    topic_en = {
+        "factoring": "Factoring",
+        "quadratic-equations": "Quadratic equations",
+        "quadratic-functions": "Quadratic functions",
+    }
     for topic_id, name, order_index in topics:
         _upsert(
             Topic,
             topic_id,
             subject_id="mathematics",
-            name=name,
+            name=_add_en(name, topic_en[topic_id]),
             grade=9,
             order_index=order_index,
         )
@@ -82,8 +92,16 @@ def seed_demo_data():
         ("parabola", "quadratic-functions", {"ru": "График параболы", "kk": "Парабола графигі"}, 5),
         ("vertex", "quadratic-functions", {"ru": "Вершина параболы", "kk": "Параболаның төбесі"}, 6),
     ]
+    skill_en = {
+        "common-factor": "Factoring out the greatest common factor",
+        "grouping": "Factoring by grouping",
+        "discriminant": "Discriminant",
+        "quadratic-roots": "Roots of a quadratic equation",
+        "parabola": "Parabola graph",
+        "vertex": "Vertex of a parabola",
+    }
     for skill_id, topic_id, name, order_index in skills:
-        _upsert(Skill, skill_id, topic_id=topic_id, name=name, order_index=order_index)
+        _upsert(Skill, skill_id, topic_id=topic_id, name=_add_en(name, skill_en[skill_id]), order_index=order_index)
 
     edges = [
         ("grouping", "common-factor"),
@@ -116,14 +134,19 @@ def seed_demo_data():
             {"ru": "Парабола и её вершина", "kk": "Парабола және оның төбесі"},
         ),
     ]
+    module_en = {
+        "module-factoring": ("Factoring", "Greatest common factor and grouping"),
+        "module-quadratic-equations": ("Quadratic equations", "Discriminant and finding roots"),
+        "module-quadratic-functions": ("Quadratic functions", "A parabola and its vertex"),
+    }
     for module_id, topic_id, title, description in module_rows:
         _upsert(
             LearningModule,
             module_id,
             subject_id="mathematics",
             topic_id=topic_id,
-            title=title,
-            description=description,
+            title=_add_en(title, module_en[module_id][0]),
+            description=_add_en(description, module_en[module_id][1]),
             grade=9,
             status="published",
             version=1,
@@ -149,14 +172,32 @@ def seed_demo_data():
             {"ru": "y=(x−2)²+3 имеет вершину (2, 3).", "kk": "y=(x−2)²+3 функциясының төбесі (2, 3)."},
         ),
     ]
+    lesson_en = {
+        "lesson-factoring": (
+            "How to spot a common factor",
+            "Find the part repeated in every term, then move it outside the parentheses.",
+            "6x + 12 = 6(x + 2)",
+        ),
+        "lesson-quadratic-equations": (
+            "From the discriminant to the roots",
+            "For ax²+bx+c=0, calculate D=b²−4ac. The sign of D tells you how many real roots there are.",
+            "x²−5x+6=0: D=1, so the roots are 2 and 3.",
+        ),
+        "lesson-quadratic-functions": (
+            "Reading a parabola",
+            "In the form y=a(x−h)²+k, the vertex of the parabola is the point (h, k).",
+            "The graph of y=(x−2)²+3 has its vertex at (2, 3).",
+        ),
+    }
     for index, (lesson_id, module_id, title, theory, example) in enumerate(lessons, 1):
+        en_title, en_theory, en_example = lesson_en[lesson_id]
         _upsert(
             Lesson,
             lesson_id,
             module_id=module_id,
-            title=title,
-            theory=theory,
-            example=example,
+            title=_add_en(title, en_title),
+            theory=_add_en(theory, en_theory),
+            example=_add_en(example, en_example),
             order_index=index,
         )
 
@@ -204,19 +245,52 @@ def seed_demo_data():
             {"ru": "Здесь h=2 и k=3, значит вершина — (2, 3).", "kk": "Мұнда h=2 және k=3, демек төбесі — (2, 3)."},
         ),
     ]
+    task_en = {
+        "task-common-factor": (
+            "Factor 6x + 12.",
+            "Find the greatest common factor of 6 and 12.",
+            "Both terms are divisible by 6: 6x + 12 = 6(x + 2).",
+        ),
+        "task-grouping": (
+            "Factor x² + 5x + 6.",
+            "Find two numbers whose sum is 5 and whose product is 6.",
+            "The numbers 2 and 3 have a sum of 5 and a product of 6, so the answer is (x+2)(x+3).",
+        ),
+        "task-discriminant": (
+            "Find the discriminant of x² − 5x + 6 = 0.",
+            "Use D=b²−4ac with a=1, b=−5, and c=6.",
+            "D=(−5)²−4·1·6=25−24=1.",
+        ),
+        "task-quadratic-roots": (
+            "Enter the roots of x² − 5x + 6 = 0, separated by a comma.",
+            "Which two numbers have a sum of 5 and a product of 6?",
+            "The equation factors as (x−2)(x−3)=0, so its roots are 2 and 3.",
+        ),
+        "task-parabola": (
+            "Which way does the parabola y=2x² open?",
+            "Look at the sign of the coefficient of x².",
+            "The coefficient 2 is positive, so the parabola opens upward.",
+        ),
+        "task-vertex": (
+            "Enter the vertex of y=(x−2)²+3 in x,y format.",
+            "Compare the function with y=(x−h)²+k.",
+            "Here h=2 and k=3, so the vertex is (2, 3).",
+        ),
+    }
     for task_id, lesson_id, skill_id, difficulty, prompt, options, answers, hint, explanation in tasks:
+        en_prompt, en_hint, en_explanation = task_en[task_id]
         _upsert(
             Task,
             task_id,
             lesson_id=lesson_id,
             skill_id=skill_id,
-            prompt=prompt,
+            prompt=_add_en(prompt, en_prompt),
             task_type="single_choice" if options else "short_answer",
             difficulty=difficulty,
-            options=options,
+            options=([{"ru": "Вверх", "kk": "Жоғары", "en": "Up"}, {"ru": "Вниз", "kk": "Төмен", "en": "Down"}] if task_id == "task-parabola" else options),
             acceptable_answers=answers,
-            hint=hint,
-            explanation=explanation,
+            hint=_add_en(hint, en_hint),
+            explanation=_add_en(explanation, en_explanation),
             is_published=True,
         )
 

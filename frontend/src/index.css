@@ -27,6 +27,7 @@
     margin: 0;
     min-width: 320px;
     min-height: 100vh;
+    overflow-x: clip;
     background: var(--color-canvas);
     color: var(--color-ink);
     font-family: 'Manrope Variable', Manrope, sans-serif;
@@ -36,6 +37,9 @@
     text-rendering: optimizeLegibility;
   }
   button, input, select, textarea { font: inherit; }
+  input, select, textarea { min-width: 0; }
+  img, svg, video { max-width: 100%; }
+  main { min-width: 0; }
   button, a { -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
   :focus-visible { outline: 3px solid var(--focus-ring); outline-offset: 3px; }
   ::selection { background: var(--color-primary-soft); color: var(--color-ink); }
@@ -89,6 +93,8 @@
 }
 
 @media (max-width: 639px) {
+  .page-title { overflow-wrap: anywhere; }
+  .surface-card { max-width: 100%; }
   .large-text { font-size: 106.25%; }
   .large-text button,
   .large-text a,

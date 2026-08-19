@@ -10,6 +10,7 @@ from utils.decorators import roles_required
 
 
 content_bp = Blueprint("content", __name__)
+MAX_EDITOR_PAYLOAD_BYTES = 2 * 1024 * 1024
 
 
 def task_payload(task, editor=False):
@@ -22,7 +23,7 @@ def task_payload(task, editor=False):
         "prompt": localized(task.prompt),
         "task_type": task.task_type,
         "difficulty": task.difficulty,
-        "options": task.options or [],
+        "options": [localized(option) for option in (task.options or [])],
     }
     if editor:
         payload.update({
@@ -83,6 +84,20 @@ def _localized_value(value):
         return value
     text = str(value or "").strip()
     return {"ru": text, "kk": text, "en": text}
+
+
+def _editor_task_values(data):
+    return {
+        "skill_id": str(data.get("skill_id", "")),
+        "prompt": _localized_value(data.get("prompt", "")),
+        "task_type": str(data.get("task_type", "single_choice")),
+        "difficulty": int(data.get("difficulty", 1)),
+        "options": data.get("options", []),
+        "acceptable_answers": data.get("acceptable_answers", []),
+        "hint": _localized_value(data.get("hint", "")),
+        "explanation": _localized_value(data.get("explanation", "")),
+        "is_published": bool(data.get("is_published", True)),
+    }
 
 
 @content_bp.get("/modules")
@@ -149,6 +164,84 @@ def update_module(moduleId):
     module.version += 1
     db.session.commit()
     return success({"module": module_payload(module, include_lessons=True)})
+
+
+@content_bp.put("/modules/<moduleId>/editor")
+@roles_required("teacher", "admin")
+def save_module_editor(moduleId):
+    if request.content_length and request.content_length > MAX_EDITOR_PAYLOAD_BYTES:
+        return api_error("CONTENT_TOO_LARGE", "Редактор принимает до 2 МБ данных", 413)
+    module = db.session.get(LearningModule, moduleId)
+    if not module:
+        return api_error("MODULE_NOT_FOUND", "Модуль не найден", 404)
+    data = request.get_json(silent=True) or {}
+    try:
+        expected_version = int(data.get("expected_version"))
+    except (TypeError, ValueError):
+        return api_error("VERSION_REQUIRED", "Укажите версию модуля", 422)
+    if expected_version != module.version:
+        return api_error("CONTENT_VERSION_CONFLICT", "Модуль уже изменён в другой вкладке", 409, [{
+            "expected_version": expected_version, "current_version": module.version,
+        }])
+
+    lessons_data = data.get("lessons")
+    if not str(data.get("title", "")).strip() or not isinstance(lessons_data, list) or not lessons_data:
+        return api_error("VALIDATION_ERROR", "Заполните название и добавьте урок", 422)
+    if any(not str(item.get("title", "")).strip() or not str(item.get("theory", "")).strip() for item in lessons_data):
+        return api_error("VALIDATION_ERROR", "Заполните название и теорию каждого урока", 422)
+
+    module.title = _localized_value(data["title"])
+    module.description = _localized_value(data.get("description", ""))
+    module.subject_id = str(data.get("subject_id", module.subject_id))
+    module.topic_id = str(data.get("topic_id", module.topic_id))
+    module.grade = int(data.get("grade", module.grade))
+
+    existing_lessons = {item.id: item for item in db.session.scalars(
+        db.select(Lesson).where(Lesson.module_id == module.id)
+    ).all()}
+    retained_lesson_ids = set()
+    for lesson_index, lesson_data in enumerate(lessons_data, start=1):
+        lesson_id = lesson_data.get("id")
+        lesson = existing_lessons.get(lesson_id) if lesson_id else None
+        if lesson_id and not lesson:
+            return api_error("CONTENT_VERSION_CONFLICT", "Состав уроков уже изменён", 409)
+        if not lesson:
+            lesson = Lesson(id=f"lesson-{uuid.uuid4().hex[:12]}", module_id=module.id)
+            db.session.add(lesson)
+        lesson.title = _localized_value(lesson_data["title"])
+        lesson.theory = _localized_value(lesson_data["theory"])
+        lesson.example = _localized_value(lesson_data.get("example", ""))
+        lesson.order_index = lesson_index
+        retained_lesson_ids.add(lesson.id)
+
+        existing_tasks = {item.id: item for item in db.session.scalars(
+            db.select(Task).where(Task.lesson_id == lesson.id)
+        ).all()} if lesson.id in existing_lessons else {}
+        retained_task_ids = set()
+        for task_data in lesson_data.get("tasks", []):
+            task_id = task_data.get("id")
+            task = existing_tasks.get(task_id) if task_id else None
+            if task_id and not task:
+                return api_error("CONTENT_VERSION_CONFLICT", "Состав заданий уже изменён", 409)
+            if not task:
+                task = Task(id=f"task-{uuid.uuid4().hex[:12]}", lesson_id=lesson.id)
+                db.session.add(task)
+            for field, value in _editor_task_values(task_data).items():
+                setattr(task, field, value)
+            retained_task_ids.add(task.id)
+        for task_id, task in existing_tasks.items():
+            if task_id not in retained_task_ids:
+                db.session.delete(task)
+
+    for lesson_id, lesson in existing_lessons.items():
+        if lesson_id not in retained_lesson_ids:
+            for task in db.session.scalars(db.select(Task).where(Task.lesson_id == lesson.id)).all():
+                db.session.delete(task)
+            db.session.delete(lesson)
+
+    module.version += 1
+    db.session.commit()
+    return success({"module": module_payload(module, include_lessons=True, include_content=True, editor=True)})
 
 
 @content_bp.delete("/modules/<moduleId>")

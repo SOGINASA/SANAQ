@@ -18,6 +18,7 @@ const bodyFrom = (...chunks) => {
 
 beforeEach(() => {
   tokenStorage.clear();
+  window.localStorage.clear();
   global.fetch = jest.fn();
 });
 
@@ -46,6 +47,7 @@ test('parses SSE events split across network chunks', async () => {
 
 test('surfaces an SSE error event', async () => {
   tokenStorage.setAccessToken('qa-token');
+  window.localStorage.setItem('sanaq-accessibility', JSON.stringify({ state: { locale: 'en' } }));
   global.fetch.mockResolvedValue({
     ok: true,
     body: bodyFrom(
@@ -56,7 +58,7 @@ test('surfaces an SSE error event', async () => {
 
   await expect(assistantApi.streamMessage('c1', 'help')).rejects.toMatchObject({
     code: 'AI_STREAM_INTERRUPTED',
-    message: 'stream failed',
+    message: 'The SANA response was interrupted. Try sending the message again.',
   });
 });
 

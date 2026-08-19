@@ -13,7 +13,12 @@ export const apiClient = axios.create({
 apiClient.interceptors.request.use((config) => {
   const token = tokenStorage.getAccessToken();
   if (token) config.headers.Authorization = `Bearer ${token}`;
-  config.headers['Accept-Language'] = window.localStorage.getItem('sanaq.locale') || env.defaultLocale;
+  try {
+    const persisted = JSON.parse(window.localStorage.getItem('sanaq-accessibility') || '{}');
+    config.headers['Accept-Language'] = persisted?.state?.locale || env.defaultLocale;
+  } catch (_error) {
+    config.headers['Accept-Language'] = env.defaultLocale;
+  }
   return config;
 });
 

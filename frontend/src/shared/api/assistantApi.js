@@ -1,6 +1,6 @@
 import { env } from '../config/env';
 import { tokenStorage } from '../storage/tokenStorage';
-import { ApiError } from './apiError';
+import { ApiError, localizedApiErrorMessage } from './apiError';
 import { apiRequest } from './apiClient';
 
 export const assistantApi = {
@@ -16,7 +16,7 @@ export const assistantApi = {
       throw new ApiError({
         code: 'AUTH_REQUIRED',
         status: 401,
-        message: 'Войди в аккаунт ученика, чтобы общаться с SANA.',
+        message: localizedApiErrorMessage('AUTH_REQUIRED', 401),
       });
     }
 
@@ -28,7 +28,10 @@ export const assistantApi = {
         signal,
         headers: {
           Accept: 'text/event-stream',
-          'Accept-Language': window.localStorage.getItem('sanaq.locale') || env.defaultLocale,
+          'Accept-Language': (() => {
+            try { return JSON.parse(window.localStorage.getItem('sanaq-accessibility') || '{}')?.state?.locale || env.defaultLocale; }
+            catch (_error) { return env.defaultLocale; }
+          })(),
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
@@ -40,13 +43,13 @@ export const assistantApi = {
       const payload = await response.json().catch(() => ({}));
       throw new ApiError({
         code: payload?.error?.code || 'AI_REQUEST_FAILED',
-        message: payload?.error?.message || `Не удалось получить ответ SANA (${response.status})`,
+        message: localizedApiErrorMessage(payload?.error?.message_code || payload?.error?.code || 'AI_REQUEST_FAILED', response.status),
         status: response.status,
         requestId: payload?.error?.request_id,
       });
     }
     if (!response.body) {
-      throw new ApiError({ code: 'STREAM_UNAVAILABLE', message: 'Браузер не поддерживает потоковый ответ.' });
+      throw new ApiError({ code: 'STREAM_UNAVAILABLE' });
     }
 
     const reader = response.body.getReader();
@@ -68,13 +71,13 @@ export const assistantApi = {
       } catch (_error) {
         throw new ApiError({
           code: 'INVALID_STREAM_EVENT',
-          message: 'SANA вернула повреждённый потоковый ответ.',
+          message: localizedApiErrorMessage('INVALID_STREAM_EVENT'),
         });
       }
       if (event === 'error') {
         throw new ApiError({
           code: payload.code || 'AI_STREAM_INTERRUPTED',
-          message: payload.message || 'Потоковый ответ SANA прервался.',
+          message: localizedApiErrorMessage(payload.message_code || payload.code || 'AI_STREAM_INTERRUPTED'),
         });
       }
       if (event === 'token') onToken?.(payload.text || '');
@@ -96,7 +99,7 @@ export const assistantApi = {
     if (!completed) {
       throw new ApiError({
         code: 'AI_STREAM_INTERRUPTED',
-        message: 'Потоковый ответ SANA завершился преждевременно.',
+        message: localizedApiErrorMessage('AI_STREAM_INTERRUPTED'),
       });
     }
   },

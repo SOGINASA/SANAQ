@@ -39,6 +39,27 @@ def test_catalog_goals_are_localized_strings(client):
         assert isinstance(goal["name"], str)
 
 
+def test_demo_learning_content_has_complete_english_copy(client, student_headers):
+    headers = {**student_headers, "Accept-Language": "en"}
+    module = client.get("/api/v1/modules/module-factoring", headers=headers)
+    assert module.status_code == 200
+    payload = module.get_json()["data"]["module"]
+    assert payload["title"] == "Factoring"
+    assert payload["description"] == "Greatest common factor and grouping"
+    assert payload["lessons"][0]["title"] == "How to spot a common factor"
+    lesson = client.get("/api/v1/lessons/lesson-factoring", headers=headers).get_json()["data"]["lesson"]
+    assert lesson["theory"].startswith("Find the part")
+    task = client.get("/api/v1/tasks/task-common-factor", headers=headers).get_json()["data"]["task"]
+    assert task["prompt"] == "Factor 6x + 12."
+
+
+def test_demo_choice_options_are_localized_for_english(client, student_headers):
+    headers = {**student_headers, "Accept-Language": "en"}
+    response = client.get("/api/v1/tasks/task-parabola", headers=headers)
+    assert response.status_code == 200
+    assert response.get_json()["data"]["task"]["options"] == ["Up", "Down"]
+
+
 def test_catalog_contains_mathematics_curriculum_for_grades_7_to_12(
     client, student_headers
 ):

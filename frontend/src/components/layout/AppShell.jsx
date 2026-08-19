@@ -8,6 +8,7 @@ import { LanguageSwitcher } from '../navigation/LanguageSwitcher';
 import { useAuthStore } from '../../features/auth/authStore';
 import { notificationsApi } from '../../features/notifications/notificationsApi';
 import { useI18n } from '../../shared/i18n/i18n';
+import { getNavigationItems } from '../navigation/navigationItems';
 
 export function AppShell({ role = 'student' }) {
   const { t } = useI18n();
@@ -19,9 +20,16 @@ export function AppShell({ role = 'student' }) {
   const [profileOpen, setProfileOpen] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
-  const defaultName = role === 'admin' ? 'Администратор' : role === 'teacher' ? t('shell.teacher') : t('shell.student');
+  const defaultName = role === 'admin' ? t('roles.admin') : role === 'teacher' ? t('shell.teacher') : t('shell.student');
   const displayName = user?.name || defaultName;
   const immersiveAssistant = role === 'student' && pathname === '/student/assistant';
+  const currentPageKey = (() => {
+    if (role === 'student' && /^\/student\/(onboarding|diagnostic|generating-plan)/.test(pathname)) return 'nav.overview';
+    if (role === 'student' && /^\/student\/(learn|task)/.test(pathname)) return 'nav.path';
+    if (role === 'teacher' && /^\/teacher\/(classes|students)/.test(pathname)) return 'nav.classOverview';
+    const match = [...getNavigationItems(role)].sort((left, right) => right[1].length - left[1].length).find(([, to]) => pathname === to || pathname.startsWith(`${to}/`));
+    return match?.[0] || (role === 'admin' ? 'nav.adminOverview' : role === 'teacher' ? 'nav.classOverview' : 'nav.overview');
+  })();
 
   const loadNotifications = async (isActive = () => true) => {
     try {
@@ -70,12 +78,13 @@ export function AppShell({ role = 'student' }) {
       <SidebarNavigation role={role} />
       {!immersiveAssistant && (
         <header className="sticky top-0 z-20 border-b border-stone-200/80 bg-canvas/90 backdrop-blur-xl">
-          <div className="flex min-h-[68px] items-center justify-between gap-2 px-3 sm:min-h-[76px] sm:gap-4 sm:px-6 lg:px-8">
+          <div className="flex min-h-[68px] min-w-0 items-center justify-between gap-1.5 px-2.5 min-[360px]:gap-2 min-[360px]:px-3 sm:min-h-[76px] sm:gap-4 sm:px-6 lg:px-8">
             <div className="min-w-0 flex-1">
-              <p className="text-xs font-bold uppercase tracking-[0.16em] text-stone-400">{role === 'admin' ? 'SANAQ Control Center' : role === 'teacher' ? 'SANAQ for school' : t('shell.personalPath')}</p>
-              <p className="truncate text-sm font-bold sm:text-base">{role === 'admin' ? 'Управление платформой' : role === 'teacher' ? t('teacher.dashboard') : t('shell.studentCabinet')}</p>
+              <p className="truncate text-base font-extrabold sm:hidden">{t(currentPageKey)}</p>
+              <p className="hidden text-xs font-bold uppercase tracking-[0.16em] text-stone-400 sm:block">{role === 'admin' ? 'SANAQ Control Center' : role === 'teacher' ? 'SANAQ for school' : t('shell.personalPath')}</p>
+              <p className="hidden truncate font-bold sm:block">{role === 'admin' ? t('nav.adminArea') : role === 'teacher' ? t('teacher.dashboard') : t('shell.studentCabinet')}</p>
             </div>
-            <div className="relative flex shrink-0 items-center gap-1.5 sm:gap-3">
+            <div className="relative flex min-w-0 shrink-0 items-center gap-1 min-[360px]:gap-1.5 sm:gap-3">
               <LanguageSwitcher compact />
               <button onClick={toggleNotifications} className="relative grid h-11 w-11 cursor-pointer place-items-center rounded-2xl border border-stone-200 bg-paper" aria-label={t('shell.notifications')} aria-expanded={notificationsOpen}>
                 <Bell className="h-5 w-5" />{unreadCount > 0 && <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-coral" />}
@@ -87,7 +96,7 @@ export function AppShell({ role = 'student' }) {
               </button>
 
               {notificationsOpen && (
-                <div className="absolute right-0 top-14 z-50 w-[min(360px,calc(100vw-2rem))] overflow-hidden rounded-3xl border border-stone-200 bg-paper shadow-2xl" role="dialog" aria-label={t('shell.notificationCenter')}>
+                <div className="fixed inset-x-2 top-[72px] z-50 max-h-[calc(100dvh-5rem)] overflow-hidden rounded-3xl border border-stone-200 bg-paper shadow-2xl min-[400px]:absolute min-[400px]:inset-x-auto min-[400px]:right-0 min-[400px]:top-14 min-[400px]:w-[min(360px,calc(100vw-2rem))]" role="dialog" aria-label={t('shell.notificationCenter')}>
                   <div className="flex items-center justify-between border-b border-stone-200 p-5"><div><p className="font-extrabold">{t('shell.notifications')}</p><p className="text-xs text-stone-500">{t('shell.unread', { count: unreadCount })}</p></div>{unreadCount > 0 && <button onClick={markAllRead} className="cursor-pointer text-xs font-bold text-lavender-700">{t('shell.readAll')}</button>}</div>
                   <div className="max-h-[min(65dvh,32rem)] overflow-y-auto p-2">
                     {notifications.map((item) => (

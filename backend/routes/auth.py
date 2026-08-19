@@ -133,7 +133,7 @@ def logout():
     if refresh_session:
         refresh_session.revoked_at = datetime.now(timezone.utc)
         db.session.commit()
-    response, status = success({"message": "Сессия завершена"})
+    response, status = success({"message_code": "SESSION_REVOKED"})
     unset_jwt_cookies(response)
     return response, status
 
@@ -161,7 +161,7 @@ def forgot_password():
         if current_app.testing or current_app.debug:
             debug_token = raw_token
 
-    payload = {"message": "Если аккаунт существует, инструкции отправлены"}
+    payload = {"message_code": "RECOVERY_REQUEST_ACCEPTED"}
     if debug_token:
         payload["debug_reset_token"] = debug_token
     return success(payload)
@@ -192,7 +192,7 @@ def reset_password():
         if session.revoked_at is None:
             session.revoked_at = datetime.now(timezone.utc)
     db.session.commit()
-    return success({"message": "Пароль изменён"})
+    return success({"message_code": "PASSWORD_CHANGED"})
 
 
 @auth_bp.get("/sessions")
@@ -217,4 +217,4 @@ def delete_session(sessionId):
         return api_error("SESSION_NOT_FOUND", "Сессия не найдена", 404)
     refresh_session.revoked_at = datetime.now(timezone.utc)
     db.session.commit()
-    return success({"message": "Сессия завершена"})
+    return success({"message_code": "SESSION_REVOKED"})

@@ -6,7 +6,7 @@ export function LanguageSwitcher({ compact = false }) {
   const { locale, setLocale } = useAccessibilityStore();
   const { t } = useI18n();
   return (
-    <label className="inline-flex min-h-11 max-w-full items-center gap-2 rounded-xl border border-stone-200 bg-paper px-3 text-sm font-bold">
+    <label className={`inline-flex min-h-11 max-w-full items-center rounded-xl border border-stone-200 bg-paper text-sm font-bold ${compact ? 'gap-1 px-2' : 'gap-2 px-3'}`}>
       <Globe2 className="h-4 w-4 text-lavender-600" aria-hidden="true" />
       <span className={compact ? 'sr-only' : ''}>{t('language.label')}</span>
       <select
@@ -16,7 +16,7 @@ export function LanguageSwitcher({ compact = false }) {
         aria-label={t('language.select')}
       >
         <option value="ru">RU</option>
-        <option value="kk">ҚАЗ</option>
+        <option value="kk">KZ</option>
         <option value="en">EN</option>
       </select>
     </label>
