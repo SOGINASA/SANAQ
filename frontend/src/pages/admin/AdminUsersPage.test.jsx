@@ -42,3 +42,14 @@ test('navigates to the next server-backed users page', async () => {
     search: '', role: '', page: 2, pageSize: 20,
   });
 });
+
+test('opens the localized create-user dialog without crashing', async () => {
+  render(<MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}><AdminUsersPage /></MemoryRouter>);
+
+  await screen.findByText('Страница 1 из 2');
+  fireEvent.click(screen.getByRole('button', { name: 'Новый пользователь' }));
+
+  expect(screen.getByRole('dialog')).toBeInTheDocument();
+  expect(screen.getByLabelText('Имя')).toBeInTheDocument();
+  expect(screen.getByLabelText('Временный пароль')).toBeInTheDocument();
+});

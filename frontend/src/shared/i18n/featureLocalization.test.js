@@ -10,6 +10,7 @@ const localizedFeatureFiles = [
   'pages/admin/AdminClassesPage.jsx',
   'pages/admin/AdminModerationPage.jsx',
   'pages/admin/AdminUsersPage.jsx',
+  'pages/admin/AdminSystemPage.jsx',
   'pages/public/HomePage.jsx',
   'pages/student/StudentDashboardPage.jsx',
   'features/teacher-dashboard/StudentTable.jsx',

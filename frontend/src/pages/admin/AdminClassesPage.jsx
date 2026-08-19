@@ -21,11 +21,11 @@ export function AdminClassesPage() {
     setError('');
     try {
       const [classResponse, teacherResponse] = await Promise.all([adminApi.classes(), adminApi.allUsers({ role: 'teacher' })]);
-      if (!Array.isArray(classResponse.data.items) || !Array.isArray(teacherResponse.data.items)) throw new Error('Backend вернул некорректные данные классов'); setClasses(classResponse.data.items);
+      if (!Array.isArray(classResponse.data.items) || !Array.isArray(teacherResponse.data.items)) throw new Error(t('adminRuntime.classesInvalid')); setClasses(classResponse.data.items);
       setTeachers(teacherResponse.data.items);
     } catch (requestError) { setError(requestError.message); }
     finally { setLoading(false); }
-  }, []);
+  }, [t]);
   useEffect(() => { load(); }, [load]);
 
   const save = async () => {
