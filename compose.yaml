@@ -19,6 +19,7 @@ services:
       - public
 
   backend:
+    image: sanaq-backend:latest
     build:
       context: ./backend
       args:

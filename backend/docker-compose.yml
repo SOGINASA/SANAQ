@@ -1,5 +1,8 @@
+name: sanaq-backend
+
 services:
   backend:
+    image: sanaq-backend:latest
     build:
       context: .
     container_name: sanaq-backend
