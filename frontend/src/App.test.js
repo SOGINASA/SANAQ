@@ -1,6 +1,7 @@
-import { act, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import App from './App';
 import { useAuthStore } from './features/auth/authStore';
+import { useAccessibilityStore } from './features/accessibility/accessibilityStore';
 
 jest.mock('./shared/api/apiClient', () => ({
   apiRequest: jest.fn(({ url }) => {
@@ -27,12 +28,20 @@ const setSession = (user = null) => {
 beforeEach(() => {
   window.history.pushState({}, '', '/');
   setSession();
+  useAccessibilityStore.setState({ locale: 'ru' });
 });
 
 test('renders SANAQ landing page', () => {
   render(<App />);
   expect(screen.getByRole('heading', { name: /Учись не больше/i })).toBeInTheDocument();
   expect(screen.getAllByText('SANAQ').length).toBeGreaterThan(0);
+});
+
+test('switches the rendered application from Russian to Kazakh', () => {
+  render(<App />);
+  fireEvent.change(screen.getByRole('combobox', { name: 'Выбрать язык интерфейса' }), { target: { value: 'kk' } });
+  expect(screen.getByRole('heading', { name: /Көп оқы.*Дәл оқы/i })).toBeInTheDocument();
+  expect(screen.queryByRole('heading', { name: /Учись не больше/i })).not.toBeInTheDocument();
 });
 
 test('redirects an anonymous user from a protected route', () => {

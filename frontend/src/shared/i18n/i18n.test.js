@@ -28,3 +28,15 @@ test('all locales expose the same translation keys', () => {
 test('structured translation values remain structured', () => {
   expect(translate('en', 'auth.benefits')).toHaveLength(3);
 });
+
+test('interpolates values in every supported locale', () => {
+  expect(translate('ru', 'shell.unread', { count: 3 })).toBe('3 непрочитанных');
+  expect(translate('kk', 'shell.unread', { count: 3 })).toBe('3 оқылмаған');
+  expect(translate('en', 'shell.unread', { count: 3 })).toBe('3 unread');
+});
+
+test('translation catalogs do not contain broken UTF-8 text', () => {
+  const suspicious = /(?:Р[ЂЃ‚ѓ„…†‡€‰Љ‹ЊЌЋЏђ]|С[ЂЃ‚ѓ„…†‡€‰Љ‹ЊЌЋЏђ]|вЂ|Тљ)/;
+  const values = (value) => Object.values(value).flatMap((child) => child && typeof child === 'object' ? values(child) : [child]);
+  SUPPORTED_LOCALES.forEach((locale) => values(messages[locale]).filter((value) => typeof value === 'string').forEach((value) => expect(value).not.toMatch(suspicious)));
+});

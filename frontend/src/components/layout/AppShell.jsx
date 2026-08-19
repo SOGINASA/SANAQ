@@ -70,12 +70,12 @@ export function AppShell({ role = 'student' }) {
       <SidebarNavigation role={role} />
       {!immersiveAssistant && (
         <header className="sticky top-0 z-20 border-b border-stone-200/80 bg-canvas/90 backdrop-blur-xl">
-          <div className="flex min-h-[76px] items-center justify-between px-4 sm:px-6 lg:px-8">
-            <div>
+          <div className="flex min-h-[68px] items-center justify-between gap-2 px-3 sm:min-h-[76px] sm:gap-4 sm:px-6 lg:px-8">
+            <div className="min-w-0 flex-1">
               <p className="text-xs font-bold uppercase tracking-[0.16em] text-stone-400">{role === 'teacher' ? 'SANAQ for school' : t('shell.personalPath')}</p>
-              <p className="font-bold">{role === 'teacher' ? t('teacher.dashboard') : t('shell.studentCabinet')}</p>
+              <p className="truncate text-sm font-bold sm:text-base">{role === 'teacher' ? t('teacher.dashboard') : t('shell.studentCabinet')}</p>
             </div>
-            <div className="relative flex items-center gap-2 sm:gap-3">
+            <div className="relative flex shrink-0 items-center gap-1.5 sm:gap-3">
               <LanguageSwitcher compact />
               <button onClick={toggleNotifications} className="relative grid h-11 w-11 cursor-pointer place-items-center rounded-2xl border border-stone-200 bg-paper" aria-label={t('shell.notifications')} aria-expanded={notificationsOpen}>
                 <Bell className="h-5 w-5" />{unreadCount > 0 && <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-coral" />}
@@ -89,11 +89,11 @@ export function AppShell({ role = 'student' }) {
               {notificationsOpen && (
                 <div className="absolute right-0 top-14 z-50 w-[min(360px,calc(100vw-2rem))] overflow-hidden rounded-3xl border border-stone-200 bg-paper shadow-2xl" role="dialog" aria-label={t('shell.notificationCenter')}>
                   <div className="flex items-center justify-between border-b border-stone-200 p-5"><div><p className="font-extrabold">{t('shell.notifications')}</p><p className="text-xs text-stone-500">{t('shell.unread', { count: unreadCount })}</p></div>{unreadCount > 0 && <button onClick={markAllRead} className="cursor-pointer text-xs font-bold text-lavender-700">{t('shell.readAll')}</button>}</div>
-                  <div className="p-2">
+                  <div className="max-h-[min(65dvh,32rem)] overflow-y-auto p-2">
                     {notifications.map((item) => (
                       <button key={item.id} onClick={async () => { if (!item.read) await notificationsApi.markRead(item.id); setNotificationsOpen(false); if (item.link) navigate(item.link); }} className={`flex w-full gap-3 rounded-2xl p-4 text-left ${item.read ? 'opacity-60' : 'hover:bg-stone-100'}`}>
                         <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-lavender-100 text-lavender-700">{item.link === '/student/path' ? <MessageCircleQuestion className="h-5 w-5" /> : <BookOpenCheck className="h-5 w-5" />}</span>
-                        <span><span className="block text-sm font-bold">{item.title}</span><span className="mt-1 block text-xs text-stone-500">{item.body}</span></span>
+                        <span className="min-w-0"><span className="block break-words text-sm font-bold">{item.title}</span><span className="mt-1 block break-words text-xs text-stone-500">{item.body}</span></span>
                       </button>
                     ))}
                     {!notifications.length && <p className="p-5 text-center text-sm text-stone-500">{t('shell.emptyNotifications')}</p>}
@@ -102,7 +102,7 @@ export function AppShell({ role = 'student' }) {
               )}
 
               {profileOpen && (
-                <div className="absolute right-0 top-14 z-50 w-64 rounded-3xl border border-stone-200 bg-paper p-2 shadow-2xl" role="menu">
+                <div className="absolute right-0 top-14 z-50 w-[min(16rem,calc(100vw-1rem))] rounded-3xl border border-stone-200 bg-paper p-2 shadow-2xl" role="menu">
                   <div className="border-b border-stone-200 p-3"><p className="font-bold">{displayName}</p><p className="text-xs text-stone-500">{user?.email || t('shell.emailUnavailable')}</p></div>
                   <button onClick={() => { navigate(role === 'student' ? '/student/settings' : '/teacher/dashboard'); setProfileOpen(false); }} className="mt-2 flex min-h-11 w-full cursor-pointer items-center gap-3 rounded-xl px-3 text-sm font-bold hover:bg-stone-100" role="menuitem"><Settings className="h-4 w-4" /> {t('shell.profileSettings')}</button>
                   <button onClick={leaveSession} className="flex min-h-11 w-full cursor-pointer items-center gap-3 rounded-xl px-3 text-sm font-bold text-danger-700 hover:bg-danger-100" role="menuitem"><LogOut className="h-4 w-4" /> {t('shell.logout')}</button>
@@ -112,7 +112,7 @@ export function AppShell({ role = 'student' }) {
           </div>
         </header>
       )}
-      <main id="dashboard-content" tabIndex="-1" className={immersiveAssistant ? 'h-dvh overflow-hidden p-0' : 'px-4 pb-28 pt-6 sm:px-6 lg:px-8 lg:pb-10'}>
+      <main id="dashboard-content" tabIndex="-1" className={immersiveAssistant ? 'h-dvh overflow-hidden p-0' : 'min-w-0 px-3 pb-[calc(7rem+env(safe-area-inset-bottom))] pt-5 sm:px-6 sm:pt-6 lg:px-8 lg:pb-10'}>
         <Outlet />
       </main>
       {!immersiveAssistant && <MobileNavigation role={role} />}

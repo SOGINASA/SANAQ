@@ -5,7 +5,7 @@ import { notificationsApi } from '../../features/notifications/notificationsApi'
 import { profileApi } from '../../shared/api/profileApi';
 import { Button, Card, StatusToast } from '../../shared/ui';
 import { goalsApi } from '../../features/goals/goalsApi';
-import { useI18n } from '../../shared/i18n/i18n';
+import { translate, useI18n } from '../../shared/i18n/i18n';
 import { useNavigate } from 'react-router-dom';
 
 function Toggle({ checked, onChange, label, description }) {
@@ -62,7 +62,7 @@ export function SettingsPage() {
     setError('');
     try {
       await profileApi.update({ locale: value });
-      setStatus(t('settings.languageSelected', { language: label }));
+      setStatus(translate(value, 'settings.languageSelected', { language: label }));
     } catch (requestError) {
       setError(requestError.message);
     }
