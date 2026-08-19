@@ -1,5 +1,15 @@
 # SANAQ Backend
 
+## Демо-аккаунты
+
+Команда `python3 -m flask --app app seed-demo` создаёт учебный контент, демонстрационный класс и три аккаунта с единым паролем `SanaqDemo2026!`:
+
+- `student@sanaq.demo` — ученик;
+- `teacher@sanaq.demo` — учитель;
+- `admin@sanaq.demo` — администратор.
+
+При `SEED_DEMO_DATA=true` они создаются автоматически при запуске. Для публичного production после демонстрации установите `SEED_DEMO_DATA=false` и `REACT_APP_SHOW_DEMO_LOGIN=false` при сборке frontend.
+
 Стартовый Flask-бэкенд SANAQ, адаптированный из общего шаблона под контракт
 [`API_ROUTES.md`](API_ROUTES.md). Все 111 маршрутов из документа зарегистрированы во Flask
 и проверяются автоматическим контрактным тестом. Все маршруты возвращают данные из серверной

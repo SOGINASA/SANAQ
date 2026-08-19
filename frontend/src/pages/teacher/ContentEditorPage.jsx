@@ -5,6 +5,7 @@ import { Button, Card, Dialog, StatusToast } from '../../shared/ui';
 import { adminContentApi } from '../../features/admin-content/adminContentApi';
 import { catalogApi } from '../../shared/api/catalogApi';
 import { useI18n } from '../../shared/i18n/i18n';
+import { useAuthStore } from '../../features/auth/authStore';
 
 let draftId = 0;
 const key = () => `draft-${++draftId}`;
@@ -21,6 +22,8 @@ export function ContentEditorPage() {
   const navigate = useNavigate();
   const { moduleId } = useParams();
   const { t } = useI18n();
+  const role = useAuthStore((state) => state.user?.role);
+  const contentBase = role === 'admin' ? '/admin/content' : '/teacher/content';
   const storageKey = `sanaq:content-draft:${moduleId || 'new'}`;
   const [topics, setTopics] = useState([]);
   const [form, setForm] = useState(() => moduleId ? emptyForm() : normalizeDraftForm(readDraft(storageKey)?.form) || emptyForm());
@@ -124,7 +127,7 @@ export function ContentEditorPage() {
         await updateExistingModule();
         window.localStorage.removeItem(storageKey);
         setStatus(t('editor.saved', { title: form.title.trim() }));
-        window.setTimeout(() => navigate('/teacher/content'), 900);
+        window.setTimeout(() => navigate(contentBase), 900);
         return;
       }
       const [first, ...remaining] = form.lessons;
@@ -139,7 +142,7 @@ export function ContentEditorPage() {
       }
       setStatus(t('editor.saved', { title: response.data.module.title }));
       window.localStorage.removeItem(storageKey);
-      window.setTimeout(() => navigate('/teacher/content'), 900);
+      window.setTimeout(() => navigate(contentBase), 900);
     } catch (requestError) { setError(requestError.message); }
     finally { setLoading(false); }
   };
@@ -147,7 +150,7 @@ export function ContentEditorPage() {
   if (initialLoading) return <div className="py-16 text-center font-bold">Loading…</div>;
 
   return <div className="mx-auto max-w-6xl animate-rise pb-12">
-    <button onClick={() => navigate('/teacher/content')} className="mb-5 inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-xl px-2 font-bold text-stone-600 transition hover:bg-stone-100"><ArrowLeft className="h-5 w-5" /> {t('editor.back')}</button>
+    <button onClick={() => navigate(contentBase)} className="mb-5 inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-xl px-2 font-bold text-stone-600 transition hover:bg-stone-100"><ArrowLeft className="h-5 w-5" /> {t('editor.back')}</button>
     <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between"><div className="min-w-0"><p className="eyebrow">{t('editor.eyebrow')}</p><h1 className="page-title mt-3 break-words">{t('editor.title')}</h1><p className="mt-3 max-w-2xl text-stone-600">{t('editor.subtitle')}</p><p className="mt-2 min-h-5 text-xs font-semibold text-stone-500" role="status">{draftStatus}</p></div><div className="grid w-full gap-2 sm:flex sm:w-auto"><Button variant="outline" onClick={() => { setPreviewLesson(0); setPreviewOpen(true); }}><Eye className="h-4 w-4" /> {t('editor.preview')}</Button><Button loading={loading} disabled={!valid} onClick={save}><Save className="h-4 w-4" /> {t('editor.save')}</Button></div></div>
     {error && <div className="mt-5 rounded-2xl border border-red-200 bg-red-50 p-4 text-red-900" role="alert">{error}</div>}
 

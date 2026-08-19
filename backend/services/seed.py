@@ -1,14 +1,19 @@
 """Stable demo content for the SANAQ mathematics vertical slice."""
 
 from models import (
+    ClassEnrollment,
+    Classroom,
     DiagnosticQuestion,
     LearningModule,
     Lesson,
     PrerequisiteEdge,
     Skill,
+    StudentProfile,
     Subject,
     Task,
+    TeacherProfile,
     Topic,
+    User,
     db,
 )
 from services.curriculum import seed_math_curriculum
@@ -22,6 +27,27 @@ def _upsert(model, identity, **values):
     for key, value in values.items():
         setattr(instance, key, value)
     return instance
+
+
+def _demo_user(identity, email, name, role):
+    user = db.session.get(User, identity)
+    if user is None:
+        user = db.session.scalar(db.select(User).where(User.email == email))
+    if user is None:
+        user = User(id=identity, email=email, name=name, role=role)
+        db.session.add(user)
+    user.email = email
+    user.name = name
+    user.role = role
+    user.locale = "ru"
+    user.region = "Алматы"
+    user.timezone = "Asia/Almaty"
+    user.is_active = True
+    user.is_verified = True
+    user.parental_consent_required = role == "student"
+    user.parental_consent_status = "approved" if role == "student" else "not_required"
+    user.set_password("SanaqDemo2026!")
+    return user
 
 
 def seed_demo_data():
@@ -215,5 +241,32 @@ def seed_demo_data():
             difficulty=difficulty,
             order_index=order_index,
         )
+
+    student = _demo_user("demo-student", "student@sanaq.demo", "Айару Демо", "student")
+    teacher = _demo_user("demo-teacher", "teacher@sanaq.demo", "Айгуль Демо", "teacher")
+    _demo_user("demo-admin", "admin@sanaq.demo", "Администратор SANAQ", "admin")
+    db.session.flush()
+
+    student_profile = db.session.get(StudentProfile, student.id)
+    if student_profile is None:
+        db.session.add(StudentProfile(
+            user_id=student.id, grade=9, subject_ids=["mathematics"],
+            goal_ids=["school_program"], level="developing",
+        ))
+    teacher_profile = db.session.get(TeacherProfile, teacher.id)
+    if teacher_profile is None:
+        db.session.add(TeacherProfile(
+            user_id=teacher.id, school="SANAQ Demo School", subject_ids=["mathematics"],
+        ))
+
+    classroom = db.session.get(Classroom, "demo-class-9a")
+    if classroom is None:
+        classroom = Classroom(
+            id="demo-class-9a", teacher_id=teacher.id, name="9A · Демо",
+            subject_id="mathematics", grade=9, join_code="SANAQ9A",
+        )
+        db.session.add(classroom)
+    if db.session.get(ClassEnrollment, (classroom.id, student.id)) is None:
+        db.session.add(ClassEnrollment(class_id=classroom.id, student_id=student.id))
 
     db.session.commit()
