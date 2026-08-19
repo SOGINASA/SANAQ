@@ -15,6 +15,8 @@ function AccessibilitySync({ children }) {
   return children;
 }
 
+// qwefqwer
+
 function AuthSync({ children }) {
   const hydrate = useAuthStore((state) => state.hydrate);
   useEffect(() => { hydrate(); }, [hydrate]);
