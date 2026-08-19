@@ -258,7 +258,14 @@
 | Метод | Маршрут | Доступ | Назначение |
 |---|---|---|---|
 | GET | `/admin/users` | admin | Поиск и управление пользователями |
+| POST | `/admin/users` | admin | Создать пользователя любой роли |
+| PATCH | `/admin/users/:userId` | admin | Изменить профиль пользователя |
 | PATCH | `/admin/users/:userId/status` | admin | Блокировка/восстановление |
+| POST | `/admin/users/:userId/reset-password` | admin | Вручную установить новый пароль |
+| GET | `/admin/dashboard` | admin | Сводные показатели и последние административные действия |
+| GET | `/admin/classes` | admin | Все классы платформы с учителями и статистикой |
+| PATCH | `/admin/classes/:classId` | admin | Изменить название, параллель или учителя класса |
+| DELETE | `/admin/classes/:classId` | admin | Удалить класс и связанные назначения |
 | GET | `/admin/pathnet/metrics` | admin | Метрики shadow-сравнения PathNet и deterministic planner |
 | GET | `/admin/content/review` | admin | Очередь модерации контента |
 | POST | `/admin/content/:contentId/approve` | admin | Одобрить публикацию |

@@ -27,6 +27,13 @@ import { ContentLibraryPage } from '../../pages/teacher/ContentLibraryPage';
 import { ContentEditorPage } from '../../pages/teacher/ContentEditorPage';
 import { DesignSystemPage } from '../../pages/teacher/DesignSystemPage';
 import { TeacherAssignmentsPage } from '../../pages/teacher/TeacherAssignmentsPage';
+import { AdminLayout } from '../../components/layout/AdminLayout';
+import { AdminDashboardPage } from '../../pages/admin/AdminDashboardPage';
+import { AdminUsersPage } from '../../pages/admin/AdminUsersPage';
+import { AdminClassesPage } from '../../pages/admin/AdminClassesPage';
+import { AdminModerationPage } from '../../pages/admin/AdminModerationPage';
+import { AdminSystemPage } from '../../pages/admin/AdminSystemPage';
+import { AdminAuditPage } from '../../pages/admin/AdminAuditPage';
 import { NotFoundPage } from '../../pages/shared/NotFoundPage';
 import { ProtectedRoute } from '../../components/common/ProtectedRoute';
 import { RoleRoute } from '../../components/common/RoleRoute';
@@ -69,6 +76,19 @@ export function AppRouter() {
           <Route path="content/new" element={<ContentEditorPage />} />
           <Route path="content/:moduleId/edit" element={<ContentEditorPage />} />
           <Route path="assignments" element={<TeacherAssignmentsPage />} />
+        </Route>
+      </Route>
+      <Route element={<RoleRoute role="admin" />}>
+        <Route path="/admin" element={<AdminLayout />}>
+          <Route path="dashboard" element={<AdminDashboardPage />} />
+          <Route path="users" element={<AdminUsersPage />} />
+          <Route path="classes" element={<AdminClassesPage />} />
+          <Route path="content" element={<ContentLibraryPage />} />
+          <Route path="content/new" element={<ContentEditorPage />} />
+          <Route path="content/:moduleId/edit" element={<ContentEditorPage />} />
+          <Route path="moderation" element={<AdminModerationPage />} />
+          <Route path="system" element={<AdminSystemPage />} />
+          <Route path="audit" element={<AdminAuditPage />} />
         </Route>
       </Route>
     </Route>

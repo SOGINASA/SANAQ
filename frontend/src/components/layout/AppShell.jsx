@@ -19,7 +19,7 @@ export function AppShell({ role = 'student' }) {
   const [profileOpen, setProfileOpen] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
-  const defaultName = role === 'teacher' ? t('shell.teacher') : t('shell.student');
+  const defaultName = role === 'admin' ? 'Администратор' : role === 'teacher' ? t('shell.teacher') : t('shell.student');
   const displayName = user?.name || defaultName;
   const immersiveAssistant = role === 'student' && pathname === '/student/assistant';
 
@@ -72,8 +72,8 @@ export function AppShell({ role = 'student' }) {
         <header className="sticky top-0 z-20 border-b border-stone-200/80 bg-canvas/90 backdrop-blur-xl">
           <div className="flex min-h-[68px] items-center justify-between gap-2 px-3 sm:min-h-[76px] sm:gap-4 sm:px-6 lg:px-8">
             <div className="min-w-0 flex-1">
-              <p className="text-xs font-bold uppercase tracking-[0.16em] text-stone-400">{role === 'teacher' ? 'SANAQ for school' : t('shell.personalPath')}</p>
-              <p className="truncate text-sm font-bold sm:text-base">{role === 'teacher' ? t('teacher.dashboard') : t('shell.studentCabinet')}</p>
+              <p className="text-xs font-bold uppercase tracking-[0.16em] text-stone-400">{role === 'admin' ? 'SANAQ Control Center' : role === 'teacher' ? 'SANAQ for school' : t('shell.personalPath')}</p>
+              <p className="truncate text-sm font-bold sm:text-base">{role === 'admin' ? 'Управление платформой' : role === 'teacher' ? t('teacher.dashboard') : t('shell.studentCabinet')}</p>
             </div>
             <div className="relative flex shrink-0 items-center gap-1.5 sm:gap-3">
               <LanguageSwitcher compact />
@@ -104,7 +104,7 @@ export function AppShell({ role = 'student' }) {
               {profileOpen && (
                 <div className="absolute right-0 top-14 z-50 w-[min(16rem,calc(100vw-1rem))] rounded-3xl border border-stone-200 bg-paper p-2 shadow-2xl" role="menu">
                   <div className="border-b border-stone-200 p-3"><p className="font-bold">{displayName}</p><p className="text-xs text-stone-500">{user?.email || t('shell.emailUnavailable')}</p></div>
-                  <button onClick={() => { navigate(role === 'student' ? '/student/settings' : '/teacher/dashboard'); setProfileOpen(false); }} className="mt-2 flex min-h-11 w-full cursor-pointer items-center gap-3 rounded-xl px-3 text-sm font-bold hover:bg-stone-100" role="menuitem"><Settings className="h-4 w-4" /> {t('shell.profileSettings')}</button>
+                  <button onClick={() => { navigate(role === 'admin' ? '/admin/dashboard' : role === 'student' ? '/student/settings' : '/teacher/dashboard'); setProfileOpen(false); }} className="mt-2 flex min-h-11 w-full cursor-pointer items-center gap-3 rounded-xl px-3 text-sm font-bold hover:bg-stone-100" role="menuitem"><Settings className="h-4 w-4" /> {t('shell.profileSettings')}</button>
                   <button onClick={leaveSession} className="flex min-h-11 w-full cursor-pointer items-center gap-3 rounded-xl px-3 text-sm font-bold text-danger-700 hover:bg-danger-100" role="menuitem"><LogOut className="h-4 w-4" /> {t('shell.logout')}</button>
                 </div>
               )}
