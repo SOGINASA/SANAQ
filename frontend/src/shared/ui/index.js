@@ -6,3 +6,4 @@ export { StatusToast } from './StatusToast';
 export { Input } from './Input';
 export { Skeleton } from './Skeleton';
 export { Tabs } from './Tabs';
+export { Reveal } from './Reveal';

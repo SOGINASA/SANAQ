@@ -49,8 +49,8 @@ export function Dialog({ open, onClose, title, description, children, footer, si
   if (!open) return null;
 
   return createPortal(
-    <div className="fixed inset-0 z-[100] flex items-end justify-center bg-ink/55 p-0 backdrop-blur-sm sm:items-center sm:p-5" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
-      <section ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby={titleId} aria-describedby={description ? descriptionId : undefined} className={cn('max-h-[92dvh] w-full overflow-y-auto rounded-t-4xl bg-paper shadow-2xl animate-rise sm:rounded-4xl', sizes[size])}>
+    <div className="dialog-overlay fixed inset-0 z-[100] flex items-end justify-center bg-ink/55 p-0 backdrop-blur-sm sm:items-center sm:p-5" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
+      <section ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby={titleId} aria-describedby={description ? descriptionId : undefined} className={cn('dialog-panel max-h-[92dvh] w-full overflow-y-auto rounded-t-4xl bg-paper shadow-2xl sm:rounded-4xl', sizes[size])}>
         <header className="sticky top-0 z-10 flex items-start gap-4 border-b border-stone-200 bg-paper/95 px-5 py-5 backdrop-blur-xl sm:px-7">
           <div className="min-w-0 flex-1">
             <h2 id={titleId} className="text-xl font-extrabold sm:text-2xl">{title}</h2>

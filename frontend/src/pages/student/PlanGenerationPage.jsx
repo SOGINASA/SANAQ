@@ -66,7 +66,7 @@ export function PlanGenerationPage() {
         {error && <div className="border-b border-red-200 bg-red-50 p-4 text-red-900" role="alert">{error}</div>}
         <div className="grid lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
           <div className="flex flex-col items-center justify-center bg-lavender-50 p-6 text-center sm:p-10 lg:min-h-[620px]">
-            <div className="relative">
+            <div className="plan-forge relative">
               {!complete && <span className="absolute inset-2 rounded-full border-2 border-dashed border-lavender-300 animate-spin" aria-hidden="true" />}
               <img src={mascot} alt={t('planGeneration.mascotAlt')} className="mascot-image h-40 w-40 rounded-full object-cover sm:h-52 sm:w-52" width="208" height="208" />
               <span className={`absolute bottom-2 right-2 grid h-12 w-12 place-items-center rounded-2xl border-4 border-lavender-50 ${complete ? 'bg-mint-500 text-white' : 'bg-lavender-600 text-white'}`}>
@@ -105,7 +105,7 @@ export function PlanGenerationPage() {
                 const done = index < activeStep || complete;
                 const active = index === activeStep && !complete;
                 return (
-                  <li key={stepTitle} className={`flex gap-4 rounded-2xl border p-4 transition ${active ? 'border-lavender-300 bg-lavender-50' : 'border-transparent'} ${index > activeStep && !complete ? 'opacity-45' : ''}`} aria-current={active ? 'step' : undefined}>
+                  <li key={stepTitle} className={`flex gap-4 rounded-2xl border p-4 transition ${active ? 'plan-stage--active border-lavender-300 bg-lavender-50' : 'border-transparent'} ${done ? 'plan-stage--done' : ''} ${index > activeStep && !complete ? 'opacity-45' : ''}`} aria-current={active ? 'step' : undefined}>
                     <span className={`mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-xl ${done ? 'bg-mint-100 text-mint-700' : active ? 'bg-lavender-600 text-white' : 'bg-stone-100 text-stone-400'}`}>
                       {done ? <Check className="h-4 w-4" /> : active ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Circle className="h-3 w-3" />}
                     </span>

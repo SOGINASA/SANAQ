@@ -264,7 +264,7 @@ export function AssistantPage() {
                 {authStatus !== 'loading' && <div className="mt-4 flex justify-center gap-2"><Button variant="outline" onClick={() => navigate('/register')}>{t('assistantPage.createAccount')}</Button><Button onClick={() => navigate('/login')}>{t('assistantPage.login')}</Button></div>}
               </div>
             )}
-            <div className="mt-8 grid gap-3 sm:grid-cols-2">
+            <div className="sana-prompt-grid mt-8 grid gap-3 sm:grid-cols-2">
               {starterPrompts.map(({ icon: Icon, key }) => {
                 const title = t(`assistantPage.starters.${key}.title`);
                 const text = t(`assistantPage.starters.${key}.text`);
@@ -282,7 +282,7 @@ export function AssistantPage() {
             <div className="mb-8 flex items-center justify-center gap-2 text-xs font-bold text-stone-500"><BookOpen className="h-4 w-4 text-lavender-600" /> {t('assistantPage.usesTopic', { topic })}</div>
             <div className="space-y-7">
               {messages.map((item) => (
-                <article key={item.id} className={`flex gap-3 sm:gap-4 ${item.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                <article key={item.id} className={`sana-message flex gap-3 sm:gap-4 ${item.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                   {item.role === 'assistant' && <span className="mt-1 grid h-9 w-9 shrink-0 place-items-center rounded-2xl bg-lavender-600 text-white"><Sparkles className="h-4 w-4" /></span>}
                   <div className={item.role === 'user' ? 'max-w-[88%] rounded-3xl rounded-br-md bg-ink px-5 py-3 text-sm leading-7 text-white sm:max-w-[75%]' : 'min-w-0 max-w-[calc(100%-52px)] text-sm leading-7 text-stone-700 sm:text-base'}>
                     <p className="whitespace-pre-wrap">{item.content ?? item.text}</p>
@@ -291,14 +291,14 @@ export function AssistantPage() {
                   </div>
                 </article>
               ))}
-              {thinking && messages[messages.length - 1]?.role !== 'assistant' && <div className="flex items-center gap-4"><span className="grid h-9 w-9 shrink-0 place-items-center rounded-2xl bg-lavender-600 text-white"><Sparkles className="h-4 w-4" /></span><div className="flex items-center gap-1 rounded-2xl bg-stone-100 px-4 py-3" aria-label={t('assistantPage.thinking')}><span className="h-2 w-2 animate-pulse rounded-full bg-stone-400" /><span className="h-2 w-2 animate-pulse rounded-full bg-stone-400 [animation-delay:150ms]" /><span className="h-2 w-2 animate-pulse rounded-full bg-stone-400 [animation-delay:300ms]" /></div></div>}
+              {thinking && messages[messages.length - 1]?.role !== 'assistant' && <div className="sana-message flex items-center gap-4"><span className="sana-avatar-thinking grid h-9 w-9 shrink-0 place-items-center rounded-2xl bg-lavender-600 text-white"><Sparkles className="h-4 w-4" /></span><div className="flex items-center gap-1 rounded-2xl bg-stone-100 px-4 py-3" aria-label={t('assistantPage.thinking')}><span className="sana-thinking-dot h-2 w-2 rounded-full bg-lavender-500" /><span className="sana-thinking-dot h-2 w-2 rounded-full bg-lavender-500" /><span className="sana-thinking-dot h-2 w-2 rounded-full bg-lavender-500" /></div></div>}
             </div>
             <div ref={bottomRef} className="h-2" />
           </div>
         )}
       </main>
 
-      <footer className="shrink-0 border-t border-stone-200 bg-paper px-3 pb-[max(10px,env(safe-area-inset-bottom))] pt-3 sm:px-5 sm:pb-4">
+      <footer className="shrink-0 border-t border-stone-200 bg-paper px-3 pb-[calc(5.75rem+env(safe-area-inset-bottom))] pt-3 sm:px-5 lg:pb-4">
         <div className="mx-auto w-full max-w-3xl">
           {messages.length > 0 && !thinking && <div className="mb-2 flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none]">{followUpPrompts.map((key) => { const prompt = t(`assistantPage.followUps.${key}`); return <button key={key} onClick={() => sendMessage(prompt)} className="min-h-10 shrink-0 rounded-full border border-stone-200 px-4 text-xs font-bold text-stone-600 transition hover:border-lavender-300 hover:bg-lavender-50">{prompt}</button>; })}</div>}
           <form onSubmit={handleSubmit} className="flex items-end gap-1 rounded-3xl border border-stone-300 bg-white p-2 shadow-sm transition focus-within:border-lavender-500 focus-within:ring-4 focus-within:ring-lavender-100">

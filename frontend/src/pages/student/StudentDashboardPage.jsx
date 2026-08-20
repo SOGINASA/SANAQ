@@ -235,7 +235,7 @@ export function StudentDashboardPage() {
         </div>
       )}
 
-      <div className="mt-6 grid gap-5 xl:grid-cols-[minmax(0,1fr)_280px]">
+      <div className="mt-6 grid gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
         <div className="grid content-start gap-6">
           {!profile && (
             <Card className="p-6 sm:p-8">

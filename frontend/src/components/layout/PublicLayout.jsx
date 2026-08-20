@@ -19,7 +19,7 @@ export function PublicLayout() {
     <div className="min-h-screen bg-canvas">
       <a href="#main-content" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-xl focus:bg-ink focus:px-4 focus:py-3 focus:text-white">{t('common.skip')}</a>
       <Header />
-      <main id="main-content" tabIndex="-1"><Outlet /></main>
+      <main id="main-content" tabIndex="-1" className="route-stage"><Outlet /></main>
       <Footer />
       <AccessibilityMenu />
     </div>

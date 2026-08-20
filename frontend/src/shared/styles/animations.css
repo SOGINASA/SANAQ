@@ -1,0 +1,332 @@
+/* A small, shared motion language: quiet on entry, responsive on interaction. */
+@keyframes sanaq-reveal {
+  from { opacity: 0; transform: translate3d(0, 24px, 0) scale(0.985); }
+  to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+}
+
+@keyframes sanaq-page-in {
+  from { opacity: 0; transform: translate3d(0, 10px, 0); }
+  to { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+
+@keyframes sanaq-drift {
+  0%, 100% { transform: translate3d(0, 0, 0) rotate(-0.4deg); }
+  50% { transform: translate3d(0, -12px, 0) rotate(0.6deg); }
+}
+
+@keyframes sanaq-shimmer {
+  from { transform: translateX(-140%) skewX(-18deg); }
+  to { transform: translateX(340%) skewX(-18deg); }
+}
+
+@keyframes sanaq-line-draw {
+  from { transform: scaleY(0); opacity: 0; }
+  to { transform: scaleY(1); opacity: 1; }
+}
+
+@keyframes sanaq-node-arrive {
+  from { opacity: 0; transform: translate3d(-12px, 10px, 0) scale(.94); }
+  to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+}
+
+@keyframes sanaq-signal {
+  0% { box-shadow: 0 0 0 0 rgba(116, 89, 201, .34); }
+  70%, 100% { box-shadow: 0 0 0 13px rgba(116, 89, 201, 0); }
+}
+
+@keyframes sanaq-heat-wave {
+  from { opacity: 0; transform: scale(.62) rotate(-5deg); }
+  to { opacity: 1; transform: scale(1) rotate(0); }
+}
+
+@keyframes sanaq-orbit { to { transform: rotate(360deg); } }
+@keyframes sanaq-step-complete {
+  0% { opacity: .5; transform: translateX(-8px) scale(.98); }
+  60% { transform: translateX(2px) scale(1.01); }
+  100% { opacity: 1; transform: none; }
+}
+@keyframes sanaq-message-in {
+  from { opacity: 0; transform: translate3d(0, 10px, 0) scale(.98); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes sanaq-thinking-dot {
+  0%, 60%, 100% { transform: translateY(0); opacity: .38; }
+  30% { transform: translateY(-5px); opacity: 1; }
+}
+@keyframes sanaq-service-flow {
+  from { background-position: 0 0; }
+  to { background-position: 36px 0; }
+}
+@keyframes sanaq-answer-select {
+  0% { transform: scale(.97); }
+  55% { transform: scale(1.018); }
+  100% { transform: scale(1); }
+}
+@keyframes sanaq-badge-unlock {
+  0% { opacity: 0; transform: translateY(18px) rotate(-3deg) scale(.88); }
+  65% { transform: translateY(-3px) rotate(1deg) scale(1.035); }
+  100% { opacity: 1; transform: none; }
+}
+@keyframes sanaq-badge-glint {
+  0%, 55% { transform: translateX(-180%) rotate(18deg); }
+  90%, 100% { transform: translateX(260%) rotate(18deg); }
+}
+@keyframes sanaq-overlay-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes sanaq-sheet-in {
+  from { opacity: 0; transform: translateY(32px) scale(.97); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes sanaq-toast-in {
+  from { opacity: 0; transform: translate(-50%, 18px) scale(.96); }
+  to { opacity: 1; transform: translate(-50%, 0) scale(1); }
+}
+@keyframes sanaq-toast-time { from { transform: scaleX(1); } to { transform: scaleX(0); } }
+
+.reveal {
+  opacity: 0;
+  transform: translate3d(0, 24px, 0) scale(0.985);
+}
+
+.reveal-visible {
+  animation: sanaq-reveal 720ms cubic-bezier(0.22, 1, 0.36, 1) var(--reveal-delay, 0ms) both;
+}
+
+.route-stage {
+  animation: sanaq-page-in 440ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.motion-card {
+  transition: transform 320ms cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 320ms ease, border-color 240ms ease, background-color 240ms ease;
+  transform: translateZ(0);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .motion-card:hover {
+    transform: translate3d(0, -5px, 0);
+    border-color: rgba(116, 89, 201, 0.28);
+    box-shadow: 0 24px 64px rgba(35, 35, 41, 0.12);
+  }
+
+  .interactive-lift {
+    transition: transform 260ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 260ms ease;
+  }
+
+  .interactive-lift:hover { transform: translate3d(0, -3px, 0); }
+  .interactive-lift:active { transform: translate3d(0, 1px, 0) scale(0.985); }
+}
+
+.hero-visual { animation: sanaq-drift 7s ease-in-out infinite; }
+.hero-orb { position: absolute; border-radius: 999px; filter: blur(1px); pointer-events: none; }
+
+.shine-sweep { position: relative; isolation: isolate; overflow: hidden; }
+.shine-sweep::after {
+  content: '';
+  position: absolute;
+  inset: -40% auto -40% -35%;
+  z-index: 0;
+  width: 18%;
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,.32), transparent);
+  animation: sanaq-shimmer 6s ease-in-out infinite 1.2s;
+}
+
+.reveal.stagger-grid > * { opacity: 0; }
+.reveal-visible.stagger-grid > *,
+.stagger-grid:not(.reveal) > * {
+  animation: sanaq-page-in 520ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.stagger-grid > *:nth-child(2) { animation-delay: 70ms; }
+.stagger-grid > *:nth-child(3) { animation-delay: 140ms; }
+.stagger-grid > *:nth-child(4) { animation-delay: 210ms; }
+.stagger-grid > *:nth-child(5) { animation-delay: 280ms; }
+.stagger-grid > *:nth-child(6) { animation-delay: 350ms; }
+
+/* Knowledge map: every lane grows like a small constellation. */
+.constellation-lane { position: relative; }
+.constellation-track {
+  position: relative;
+  padding-left: 22px;
+}
+.constellation-track::before {
+  content: '';
+  position: absolute;
+  top: 10px;
+  bottom: 10px;
+  left: 7px;
+  width: 2px;
+  transform-origin: top;
+  background: linear-gradient(180deg, rgba(116,89,201,.45), rgba(155,226,203,.4), transparent);
+  animation: sanaq-line-draw 900ms cubic-bezier(.22,1,.36,1) both;
+}
+.constellation-node {
+  position: relative;
+  animation: sanaq-node-arrive 560ms cubic-bezier(.22,1,.36,1) var(--node-delay, 0ms) both;
+}
+.constellation-node::before {
+  content: '';
+  position: absolute;
+  left: -20px;
+  top: 25px;
+  width: 12px;
+  height: 12px;
+  border: 3px solid var(--color-paper);
+  border-radius: 999px;
+  background: var(--color-primary-light);
+  box-shadow: 0 0 0 1px rgba(116,89,201,.28);
+}
+
+@media (min-width: 1024px) {
+  .constellation-track { padding-left: 20px; }
+  .constellation-track::before { left: 6px; }
+  .constellation-node::before { left: -19px; }
+}
+.constellation-node--mastered::before { background: #42b894; }
+.constellation-node--locked::before { background: #d6d3d1; }
+.knowledge-next-signal { animation: sanaq-signal 2.4s ease-out infinite; }
+
+/* Learning path: a continuous rail turns separate cards into one journey. */
+.learning-rail { position: relative; }
+.learning-rail::before {
+  content: '';
+  position: absolute;
+  top: 25px;
+  bottom: 25px;
+  left: 23px;
+  width: 3px;
+  border-radius: 99px;
+  transform-origin: top;
+  background: linear-gradient(180deg, #42b894 0%, #7459c9 55%, #e5e2da 100%);
+  animation: sanaq-line-draw 1.1s cubic-bezier(.22,1,.36,1) both;
+}
+.learning-step {
+  animation: sanaq-node-arrive 600ms cubic-bezier(.22,1,.36,1) var(--step-delay, 0ms) both;
+}
+.learning-step--available > div > span:first-child { animation: sanaq-signal 2.4s ease-out infinite; }
+
+/* Teacher analytics: data resolves in a wave, making fresh loads legible. */
+.heat-cell-motion {
+  animation: sanaq-heat-wave 480ms cubic-bezier(.22,1,.36,1) calc(var(--cell-index, 0) * 38ms) both;
+  transition: transform 220ms ease, filter 220ms ease;
+}
+@media (hover: hover) and (pointer: fine) {
+  .heat-cell-motion:hover { transform: scale(1.1); filter: saturate(1.15) brightness(1.03); z-index: 1; }
+}
+
+.plan-forge { isolation: isolate; }
+.plan-forge::before, .plan-forge::after {
+  content: ''; position: absolute; inset: -18px; z-index: -1;
+  border: 1px dashed rgba(116,89,201,.3); border-radius: 999px;
+  animation: sanaq-orbit 13s linear infinite;
+}
+.plan-forge::after {
+  inset: -34px; border-style: solid;
+  border-color: rgba(155,226,203,.55) transparent rgba(155,226,203,.55) transparent;
+  animation-duration: 9s; animation-direction: reverse;
+}
+.plan-stage--done { animation: sanaq-step-complete 480ms cubic-bezier(.22,1,.36,1) both; }
+.plan-stage--active { box-shadow: 0 12px 30px rgba(91,63,168,.09); }
+
+.sana-message { animation: sanaq-message-in 380ms cubic-bezier(.22,1,.36,1) both; }
+.sana-avatar-thinking { animation: sanaq-signal 1.8s ease-out infinite; }
+.sana-thinking-dot { animation: sanaq-thinking-dot 1.2s ease-in-out infinite; }
+.sana-thinking-dot:nth-child(2) { animation-delay: 140ms; }
+.sana-thinking-dot:nth-child(3) { animation-delay: 280ms; }
+.sana-prompt-grid > * { animation: sanaq-node-arrive 500ms cubic-bezier(.22,1,.36,1) both; }
+.sana-prompt-grid > *:nth-child(2) { animation-delay: 70ms; }
+.sana-prompt-grid > *:nth-child(3) { animation-delay: 140ms; }
+.sana-prompt-grid > *:nth-child(4) { animation-delay: 210ms; }
+
+.service-grid, div:has(> .service-node) { position: relative; }
+.service-grid::before, div:has(> .service-node)::before {
+  content: ''; position: absolute; left: 8%; right: 8%; top: 50%; height: 2px;
+  background: repeating-linear-gradient(90deg, rgba(116,89,201,.32) 0 9px, transparent 9px 18px);
+  animation: sanaq-service-flow 1.5s linear infinite;
+}
+.service-node { position: relative; z-index: 1; }
+.service-node::after {
+  content: ''; position: absolute; right: 16px; bottom: 16px; width: 7px; height: 7px;
+  border-radius: 999px; background: #42b894; animation: sanaq-signal 2.1s ease-out infinite;
+}
+.service-node--warning::after { background: #d6a824; }
+.service-node--danger::after { background: #d96552; }
+@media (max-width: 1279px) { .service-grid::before, div:has(> .service-node)::before { display: none; } }
+
+.diagnostic-question,
+#dashboard-content .max-w-3xl > .surface-card { animation: sanaq-message-in 520ms cubic-bezier(.22,1,.36,1) both; }
+.diagnostic-option { transition: transform 220ms ease, border-color 220ms ease, background-color 220ms ease; }
+.diagnostic-option--selected { animation: sanaq-answer-select 320ms cubic-bezier(.22,1,.36,1); }
+.diagnostic-result-mark { animation: sanaq-badge-unlock 700ms cubic-bezier(.22,1,.36,1) both; }
+#dashboard-content .max-w-3xl > .surface-card > .bg-lavender-100 > span:first-child {
+  animation: sanaq-badge-unlock 700ms cubic-bezier(.22,1,.36,1) both;
+}
+#dashboard-content .max-w-3xl fieldset label:has(input:checked) {
+  animation: sanaq-answer-select 320ms cubic-bezier(.22,1,.36,1);
+}
+
+.achievement-card { animation: sanaq-badge-unlock 620ms cubic-bezier(.22,1,.36,1) var(--badge-delay, 0ms) both; }
+.achievement-icon { position: relative; overflow: hidden; }
+.achievement-icon--earned::after {
+  content: ''; position: absolute; inset: -30% auto -30% -55%; width: 30%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,.75), transparent);
+  animation: sanaq-badge-glint 3.8s ease-in-out var(--badge-delay, 0ms) infinite;
+}
+
+.editor-block { animation: sanaq-sheet-in 440ms cubic-bezier(.22,1,.36,1) both; }
+.editor-task { animation: sanaq-message-in 380ms cubic-bezier(.22,1,.36,1) both; }
+#dashboard-content .max-w-6xl > .space-y-5 > .surface-card { animation: sanaq-sheet-in 440ms cubic-bezier(.22,1,.36,1) both; }
+#dashboard-content .max-w-6xl > .space-y-5 > .surface-card section {
+  animation: sanaq-message-in 380ms cubic-bezier(.22,1,.36,1) both;
+}
+.moderation-list > * { animation: sanaq-message-in 440ms cubic-bezier(.22,1,.36,1) both; }
+.moderation-list > *:nth-child(2) { animation-delay: 55ms; }
+.moderation-list > *:nth-child(3) { animation-delay: 110ms; }
+.moderation-list > *:nth-child(4) { animation-delay: 165ms; }
+#dashboard-content .max-w-6xl > .mt-5.grid.gap-4 > .surface-card {
+  animation: sanaq-message-in 440ms cubic-bezier(.22,1,.36,1) both;
+}
+#dashboard-content .max-w-6xl > .mt-5.grid.gap-4 > .surface-card:nth-child(2) { animation-delay: 55ms; }
+#dashboard-content .max-w-6xl > .mt-5.grid.gap-4 > .surface-card:nth-child(3) { animation-delay: 110ms; }
+#dashboard-content .max-w-6xl > .mt-5.grid.gap-4 > .surface-card:nth-child(4) { animation-delay: 165ms; }
+
+.dialog-overlay { animation: sanaq-overlay-in 180ms ease-out both; }
+.dialog-panel { animation: sanaq-sheet-in 360ms cubic-bezier(.22,1,.36,1) both; }
+.status-toast { overflow: hidden; animation: sanaq-toast-in 380ms cubic-bezier(.22,1,.36,1) both; }
+.status-toast::after {
+  content: ''; position: absolute; inset: auto 0 0; height: 3px; transform-origin: left;
+  background: var(--color-primary-light); animation: sanaq-toast-time 5s linear both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal, .reveal-visible, .route-stage, .hero-visual, .stagger-grid > *,
+  .constellation-track::before, .constellation-node, .learning-rail::before, .learning-step, .heat-cell-motion {
+    opacity: 1;
+    transform: none;
+    animation: none !important;
+  }
+  .motion-card, .interactive-lift { transition: none; }
+  .shine-sweep::after { display: none; }
+  .plan-forge::before, .plan-forge::after, .plan-stage--done, .sana-message,
+  .sana-avatar-thinking, .sana-thinking-dot, .sana-prompt-grid > *,
+  .service-grid::before, .service-node::after { animation: none !important; transform: none; }
+  .diagnostic-question, .diagnostic-option--selected, .diagnostic-result-mark,
+  .achievement-card, .achievement-icon--earned::after, .editor-block, .editor-task,
+  .moderation-list > *, .dialog-overlay, .dialog-panel, .status-toast, .status-toast::after {
+    animation: none !important; transform: none;
+  }
+}
+
+.reduce-motion .reveal,
+.reduce-motion .reveal-visible,
+.reduce-motion .route-stage,
+.reduce-motion .hero-visual,
+.reduce-motion .stagger-grid > * {
+  opacity: 1;
+  transform: none;
+  animation: none !important;
+}
+.reduce-motion .constellation-track::before,
+.reduce-motion .constellation-node,
+.reduce-motion .learning-rail::before,
+.reduce-motion .learning-step,
+.reduce-motion .heat-cell-motion { opacity: 1; transform: none; animation: none !important; }

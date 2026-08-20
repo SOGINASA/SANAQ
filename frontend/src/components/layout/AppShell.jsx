@@ -122,9 +122,9 @@ export function AppShell({ role = 'student' }) {
         </header>
       )}
       <main id="dashboard-content" tabIndex="-1" className={immersiveAssistant ? 'h-dvh overflow-hidden p-0' : 'min-w-0 px-3 pb-[calc(7rem+env(safe-area-inset-bottom))] pt-5 sm:px-6 sm:pt-6 lg:px-8 lg:pb-10'}>
-        <Outlet />
+        <div key={pathname} className="route-stage min-w-0"><Outlet /></div>
       </main>
-      {!immersiveAssistant && <MobileNavigation role={role} />}
+      <MobileNavigation role={role} />
       <AccessibilityMenu />
     </div>
   );
