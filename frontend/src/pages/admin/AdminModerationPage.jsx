@@ -51,6 +51,21 @@ export function AdminModerationPage() {
   };
   const openReports = reports.filter((item) => ['open', 'reviewing'].includes(item.status));
 
+  useEffect(() => {
+    if (!selected || actionLoading) return undefined;
+    const handleShortcut = (event) => {
+      if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName)) return;
+      if (selected.kind === 'content' && event.key.toLowerCase() === 'a') { event.preventDefault(); moderate(true); }
+      if (selected.kind === 'content' && event.key.toLowerCase() === 'r') { event.preventDefault(); moderate(false); }
+      if (selected.kind === 'ai' && event.key.toLowerCase() === 'r') { event.preventDefault(); resolveReport('resolved'); }
+      if (selected.kind === 'ai' && event.key.toLowerCase() === 'd') { event.preventDefault(); resolveReport('dismissed'); }
+    };
+    window.addEventListener('keydown', handleShortcut);
+    return () => window.removeEventListener('keydown', handleShortcut);
+    // Actions intentionally use the currently opened moderation item.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selected, actionLoading, resolution]);
+
   return <div className="mx-auto max-w-6xl animate-rise">
     <AdminPageHeader eyebrow={t('adminModeration.eyebrow')} title={t('adminModeration.title')} description={t('adminModeration.description')} />
     {error && <div className="state-error mt-6" role="alert">{error}</div>}

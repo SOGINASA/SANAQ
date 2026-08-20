@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, CheckCircle2, Lightbulb, XCircle } from 'lucide-react';
-import { Button, Card, ProgressBar } from '../../shared/ui';
+import { Button, Card, PageSkeleton, ProgressBar } from '../../shared/ui';
 import { assessmentsApi } from '../../features/assessments/assessmentsApi';
 import { aiTutorApi } from '../../features/ai-tutor/aiTutorApi';
 import { reviewsApi } from '../../features/spaced-repetition/reviewsApi';
@@ -72,10 +72,10 @@ export function TaskPage() {
     finally { setLoading(false); }
   };
 
-  if (loading && !task) return <div className="mx-auto max-w-4xl py-16 text-center font-bold">{t('practice.loading')}</div>;
+  if (loading && !task) return <PageSkeleton className="max-w-4xl" layout="form" label={t('practice.loading')} />;
 
   return <div className="mx-auto max-w-4xl animate-rise"><button onClick={() => navigate('/student/path')} className="mb-5 inline-flex min-h-11 items-center gap-2 rounded-xl px-2 font-bold text-stone-600"><ArrowLeft className="h-5 w-5" /> {t('practice.back')}</button><div className="mb-6"><p className="eyebrow">{t('practice.eyebrow', { skill: task?.skill_name || '' })}</p><h1 className="mt-2 text-3xl font-extrabold">{t('practice.title')}</h1><ProgressBar className="mt-5" value={result ? 100 : feedback ? 75 : attempt ? 35 : 10} /></div>
-    {error && <div className="mb-5 rounded-2xl border border-red-200 bg-red-50 p-4 text-red-900" role="alert">{error}</div>}
+    {error && <div className="state-error mb-5" role="alert">{error}</div>}
     {task && <div className="mb-5 grid gap-4"><DifficultyAdaptation current={task.difficulty} adaptation={result?.adaptation || feedback?.adaptation} /><SpeechControls text={[task.prompt, ...(task.options || []), feedback?.feedback, explanation?.content?.explanation || explanation?.content].filter((item) => typeof item === 'string').join('. ')} label={t('practice.readTask')} /></div>}
     {task && <Card className="p-6 sm:p-10"><p className="text-sm font-bold text-lavender-600">{t('practice.difficulty', { level: task.difficulty })}</p><h2 className="mt-4 text-2xl font-extrabold sm:text-3xl">{task.prompt}</h2>
       {!attempt && <Button className="mt-8" loading={loading} onClick={start}>{t('practice.start')}</Button>}

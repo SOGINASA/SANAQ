@@ -54,6 +54,7 @@
   .field-control { @apply min-h-12 w-full rounded-2xl border border-stone-300 bg-paper px-4 text-base text-ink placeholder:text-stone-400 transition focus:border-lavender-500 focus:outline-none focus:ring-4 focus:ring-lavender-100; }
   .state-error { @apply rounded-2xl border border-danger-100 bg-danger-50 p-4 text-danger-700; }
   .state-empty { @apply rounded-3xl border border-dashed border-stone-300 bg-paper p-8 text-center text-stone-500; }
+  .state-panel { @apply min-h-44; }
   .status-danger { @apply bg-danger-100 text-danger-700; }
   .status-warning { @apply bg-warning-100 text-warning-700; }
 }

@@ -229,6 +229,24 @@ export function StudentDashboardPage() {
         <span className="hidden text-sm font-semibold text-lavender-700 sm:block">{t(`studentDashboard.stages.${stage - 1}`)}</span>
       </div>
 
+      {profile && result && (
+        <section className="today-focus mt-6 overflow-hidden rounded-4xl bg-ink text-white shadow-soft" aria-labelledby="today-focus-title">
+          <div className="grid lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+            <div className="p-6 sm:p-8">
+              <div className="flex items-center gap-2 text-xs font-extrabold uppercase tracking-[0.16em] text-lime"><Sparkles className="h-4 w-4" />{t('learningPath.nextStep')}</div>
+              <h2 id="today-focus-title" className="mt-3 break-words font-display text-2xl font-semibold sm:text-3xl">{task ? localize(task.prompt) : t('studentDashboard.pathComplete')}</h2>
+              <p className="mt-3 max-w-2xl break-words text-sm leading-6 text-stone-300">{task ? localize(nextStep?.reason) : t('studentDashboard.pathCompleteText')}</p>
+              {task && <Button className="mt-6" onClick={attempt ? () => document.getElementById('current-task')?.scrollIntoView({ behavior: 'smooth', block: 'center' }) : startAttempt} loading={busy}>{attempt ? t('studentDashboard.answer') : t('studentDashboard.startTask')} <ArrowRight className="h-4 w-4" /></Button>}
+            </div>
+            <div className="grid grid-cols-3 border-t border-white/10 bg-white/[0.06] lg:min-w-[310px] lg:border-l lg:border-t-0">
+              <div className="p-4 text-center sm:p-5"><strong className="font-display text-xl text-lime sm:text-2xl">{mastery}%</strong><span className="mt-1 block text-[11px] text-stone-400">{t('studentDashboard.liveProgress')}</span></div>
+              <div className="border-x border-white/10 p-4 text-center sm:p-5"><strong className="font-display text-xl sm:text-2xl">{progress?.mastered_skills || 0}</strong><span className="mt-1 block text-[11px] text-stone-400">{t('studentDashboard.mastered')}</span></div>
+              <div className="p-4 text-center sm:p-5"><strong className="font-display text-xl sm:text-2xl">{progress?.weak_skills || 0}</strong><span className="mt-1 block text-[11px] text-stone-400">{t('studentDashboard.gapsTitle')}</span></div>
+            </div>
+          </div>
+        </section>
+      )}
+
       {error && (
         <div className="mt-6 rounded-2xl border border-red-200 bg-red-50 p-4 text-red-900" role="alert">
           <strong>{t('studentDashboard.backendError')}</strong> {error}
@@ -275,7 +293,7 @@ export function StudentDashboardPage() {
           )}
 
           {task && (
-            <Card className="p-6 sm:p-8">
+            <Card id="current-task" className="p-6 sm:p-8">
               <p className="eyebrow">{t('studentDashboard.pathStep', { skill: localize(nextStep?.skill_name) })}</p><h2 className="mt-2 text-2xl font-extrabold">{localize(task.prompt)}</h2>
               <div className="mt-5 rounded-2xl border-l-4 border-lavender-500 bg-lavender-50 p-4 text-sm text-stone-700"><strong>{t('studentDashboard.whyStep')}</strong> {localize(nextStep?.reason)}</div>
               {!attempt ? <Button className="mt-6" onClick={startAttempt} loading={busy}>{t('studentDashboard.startTask')}</Button> : (

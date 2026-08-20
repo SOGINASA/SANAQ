@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, ArrowRight, CheckCircle2, Eye, GripVertical, Plus, Save, Trash2 } from 'lucide-react';
+import { ArrowLeft, ArrowRight, CheckCircle2, ChevronDown, ChevronUp, Eye, GripVertical, Plus, Save, Trash2 } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Button, Card, Dialog, StatusToast } from '../../shared/ui';
+import { Button, Card, Dialog, PageSkeleton, StatusToast } from '../../shared/ui';
 import { adminContentApi } from '../../features/admin-content/adminContentApi';
 import { catalogApi } from '../../shared/api/catalogApi';
 import { useI18n } from '../../shared/i18n/i18n';
@@ -108,6 +108,13 @@ export function ContentEditorPage() {
   const removeLesson = (index) => setForm((current) => ({ ...current, lessons: current.lessons.filter((_, itemIndex) => itemIndex !== index) }));
   const addTask = (lessonIndex) => setForm((current) => ({ ...current, lessons: current.lessons.map((lesson, index) => index === lessonIndex ? { ...lesson, tasks: [...lesson.tasks, newTask(skills[0]?.id)] } : lesson) }));
   const removeTask = (lessonIndex, taskIndex) => updateLesson(lessonIndex, { tasks: form.lessons[lessonIndex].tasks.filter((_, index) => index !== taskIndex) });
+  const moveLesson = (from, to) => setForm((current) => {
+    if (to < 0 || to >= current.lessons.length) return current;
+    const lessons = [...current.lessons];
+    const [lesson] = lessons.splice(from, 1);
+    lessons.splice(to, 0, lesson);
+    return { ...current, lessons };
+  });
 
   const valid = form.title.trim() && form.topic_id && form.lessons.length && form.lessons.every((lesson) => lesson.title.trim() && lesson.theory.trim() && lesson.tasks.every((task) => task.prompt.trim() && task.skill_id && (task.task_type === 'multiple_choice' ? task.correct_options.length > 0 : task.task_type === 'matching' ? task.pairs.length >= 2 && task.pairs.every((pair) => pair.left.trim() && pair.right.trim()) : task.task_type === 'ordering' ? task.order_items.length >= 2 && task.order_items.every((item) => item.trim()) : task.acceptable_answer.trim()) && (!['single_choice', 'multiple_choice'].includes(task.task_type) || (task.options.filter((option) => option.trim()).length >= 2 && (task.task_type === 'multiple_choice' ? task.correct_options.every((answer) => task.options.includes(answer)) : task.options.includes(task.acceptable_answer))))));
 
@@ -160,7 +167,7 @@ export function ContentEditorPage() {
     finally { setLoading(false); }
   };
 
-  if (initialLoading) return <div className="py-16 text-center font-bold">Loading…</div>;
+  if (initialLoading) return <PageSkeleton layout="form" label="Loading content editor" />;
 
   return <div className="mx-auto max-w-6xl animate-rise pb-12">
     <button onClick={() => navigate(contentBase)} className="mb-5 inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-xl px-2 font-bold text-stone-600 transition hover:bg-stone-100"><ArrowLeft className="h-5 w-5" /> {t('editor.back')}</button>
@@ -171,6 +178,7 @@ export function ContentEditorPage() {
     <Card className="mt-7 p-5 sm:p-8"><h2 className="text-xl font-extrabold">{t('editor.basics')}</h2><div className="mt-5 grid gap-5 lg:grid-cols-2"><label className="field-label lg:col-span-2">{t('editor.moduleTitle')}<input className="field-control mt-2" value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} /></label><label className="field-label">{t('editor.grade')}<select className="field-control mt-2" value={form.grade} onChange={(event) => setForm({ ...form, grade: Number(event.target.value) })}>{[7, 8, 9, 10, 11, 12].map((grade) => <option key={grade} value={grade}>{grade}</option>)}</select></label><label className="field-label">{t('editor.topic')}<select className="field-control mt-2" value={form.topic_id} onChange={(event) => setForm({ ...form, topic_id: event.target.value })}>{topics.length ? topics.map((topic) => <option key={topic.id} value={topic.id}>{topic.name}</option>) : <option value="">{t('editor.emptyTopic')}</option>}</select></label><label className="field-label lg:col-span-2">{t('editor.description')}<textarea rows="3" className="field-control mt-2 py-3" value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} /></label></div></Card>
 
     <div className="mt-7 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"><h2 className="text-2xl font-extrabold">{t('editor.lessons')}</h2><Button variant="outline" onClick={addLesson}><Plus className="h-4 w-4" /> {t('editor.addLesson')}</Button></div>
+    {form.lessons.length > 1 && <div className="mt-4 flex gap-2 overflow-x-auto rounded-2xl border border-stone-200 bg-paper p-2" aria-label={t('editor.lessons')}>{form.lessons.map((lesson, index) => <div key={lesson.key} className="flex shrink-0 items-center rounded-xl bg-stone-50 pl-3"><span className="max-w-36 truncate text-xs font-bold">{index + 1}. {lesson.title || t('editor.lesson', { number: index + 1 })}</span><button type="button" disabled={index === 0} onClick={() => moveLesson(index, index - 1)} className="grid h-10 w-9 place-items-center text-stone-500 disabled:opacity-25" aria-label={`${t('editor.lesson', { number: index + 1 })} ↑`}><ChevronUp className="h-4 w-4" /></button><button type="button" disabled={index === form.lessons.length - 1} onClick={() => moveLesson(index, index + 1)} className="grid h-10 w-9 place-items-center text-stone-500 disabled:opacity-25" aria-label={`${t('editor.lesson', { number: index + 1 })} ↓`}><ChevronDown className="h-4 w-4" /></button></div>)}</div>}
     <div className="mt-4 space-y-5">{form.lessons.map((lesson, lessonIndex) => <Card key={lesson.key} className="overflow-hidden"><div className="flex flex-wrap items-center gap-3 border-b border-stone-200 bg-stone-50 px-4 py-4 sm:px-6"><GripVertical className="h-5 w-5 text-stone-400" /><h3 className="min-w-0 flex-1 text-lg font-extrabold">{t('editor.lesson', { number: lessonIndex + 1 })}</h3>{form.lessons.length > 1 && <button className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-xl px-3 text-sm font-bold text-red-700 transition hover:bg-red-50" onClick={() => removeLesson(lessonIndex)}><Trash2 className="h-4 w-4" /> <span className="hidden sm:inline">{t('editor.removeLesson')}</span></button>}</div><div className="space-y-5 p-4 sm:p-6"><label className="field-label">{t('editor.lessonTitle')}<input className="field-control mt-2" value={lesson.title} onChange={(event) => updateLesson(lessonIndex, { title: event.target.value })} /></label><label className="field-label">{t('editor.theory')}<textarea rows="6" className="field-control mt-2 py-3" value={lesson.theory} onChange={(event) => updateLesson(lessonIndex, { theory: event.target.value })} /></label><label className="field-label">{t('editor.example')}<textarea rows="3" className="field-control mt-2 py-3" value={lesson.example} onChange={(event) => updateLesson(lessonIndex, { example: event.target.value })} /></label>
       <div className="rounded-3xl bg-stone-100 p-3 sm:p-5"><div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><h4 className="text-lg font-extrabold">{t('editor.tasks')}</h4><Button size="sm" variant="secondary" onClick={() => addTask(lessonIndex)}><Plus className="h-4 w-4" /> {t('editor.addTask')}</Button></div><div className="mt-4 space-y-4">{lesson.tasks.map((task, taskIndex) => <TaskEditor key={task.key} task={task} taskIndex={taskIndex} skills={skills} t={t} onChange={(patchValue) => updateTask(lessonIndex, taskIndex, patchValue)} onRemove={() => removeTask(lessonIndex, taskIndex)} canRemove={lesson.tasks.length > 1} />)}</div></div>
     </div></Card>)}</div>

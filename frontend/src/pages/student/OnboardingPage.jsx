@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, Check, Target } from 'lucide-react';
-import { Button, Card } from '../../shared/ui';
+import { Button, Card, PageSkeleton } from '../../shared/ui';
 import { catalogApi } from '../../shared/api/catalogApi';
 import { useI18n } from '../../shared/i18n/i18n';
 import { localizedText } from '../../shared/i18n/localizedText';
@@ -53,11 +53,11 @@ export function OnboardingPage() {
     }
   };
 
-  if (loading) return <div className="mx-auto max-w-4xl py-16 text-center font-bold">{t('onboarding.loading')}</div>;
+  if (loading) return <PageSkeleton className="max-w-4xl" layout="form" label={t('onboarding.loading')} />;
 
   return <div className="mx-auto max-w-4xl py-2 sm:py-8">
     <div className="mb-8"><p className="eyebrow">{t('onboarding.eyebrow')}</p><h1 className="page-title mt-3">{t('onboarding.title')}</h1><p className="mt-3 text-stone-600">{t('onboarding.description')}</p></div>
-    {error && <div className="mb-5 rounded-2xl border border-red-200 bg-red-50 p-4 text-red-900" role="alert">{error}</div>}
+    {error && <div className="state-error mb-5" role="alert">{error}</div>}
     <div className="mb-8 flex items-center gap-2" aria-label={t('onboarding.step', { current: step + 1, total: 3 })}>{steps.map((label, index) => <div key={label} className="flex min-w-0 flex-1 items-center gap-2"><span className={`grid h-9 w-9 shrink-0 place-items-center rounded-xl text-sm font-extrabold ${index <= step ? 'bg-lavender-600 text-white' : 'bg-stone-200 text-stone-500'}`}>{index < step ? <Check className="h-4 w-4" /> : index + 1}</span><span className="hidden truncate text-sm font-bold sm:block">{label}</span>{index < 2 && <span className={`h-1 min-w-3 flex-1 rounded-full ${index < step ? 'bg-lavender-400' : 'bg-stone-200'}`} />}</div>)}</div>
     <Card className="p-6 sm:p-10">
       {step === 0 && <fieldset><legend className="text-2xl font-extrabold">{t('onboarding.gradeTitle')}</legend><p className="mt-2 text-stone-600">{t('onboarding.gradeText')}</p><div className="mt-7 grid grid-cols-3 gap-3 sm:grid-cols-6">{catalog.grades.map((grade) => <label key={grade} className={`grid min-h-16 cursor-pointer place-items-center rounded-2xl border-2 text-lg font-extrabold transition ${Number(profile.grade) === Number(grade) ? 'border-lavender-500 bg-lavender-100 text-lavender-700' : 'border-stone-200 hover:border-lavender-300'}`}><input type="radio" name="grade" className="sr-only" checked={Number(profile.grade) === Number(grade)} onChange={() => setProfile({ ...profile, grade })} />{grade}</label>)}</div></fieldset>}
