@@ -5,6 +5,9 @@ import urllib.request
 from services.ai.errors import AIProviderError
 
 
+GROQ_USER_AGENT = "SANAQ/1.0"
+
+
 class GroqError(AIProviderError):
     pass
 
@@ -51,6 +54,7 @@ class GroqClient:
                 "Authorization": f"Bearer {self.api_key}",
                 "Content-Type": "application/json",
                 "Accept": "text/event-stream",
+                "User-Agent": GROQ_USER_AGENT,
             },
             method="POST",
         )
@@ -98,7 +102,10 @@ class GroqClient:
             return False
         request = urllib.request.Request(
             f"{self.base_url}/models",
-            headers={"Authorization": f"Bearer {self.api_key}"},
+            headers={
+                "Authorization": f"Bearer {self.api_key}",
+                "User-Agent": GROQ_USER_AGENT,
+            },
             method="GET",
         )
         try:

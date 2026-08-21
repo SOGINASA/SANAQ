@@ -125,12 +125,14 @@ def _student_rows(classroom):
     return result
 
 
-def _assignment_payload(assignment):
+def _assignment_payload(assignment, include_students=False, student_id=None):
     classroom = db.session.get(Classroom, assignment.class_id)
-    module = db.session.get(LearningModule, assignment.module_id) if assignment.module_id else None
-    student_ids = db.session.scalars(
-        db.select(ClassEnrollment.student_id).where(ClassEnrollment.class_id == assignment.class_id)
+    students = db.session.scalars(
+        db.select(User).join(ClassEnrollment, ClassEnrollment.student_id == User.id)
+        .where(ClassEnrollment.class_id == assignment.class_id).order_by(User.name)
     ).all()
+    module = db.session.get(LearningModule, assignment.module_id) if assignment.module_id else None
+    student_ids = [student.id for student in students]
     task_ids = []
     if assignment.task_id:
         task_ids = [assignment.task_id]
@@ -140,28 +142,56 @@ def _assignment_payload(assignment):
             db.select(Task.id).join(Lesson, Task.lesson_id == Lesson.id)
             .where(Lesson.module_id == assignment.module_id)
         ).all()
-    completed = 0
+    attempts_by_student = {}
     if student_ids and task_ids:
-        completed_rows = db.session.execute(
-            db.select(Attempt.student_id, Attempt.task_id).where(
-                Attempt.student_id.in_(student_ids), Attempt.task_id.in_(task_ids), Attempt.status == "completed"
-            )
+        attempt_rows = db.session.scalars(
+            db.select(Attempt).where(
+                Attempt.student_id.in_(student_ids), Attempt.task_id.in_(task_ids)
+            ).order_by(Attempt.started_at.desc())
         ).all()
-        completed_by_student = {}
-        for student_id, task_id in completed_rows:
-            completed_by_student.setdefault(student_id, set()).add(task_id)
-        completed = sum(set(task_ids).issubset(completed_by_student.get(student_id, set())) for student_id in student_ids)
+        for attempt in attempt_rows:
+            state = attempts_by_student.setdefault(attempt.student_id, {
+                "completed_task_ids": set(), "started_task_ids": set(), "last_activity_at": None,
+            })
+            state["started_task_ids"].add(attempt.task_id)
+            if attempt.status == "completed":
+                state["completed_task_ids"].add(attempt.task_id)
+            activity_at = attempt.completed_at or attempt.started_at
+            if activity_at and (state["last_activity_at"] is None or activity_at > state["last_activity_at"]):
+                state["last_activity_at"] = activity_at
+    task_count = len(set(task_ids))
+    student_progress = []
+    for student in students:
+        state = attempts_by_student.get(student.id, {})
+        completed_tasks = len(set(state.get("completed_task_ids", set())) & set(task_ids))
+        started_tasks = len(set(state.get("started_task_ids", set())) & set(task_ids))
+        progress = round(completed_tasks / task_count * 100) if task_count else 0
+        student_progress.append({
+            "student_id": student.id, "name": student.name, "email": student.email,
+            "completed_tasks": completed_tasks, "started_tasks": started_tasks,
+            "total_tasks": task_count, "progress": progress,
+            "status": "completed" if task_count and completed_tasks == task_count else "in_progress" if started_tasks else "not_started",
+            "last_activity_at": state.get("last_activity_at").isoformat() if state.get("last_activity_at") else None,
+        })
+    completed = sum(item["status"] == "completed" for item in student_progress)
+    started = sum(item["status"] != "not_started" for item in student_progress)
     total = len(student_ids)
-    return {
+    overall_progress = round(sum(item["progress"] for item in student_progress) / total) if total else 0
+    payload = {
         "id": assignment.id, "title": assignment.title, "class_id": assignment.class_id,
         "class_name": classroom.name if classroom else None, "module_id": assignment.module_id,
         "module_title": localized(module.title) if module else None,
         "module_description": localized(module.description) if module else None,
         "task_id": assignment.task_id, "due_at": assignment.due_at.isoformat() if assignment.due_at else None,
         "status": assignment.status, "completed_students": completed, "total_students": total,
-        "progress": round(completed / total * 100) if total else 0,
+        "started_students": started, "total_tasks": task_count, "progress": overall_progress,
         "created_at": assignment.created_at.isoformat(),
     }
+    if include_students:
+        payload["student_progress"] = student_progress
+    if student_id:
+        payload["my_progress"] = next((item for item in student_progress if item["student_id"] == student_id), None)
+    return payload
 
 
 @teacher_bp.get("/teachers/me/classes")
@@ -279,7 +309,13 @@ def class_feed(classId):
     return success({
         "class": {**_class_payload(classroom, details=True), "teacher_name": teacher.name if teacher else "Учитель"},
         "announcements": [_announcement_payload(item) for item in announcements],
-        "assignments": [_assignment_payload(item) for item in assignments],
+        "assignments": [
+            _assignment_payload(
+                item,
+                include_students=get_jwt().get("role") in {"teacher", "admin"},
+                student_id=get_jwt_identity() if get_jwt().get("role") == "student" else None,
+            ) for item in assignments
+        ],
     })
 
 
@@ -407,7 +443,7 @@ def teacher_dashboard():
     assignments = db.session.scalars(
         db.select(Assignment).where(Assignment.teacher_id == get_jwt_identity()).order_by(Assignment.created_at.desc()).limit(5)
     ).all()
-    return success({"classes": cards, "assignments": [_assignment_payload(item) for item in assignments]})
+    return success({"classes": cards, "assignments": [_assignment_payload(item, include_students=True) for item in assignments]})
 
 
 @teacher_bp.get("/teachers/students/<studentId>/progress")
@@ -484,7 +520,7 @@ def assignments():
     items = db.session.scalars(
         db.select(Assignment).where(Assignment.teacher_id == get_jwt_identity()).order_by(Assignment.created_at.desc())
     ).all()
-    return success({"items": [_assignment_payload(item) for item in items]})
+    return success({"items": [_assignment_payload(item, include_students=True) for item in items]})
 
 
 @teacher_bp.post("/assignments")
@@ -497,10 +533,17 @@ def create_assignment():
     title = str(data.get("title", "")).strip()
     if not title or not (data.get("module_id") or data.get("task_id")):
         return api_error("VALIDATION_ERROR", "Укажите название и модуль или задание", 422)
-    if data.get("module_id"):
-        module = db.session.get(LearningModule, str(data["module_id"]))
-        if not module or module.status != "published":
-            return api_error("MODULE_NOT_PUBLISHED", "Назначить можно только опубликованный материал", 409)
+    module_id = str(data.get("module_id") or "").strip()
+    if module_id:
+        module = db.session.get(LearningModule, module_id)
+        if not module:
+            return api_error("MODULE_NOT_FOUND", "Модуль не найден", 404)
+        if module.status != "published":
+            return api_error(
+                "MODULE_NOT_PUBLISHED",
+                "Сначала опубликуйте модуль, затем добавьте его в ленту класса",
+                409,
+            )
     if data.get("task_id"):
         task = db.session.get(Task, str(data["task_id"]))
         if not task or not task.is_published:
@@ -513,7 +556,7 @@ def create_assignment():
             return api_error("VALIDATION_ERROR", "Некорректная дата", 422)
     assignment = Assignment(
         class_id=classroom.id, teacher_id=get_jwt_identity(), title=title,
-        module_id=data.get("module_id"), task_id=data.get("task_id"), due_at=due_at,
+        module_id=module_id or None, task_id=data.get("task_id"), due_at=due_at,
         status=str(data.get("status", "published")),
     )
     db.session.add(assignment)
@@ -527,7 +570,7 @@ def create_assignment():
             link=f"/student/classes/{classroom.id}",
         ))
     db.session.commit()
-    return success({"assignment": _assignment_payload(assignment)}, status=201)
+    return success({"assignment": _assignment_payload(assignment, include_students=True)}, status=201)
 
 
 @teacher_bp.get("/assignments/<assignmentId>")
@@ -536,7 +579,7 @@ def assignment_details(assignmentId):
     assignment = db.session.get(Assignment, assignmentId)
     if not assignment or assignment.teacher_id != get_jwt_identity():
         return api_error("ASSIGNMENT_NOT_FOUND", "Назначение не найдено", 404)
-    return success({"assignment": _assignment_payload(assignment)})
+    return success({"assignment": _assignment_payload(assignment, include_students=True)})
 
 
 @teacher_bp.patch("/assignments/<assignmentId>")
@@ -550,7 +593,7 @@ def update_assignment(assignmentId):
         if field in data:
             setattr(assignment, field, str(data[field]))
     db.session.commit()
-    return success({"assignment": _assignment_payload(assignment)})
+    return success({"assignment": _assignment_payload(assignment, include_students=True)})
 
 
 @teacher_bp.post("/assignments/<assignmentId>/publish")
@@ -561,7 +604,7 @@ def publish_assignment(assignmentId):
         return api_error("ASSIGNMENT_NOT_FOUND", "Назначение не найдено", 404)
     assignment.status = "published"
     db.session.commit()
-    return success({"assignment": _assignment_payload(assignment)})
+    return success({"assignment": _assignment_payload(assignment, include_students=True)})
 
 
 @teacher_bp.get("/students/me/assignments")
@@ -574,4 +617,4 @@ def student_assignments():
         db.select(Assignment).where(Assignment.class_id.in_(class_ids), Assignment.status == "published")
         .order_by(Assignment.due_at)
     ).all() if class_ids else []
-    return success({"items": [_assignment_payload(item) for item in items]})
+    return success({"items": [_assignment_payload(item, student_id=get_jwt_identity()) for item in items]})

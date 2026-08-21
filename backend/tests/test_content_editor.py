@@ -62,6 +62,19 @@ def test_student_cannot_open_draft_module(client, teacher_headers, student_heade
     module_id = created.get_json()["data"]["module"]["id"]
     assert client.get(f"/api/v1/modules/{module_id}", headers=student_headers).status_code == 404
 
+    classroom = client.post(
+        "/api/v1/classes",
+        headers=teacher_headers,
+        json={"name": "Draft check", "subject_id": "mathematics", "grade": 9},
+    ).get_json()["data"]["class"]
+    assigned = client.post(
+        "/api/v1/assignments",
+        headers=teacher_headers,
+        json={"class_id": classroom["id"], "title": "Hidden draft", "module_id": module_id},
+    )
+    assert assigned.status_code == 409
+    assert assigned.get_json()["error"]["code"] == "MODULE_NOT_PUBLISHED"
+
 
 def test_atomic_editor_save_rejects_stale_version_and_preserves_long_content(client, teacher_headers):
     module = client.post("/api/v1/modules", headers=teacher_headers, json={

@@ -159,6 +159,7 @@ def test_groq_client_sends_backend_authorization_header(monkeypatch):
 
     assert captured["request"].full_url == "https://api.groq.test/openai/v1/chat/completions"
     assert captured["request"].get_header("Authorization") == "Bearer test-secret-key"
+    assert captured["request"].get_header("User-agent") == "SANAQ/1.0"
 
 
 def test_groq_client_rejects_stream_without_done_event(monkeypatch):
@@ -239,6 +240,7 @@ def test_groq_health_checks_authenticated_models_endpoint(monkeypatch):
     assert _groq_client().health() is True
     assert captured["request"].full_url == "https://api.groq.test/openai/v1/models"
     assert captured["request"].get_header("Authorization") == "Bearer test-secret-key"
+    assert captured["request"].get_header("User-agent") == "SANAQ/1.0"
 
 
 def test_groq_health_is_false_without_key_or_when_provider_fails(monkeypatch):
