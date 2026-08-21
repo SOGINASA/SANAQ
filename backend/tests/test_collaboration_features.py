@@ -1,6 +1,48 @@
 from datetime import datetime, timedelta, timezone
 
-from models import KnowledgeState, Notification, db
+from models import Attempt, KnowledgeState, Notification, db
+
+
+def test_assignment_reports_partial_and_complete_student_progress(
+    client, teacher_headers, student_headers, student,
+):
+    classroom = client.post(
+        "/api/v1/classes", headers=teacher_headers,
+        json={"name": "9B", "subject_id": "mathematics", "grade": 9},
+    ).get_json()["data"]["class"]
+    client.post(
+        "/api/v1/classes/join", headers=student_headers,
+        json={"join_code": classroom["join_code"]},
+    )
+    assignment = client.post(
+        "/api/v1/assignments", headers=teacher_headers,
+        json={
+            "class_id": classroom["id"], "title": "Модуль из двух заданий",
+            "module_id": "module-factoring", "status": "published",
+        },
+    ).get_json()["data"]["assignment"]
+
+    db.session.add(Attempt(
+        student_id=student.id, task_id="task-common-factor", difficulty=1,
+        status="completed", score=1,
+    ))
+    db.session.commit()
+    partial = client.get("/api/v1/assignments", headers=teacher_headers).get_json()["data"]["items"][0]
+    assert partial["id"] == assignment["id"]
+    assert partial["progress"] == 50
+    assert partial["started_students"] == 1
+    assert partial["completed_students"] == 0
+    assert partial["student_progress"][0]["status"] == "in_progress"
+
+    db.session.add(Attempt(
+        student_id=student.id, task_id="task-grouping", difficulty=2,
+        status="completed", score=1,
+    ))
+    db.session.commit()
+    complete = client.get("/api/v1/assignments", headers=teacher_headers).get_json()["data"]["items"][0]
+    assert complete["progress"] == 100
+    assert complete["completed_students"] == 1
+    assert complete["student_progress"][0]["status"] == "completed"
 
 
 def test_teacher_class_assignment_and_student_notifications(
