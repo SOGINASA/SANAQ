@@ -36,7 +36,7 @@ def _question_payload(question):
         "id": question.id,
         "skill_id": question.skill_id,
         "prompt": localized(question.prompt),
-        "options": question.options or [],
+        "options": [localized(option) for option in (question.options or [])],
         "difficulty": question.difficulty,
     }
 

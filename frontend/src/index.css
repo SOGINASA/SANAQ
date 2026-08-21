@@ -27,6 +27,7 @@
     margin: 0;
     min-width: 320px;
     min-height: 100vh;
+    overflow-x: clip;
     background: var(--color-canvas);
     color: var(--color-ink);
     font-family: 'Manrope Variable', Manrope, sans-serif;
@@ -36,6 +37,9 @@
     text-rendering: optimizeLegibility;
   }
   button, input, select, textarea { font: inherit; }
+  input, select, textarea { min-width: 0; }
+  img, svg, video { max-width: 100%; }
+  main { min-width: 0; }
   button, a { -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
   :focus-visible { outline: 3px solid var(--focus-ring); outline-offset: 3px; }
   ::selection { background: var(--color-primary-soft); color: var(--color-ink); }
@@ -50,6 +54,7 @@
   .field-control { @apply min-h-12 w-full rounded-2xl border border-stone-300 bg-paper px-4 text-base text-ink placeholder:text-stone-400 transition focus:border-lavender-500 focus:outline-none focus:ring-4 focus:ring-lavender-100; }
   .state-error { @apply rounded-2xl border border-danger-100 bg-danger-50 p-4 text-danger-700; }
   .state-empty { @apply rounded-3xl border border-dashed border-stone-300 bg-paper p-8 text-center text-stone-500; }
+  .state-panel { @apply min-h-44; }
   .status-danger { @apply bg-danger-100 text-danger-700; }
   .status-warning { @apply bg-warning-100 text-warning-700; }
 }
@@ -89,6 +94,8 @@
 }
 
 @media (max-width: 639px) {
+  .page-title { overflow-wrap: anywhere; }
+  .surface-card { max-width: 100%; }
   .large-text { font-size: 106.25%; }
   .large-text button,
   .large-text a,

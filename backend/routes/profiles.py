@@ -107,7 +107,7 @@ def delete_user_profile():
         .values(revoked_at=now)
     )
     db.session.commit()
-    return success({"message": "Запрос на удаление аккаунта принят"}, status=202)
+    return success({"message_code": "ACCOUNT_DELETION_ACCEPTED"}, status=202)
 
 
 @profiles_bp.get("/students/me/profile")

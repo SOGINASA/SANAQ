@@ -132,7 +132,8 @@ def _stream_model_answer(conversation_id, locale, orchestrator, model_messages, 
             current_app.logger.warning("AI stream interrupted after partial response: %s", error)
             yield _sse("error", {
                 "code": "AI_STREAM_INTERRUPTED",
-                "message": "Ответ SANA прервался. Попробуй отправить сообщение ещё раз.",
+                "code": "AI_STREAM_INTERRUPTED",
+                "message_code": "AI_STREAM_INTERRUPTED",
                 "fallback_used": False,
             })
             return
@@ -146,12 +147,12 @@ def _stream_model_answer(conversation_id, locale, orchestrator, model_messages, 
 
     conversation = db.session.get(AIConversation, conversation_id)
     if not conversation:
-        yield _sse("error", {"message": "Диалог был удалён во время ответа"})
+        yield _sse("error", {"code": "CONVERSATION_NOT_FOUND", "message_code": "CONVERSATION_NOT_FOUND"})
         return
     message = _save_assistant_message(conversation, content, started_at, generated_by_ai, model_version)
     done_payload = {
         "message": message.to_dict(),
-        "warning": "SANA может ошибаться — проверяй важные факты и решения.",
+        "warning_code": "AI_ANSWER_DISCLAIMER",
         "fallback_used": fallback_used,
     }
     if failure_code:
@@ -229,7 +230,7 @@ def send_conversation_message(conversationId):
     )
     payload = {
         "message": assistant_message.to_dict(),
-        "warning": "SANA может ошибаться — проверяй важные факты и решения.",
+        "warning_code": "AI_ANSWER_DISCLAIMER",
         "fallback_used": not generated_by_ai and model_version == "deterministic-fallback-v1",
     }
     if payload["fallback_used"]:

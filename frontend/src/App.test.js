@@ -35,6 +35,9 @@ test('renders SANAQ landing page', () => {
   render(<App />);
   expect(screen.getByRole('heading', { name: /Учись не больше/i })).toBeInTheDocument();
   expect(screen.getAllByText('SANAQ').length).toBeGreaterThan(0);
+  expect(screen.getByRole('combobox', { name: 'Выбрать язык интерфейса' })).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Войти' })).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Открыть меню' })).toBeInTheDocument();
 });
 
 test('switches the rendered application from Russian to Kazakh', () => {

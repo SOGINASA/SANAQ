@@ -129,6 +129,7 @@
 | GET | `/lessons/:lessonId` | user | Теория, примеры и доступные задания |
 | POST | `/modules` | teacher/admin | Создать модуль |
 | PATCH | `/modules/:moduleId` | author/admin | Изменить модуль |
+| PUT | `/modules/:moduleId/editor` | teacher/admin | Атомарно сохранить модуль, уроки и задания с проверкой `expected_version` |
 | DELETE | `/modules/:moduleId` | author/admin | Архивировать модуль, не удалять физически |
 | POST | `/modules/:moduleId/publish` | author/admin | Опубликовать после валидации |
 | POST | `/lessons` | teacher/admin | Создать урок |

@@ -63,6 +63,37 @@ def test_student_cannot_open_draft_module(client, teacher_headers, student_heade
     assert client.get(f"/api/v1/modules/{module_id}", headers=student_headers).status_code == 404
 
 
+def test_atomic_editor_save_rejects_stale_version_and_preserves_long_content(client, teacher_headers):
+    module = client.post("/api/v1/modules", headers=teacher_headers, json={
+        "title": "Long module", "subject_id": "mathematics", "topic_id": "factoring", "grade": 9,
+        "lesson_title": "Initial lesson", "theory": "Initial theory",
+    }).get_json()["data"]["module"]
+    lesson_id = module["lessons"][0]["id"]
+    long_theory = "Detailed explanation. " * 2500
+    payload = {
+        "expected_version": module["version"], "title": "Long module", "description": "Description",
+        "subject_id": "mathematics", "topic_id": "factoring", "grade": 9,
+        "lessons": [{"id": lesson_id, "title": "Long lesson", "theory": long_theory, "example": "Example", "tasks": []}],
+    }
+
+    saved = client.put(f"/api/v1/modules/{module['id']}/editor", headers=teacher_headers, json=payload)
+    assert saved.status_code == 200
+    assert saved.get_json()["data"]["module"]["version"] == module["version"] + 1
+    assert saved.get_json()["data"]["module"]["lessons"][0]["theory"] == long_theory.strip()
+
+    stale = client.put(f"/api/v1/modules/{module['id']}/editor", headers=teacher_headers, json={
+        **payload, "title": "Stale overwrite",
+    })
+    assert stale.status_code == 409
+    error = stale.get_json()["error"]
+    assert error["code"] == "CONTENT_VERSION_CONFLICT"
+    assert error["details"][0] == {"expected_version": module["version"], "current_version": module["version"] + 1, "code": "CONTENT_VERSION_CONFLICT"}
+
+    current = client.get(f"/api/v1/modules/{module['id']}", headers=teacher_headers).get_json()["data"]["module"]
+    assert current["title"] == "Long module"
+    assert current["lessons"][0]["theory"] == long_theory.strip()
+
+
 def test_multiple_choice_and_numeric_answers_are_checked_by_type(
     client, teacher_headers, student_headers,
 ):

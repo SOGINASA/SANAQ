@@ -29,6 +29,13 @@ test('structured translation values remain structured', () => {
   expect(translate('en', 'auth.benefits')).toHaveLength(3);
 });
 
+test('home and student dashboard have complete English interface copy', () => {
+  expect(translate('en', 'home.productTitle')).toBe('Everything important on one screen');
+  expect(translate('en', 'home.ctaButton')).toBe('Start diagnostic');
+  expect(translate('en', 'studentDashboard.titleNamed', { name: 'Aiaru' })).toBe('Aiaru, your next step');
+  expect(translate('en', 'studentDashboard.pathComplete')).toBe('Today’s learning path is complete');
+});
+
 test('interpolates values in every supported locale', () => {
   expect(translate('ru', 'shell.unread', { count: 3 })).toBe('3 непрочитанных');
   expect(translate('kk', 'shell.unread', { count: 3 })).toBe('3 оқылмаған');

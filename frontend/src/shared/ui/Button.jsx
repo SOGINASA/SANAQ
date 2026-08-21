@@ -17,7 +17,7 @@ export const Button = React.forwardRef(
     <button
       ref={ref}
       className={cn(
-        'inline-flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-2xl border px-5 font-bold transition duration-200 active:translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50',
+        'interactive-lift inline-flex min-h-12 cursor-pointer items-center justify-center gap-2 rounded-2xl border px-5 font-bold transition duration-200 active:translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50',
         variants[variant],
         size === 'sm' && 'min-h-11 px-4 text-sm',
         size === 'lg' && 'min-h-14 px-7 text-base',

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, ArrowRight, CheckCircle2, Eye, GripVertical, Plus, Save, Trash2 } from 'lucide-react';
+import { ArrowLeft, ArrowRight, CheckCircle2, ChevronDown, ChevronUp, Eye, GripVertical, Plus, Save, Trash2 } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Button, Card, Dialog, StatusToast } from '../../shared/ui';
+import { Button, Card, Dialog, PageSkeleton, StatusToast } from '../../shared/ui';
 import { adminContentApi } from '../../features/admin-content/adminContentApi';
 import { catalogApi } from '../../shared/api/catalogApi';
 import { useI18n } from '../../shared/i18n/i18n';
@@ -17,6 +17,7 @@ const readDraft = (storageKey) => {
   catch (_error) { return null; }
 };
 const normalizeDraftForm = (form) => form ? { ...form, lessons: (form.lessons || []).map((lesson) => ({ ...newLesson('', lesson), key: lesson.key || lesson.id || key() })) } : null;
+export const isCompatibleContentDraft = (draft, serverVersion) => Boolean(draft?.form && draft.baseVersion === serverVersion);
 
 export function ContentEditorPage() {
   const navigate = useNavigate();
@@ -33,9 +34,26 @@ export function ContentEditorPage() {
   const [error, setError] = useState('');
   const [status, setStatus] = useState('');
   const [initialLoading, setInitialLoading] = useState(Boolean(moduleId));
-  const [originalLessons, setOriginalLessons] = useState([]);
+  const [serverVersion, setServerVersion] = useState(null);
+  const [versionConflict, setVersionConflict] = useState(null);
+  const [autosavePaused, setAutosavePaused] = useState(false);
   const [draftStatus, setDraftStatus] = useState(() => !moduleId && readDraft(storageKey) ? t('draft.restored') : '');
   const autosaveReady = useRef(!moduleId);
+  const writerId = useRef(`${Date.now()}-${Math.random().toString(36).slice(2)}`);
+
+  useEffect(() => {
+    const handleExternalDraft = (event) => {
+      if (event.key !== storageKey || !event.newValue) return;
+      try {
+        const externalDraft = JSON.parse(event.newValue);
+        if (!externalDraft?.form || externalDraft.writerId === writerId.current) return;
+        setAutosavePaused(true);
+        setVersionConflict({ kind: 'local', draft: externalDraft });
+      } catch (_error) { /* Ignore malformed storage written outside SANAQ. */ }
+    };
+    window.addEventListener('storage', handleExternalDraft);
+    return () => window.removeEventListener('storage', handleExternalDraft);
+  }, [storageKey]);
 
   useEffect(() => {
     if (!moduleId) return;
@@ -44,24 +62,26 @@ export function ContentEditorPage() {
       const lessons = (module.lessons || []).map((lesson) => newLesson('', lesson));
       const serverForm = { title: module.title, description: module.description || '', subject_id: module.subject_id, topic_id: module.topic_id, grade: module.grade, lessons: lessons.length ? lessons : [newLesson()] };
       const draft = readDraft(storageKey);
-      setForm(normalizeDraftForm(draft?.form) || serverForm);
-      if (draft?.form) setDraftStatus(t('draft.restored'));
-      setOriginalLessons(lessons);
+      const compatibleDraft = isCompatibleContentDraft(draft, module.version);
+      setForm(normalizeDraftForm(compatibleDraft ? draft.form : serverForm));
+      if (compatibleDraft) setDraftStatus(t('draft.restored'));
+      if (draft?.form && !compatibleDraft) setDraftStatus(t('draft.outdated'));
+      setServerVersion(module.version);
     }).catch((requestError) => setError(requestError.message)).finally(() => { autosaveReady.current = true; setInitialLoading(false); });
   }, [moduleId, storageKey, t]);
 
   useEffect(() => {
-    if (initialLoading || !autosaveReady.current) return undefined;
+    if (initialLoading || autosavePaused || !autosaveReady.current) return undefined;
     setDraftStatus(t('draft.saving'));
     const timeout = window.setTimeout(() => {
       const savedAt = new Date();
       try {
-        window.localStorage.setItem(storageKey, JSON.stringify({ form, savedAt: savedAt.toISOString() }));
+        window.localStorage.setItem(storageKey, JSON.stringify({ form, baseVersion: serverVersion, writerId: writerId.current, savedAt: savedAt.toISOString() }));
         setDraftStatus(t('draft.saved', { time: new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit' }).format(savedAt) }));
       } catch (_error) { setDraftStatus(''); }
     }, 700);
     return () => window.clearTimeout(timeout);
-  }, [form, initialLoading, storageKey, t]);
+  }, [autosavePaused, form, initialLoading, serverVersion, storageKey, t]);
 
   useEffect(() => {
     if (initialLoading) return;
@@ -88,6 +108,13 @@ export function ContentEditorPage() {
   const removeLesson = (index) => setForm((current) => ({ ...current, lessons: current.lessons.filter((_, itemIndex) => itemIndex !== index) }));
   const addTask = (lessonIndex) => setForm((current) => ({ ...current, lessons: current.lessons.map((lesson, index) => index === lessonIndex ? { ...lesson, tasks: [...lesson.tasks, newTask(skills[0]?.id)] } : lesson) }));
   const removeTask = (lessonIndex, taskIndex) => updateLesson(lessonIndex, { tasks: form.lessons[lessonIndex].tasks.filter((_, index) => index !== taskIndex) });
+  const moveLesson = (from, to) => setForm((current) => {
+    if (to < 0 || to >= current.lessons.length) return current;
+    const lessons = [...current.lessons];
+    const [lesson] = lessons.splice(from, 1);
+    lessons.splice(to, 0, lesson);
+    return { ...current, lessons };
+  });
 
   const valid = form.title.trim() && form.topic_id && form.lessons.length && form.lessons.every((lesson) => lesson.title.trim() && lesson.theory.trim() && lesson.tasks.every((task) => task.prompt.trim() && task.skill_id && (task.task_type === 'multiple_choice' ? task.correct_options.length > 0 : task.task_type === 'matching' ? task.pairs.length >= 2 && task.pairs.every((pair) => pair.left.trim() && pair.right.trim()) : task.task_type === 'ordering' ? task.order_items.length >= 2 && task.order_items.every((item) => item.trim()) : task.acceptable_answer.trim()) && (!['single_choice', 'multiple_choice'].includes(task.task_type) || (task.options.filter((option) => option.trim()).length >= 2 && (task.task_type === 'multiple_choice' ? task.correct_options.every((answer) => task.options.includes(answer)) : task.options.includes(task.acceptable_answer))))));
 
@@ -95,28 +122,16 @@ export function ContentEditorPage() {
   const createTasks = (lessonId, tasks) => Promise.all(tasks.map((task) => adminContentApi.createTask(taskPayload(lessonId, task))));
 
   const updateExistingModule = async () => {
-    await adminContentApi.update(moduleId, { title: form.title.trim(), description: form.description.trim(), subject_id: form.subject_id, topic_id: form.topic_id, grade: form.grade });
-    for (let lessonIndex = 0; lessonIndex < form.lessons.length; lessonIndex += 1) {
-      const lesson = form.lessons[lessonIndex];
-      let lessonId = lesson.id;
-      if (lessonId) {
-        await adminContentApi.updateLesson(lessonId, { title: lesson.title.trim(), theory: lesson.theory.trim(), example: lesson.example.trim(), order: lessonIndex + 1 });
-      } else {
-        const response = await adminContentApi.createLesson({ module_id: moduleId, title: lesson.title.trim(), theory: lesson.theory.trim(), example: lesson.example.trim(), order: lessonIndex + 1 });
-        lessonId = response.data.lesson.id;
-      }
-      for (const task of lesson.tasks) {
-        if (task.id) await adminContentApi.updateTask(task.id, taskPayload(lessonId, task));
-        else await adminContentApi.createTask(taskPayload(lessonId, task));
-      }
-    }
-    const currentLessonIds = new Set(form.lessons.map((lesson) => lesson.id).filter(Boolean));
-    const removedLessons = originalLessons.filter((lesson) => !currentLessonIds.has(lesson.id));
-    const removedLessonIds = new Set(removedLessons.map((lesson) => lesson.id));
-    const currentTaskIds = new Set(form.lessons.flatMap((lesson) => lesson.tasks.map((task) => task.id)).filter(Boolean));
-    const removedTasks = originalLessons.flatMap((lesson) => lesson.tasks.map((task) => ({ ...task, lesson_id: lesson.id }))).filter((task) => task.id && !currentTaskIds.has(task.id) && !removedLessonIds.has(task.lesson_id));
-    await Promise.all(removedTasks.map((task) => adminContentApi.removeTask(task.id)));
-    for (const lesson of removedLessons) await adminContentApi.removeLesson(lesson.id);
+    const response = await adminContentApi.saveEditor(moduleId, {
+      expected_version: serverVersion,
+      title: form.title.trim(), description: form.description.trim(), subject_id: form.subject_id,
+      topic_id: form.topic_id, grade: form.grade,
+      lessons: form.lessons.map((lesson) => ({
+        id: lesson.id, title: lesson.title.trim(), theory: lesson.theory.trim(), example: lesson.example.trim(),
+        tasks: lesson.tasks.map((task) => ({ id: task.id, ...taskPayload(lesson.id, task) })),
+      })),
+    });
+    setServerVersion(response.data.module.version);
   };
 
   const save = async () => {
@@ -143,20 +158,27 @@ export function ContentEditorPage() {
       setStatus(t('editor.saved', { title: response.data.module.title }));
       window.localStorage.removeItem(storageKey);
       window.setTimeout(() => navigate(contentBase), 900);
-    } catch (requestError) { setError(requestError.message); }
+    } catch (requestError) {
+      setError(requestError.message);
+      if (requestError.code === 'CONTENT_VERSION_CONFLICT') {
+        setVersionConflict({ kind: 'server', currentVersion: requestError.details?.[0]?.current_version });
+      }
+    }
     finally { setLoading(false); }
   };
 
-  if (initialLoading) return <div className="py-16 text-center font-bold">Loading…</div>;
+  if (initialLoading) return <PageSkeleton layout="form" label="Loading content editor" />;
 
   return <div className="mx-auto max-w-6xl animate-rise pb-12">
     <button onClick={() => navigate(contentBase)} className="mb-5 inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-xl px-2 font-bold text-stone-600 transition hover:bg-stone-100"><ArrowLeft className="h-5 w-5" /> {t('editor.back')}</button>
     <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between"><div className="min-w-0"><p className="eyebrow">{t('editor.eyebrow')}</p><h1 className="page-title mt-3 break-words">{t('editor.title')}</h1><p className="mt-3 max-w-2xl text-stone-600">{t('editor.subtitle')}</p><p className="mt-2 min-h-5 text-xs font-semibold text-stone-500" role="status">{draftStatus}</p></div><div className="grid w-full gap-2 sm:flex sm:w-auto"><Button variant="outline" onClick={() => { setPreviewLesson(0); setPreviewOpen(true); }}><Eye className="h-4 w-4" /> {t('editor.preview')}</Button><Button loading={loading} disabled={!valid} onClick={save}><Save className="h-4 w-4" /> {t('editor.save')}</Button></div></div>
     {error && <div className="mt-5 rounded-2xl border border-red-200 bg-red-50 p-4 text-red-900" role="alert">{error}</div>}
+    {versionConflict && <Card className="mt-5 border-amber-300 bg-amber-50 p-5"><h2 className="font-extrabold">{t(versionConflict.kind === 'local' ? 'draft.localConflictTitle' : 'draft.conflictTitle')}</h2><p className="mt-2 text-sm text-stone-600">{t(versionConflict.kind === 'local' ? 'draft.localConflictDescription' : 'draft.conflictDescription')}</p><div className="mt-4 flex flex-col gap-2 min-[420px]:flex-row"><Button variant="outline" onClick={() => { if (versionConflict.kind === 'local') { setForm(normalizeDraftForm(versionConflict.draft.form)); setAutosavePaused(false); setVersionConflict(null); } else { window.localStorage.removeItem(storageKey); window.location.reload(); } }}>{t(versionConflict.kind === 'local' ? 'draft.useOtherTab' : 'draft.loadServer')}</Button><Button onClick={() => { if (versionConflict.kind === 'server') setServerVersion(versionConflict.currentVersion); setAutosavePaused(false); setVersionConflict(null); setError(''); }}>{t('draft.keepMine')}</Button></div></Card>}
 
     <Card className="mt-7 p-5 sm:p-8"><h2 className="text-xl font-extrabold">{t('editor.basics')}</h2><div className="mt-5 grid gap-5 lg:grid-cols-2"><label className="field-label lg:col-span-2">{t('editor.moduleTitle')}<input className="field-control mt-2" value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} /></label><label className="field-label">{t('editor.grade')}<select className="field-control mt-2" value={form.grade} onChange={(event) => setForm({ ...form, grade: Number(event.target.value) })}>{[7, 8, 9, 10, 11, 12].map((grade) => <option key={grade} value={grade}>{grade}</option>)}</select></label><label className="field-label">{t('editor.topic')}<select className="field-control mt-2" value={form.topic_id} onChange={(event) => setForm({ ...form, topic_id: event.target.value })}>{topics.length ? topics.map((topic) => <option key={topic.id} value={topic.id}>{topic.name}</option>) : <option value="">{t('editor.emptyTopic')}</option>}</select></label><label className="field-label lg:col-span-2">{t('editor.description')}<textarea rows="3" className="field-control mt-2 py-3" value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} /></label></div></Card>
 
     <div className="mt-7 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"><h2 className="text-2xl font-extrabold">{t('editor.lessons')}</h2><Button variant="outline" onClick={addLesson}><Plus className="h-4 w-4" /> {t('editor.addLesson')}</Button></div>
+    {form.lessons.length > 1 && <div className="mt-4 flex gap-2 overflow-x-auto rounded-2xl border border-stone-200 bg-paper p-2" aria-label={t('editor.lessons')}>{form.lessons.map((lesson, index) => <div key={lesson.key} className="flex shrink-0 items-center rounded-xl bg-stone-50 pl-3"><span className="max-w-36 truncate text-xs font-bold">{index + 1}. {lesson.title || t('editor.lesson', { number: index + 1 })}</span><button type="button" disabled={index === 0} onClick={() => moveLesson(index, index - 1)} className="grid h-10 w-9 place-items-center text-stone-500 disabled:opacity-25" aria-label={`${t('editor.lesson', { number: index + 1 })} ↑`}><ChevronUp className="h-4 w-4" /></button><button type="button" disabled={index === form.lessons.length - 1} onClick={() => moveLesson(index, index + 1)} className="grid h-10 w-9 place-items-center text-stone-500 disabled:opacity-25" aria-label={`${t('editor.lesson', { number: index + 1 })} ↓`}><ChevronDown className="h-4 w-4" /></button></div>)}</div>}
     <div className="mt-4 space-y-5">{form.lessons.map((lesson, lessonIndex) => <Card key={lesson.key} className="overflow-hidden"><div className="flex flex-wrap items-center gap-3 border-b border-stone-200 bg-stone-50 px-4 py-4 sm:px-6"><GripVertical className="h-5 w-5 text-stone-400" /><h3 className="min-w-0 flex-1 text-lg font-extrabold">{t('editor.lesson', { number: lessonIndex + 1 })}</h3>{form.lessons.length > 1 && <button className="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-xl px-3 text-sm font-bold text-red-700 transition hover:bg-red-50" onClick={() => removeLesson(lessonIndex)}><Trash2 className="h-4 w-4" /> <span className="hidden sm:inline">{t('editor.removeLesson')}</span></button>}</div><div className="space-y-5 p-4 sm:p-6"><label className="field-label">{t('editor.lessonTitle')}<input className="field-control mt-2" value={lesson.title} onChange={(event) => updateLesson(lessonIndex, { title: event.target.value })} /></label><label className="field-label">{t('editor.theory')}<textarea rows="6" className="field-control mt-2 py-3" value={lesson.theory} onChange={(event) => updateLesson(lessonIndex, { theory: event.target.value })} /></label><label className="field-label">{t('editor.example')}<textarea rows="3" className="field-control mt-2 py-3" value={lesson.example} onChange={(event) => updateLesson(lessonIndex, { example: event.target.value })} /></label>
       <div className="rounded-3xl bg-stone-100 p-3 sm:p-5"><div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><h4 className="text-lg font-extrabold">{t('editor.tasks')}</h4><Button size="sm" variant="secondary" onClick={() => addTask(lessonIndex)}><Plus className="h-4 w-4" /> {t('editor.addTask')}</Button></div><div className="mt-4 space-y-4">{lesson.tasks.map((task, taskIndex) => <TaskEditor key={task.key} task={task} taskIndex={taskIndex} skills={skills} t={t} onChange={(patchValue) => updateTask(lessonIndex, taskIndex, patchValue)} onRemove={() => removeTask(lessonIndex, taskIndex)} canRemove={lesson.tasks.length > 1} />)}</div></div>
     </div></Card>)}</div>

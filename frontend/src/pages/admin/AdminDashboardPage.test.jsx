@@ -45,7 +45,7 @@ test('shows an error instead of zero cards for an incomplete backend payload', a
   render(<MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}><AdminDashboardPage /></MemoryRouter>);
 
   expect(await screen.findByRole('alert')).toHaveTextContent(
-    'Backend вернул неполные данные dashboard',
+    'Backend вернул неполные данные панели управления.',
   );
   expect(screen.queryByText('0')).not.toBeInTheDocument();
 });
