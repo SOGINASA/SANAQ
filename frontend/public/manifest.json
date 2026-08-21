@@ -1,10 +1,12 @@
 {
-  "short_name": "React App",
-  "name": "Create React App Sample",
+  "id": "/",
+  "short_name": "SANAQ",
+  "name": "SANAQ — персональный маршрут в знаниях",
+  "description": "Образовательная платформа для учеников 7–12 классов Казахстана с персональным AI-маршрутом и картой знаний.",
   "icons": [
     {
       "src": "favicon.ico",
-      "sizes": "64x64 32x32 24x24 16x16",
+      "sizes": "64x64",
       "type": "image/x-icon"
     },
     {
@@ -18,8 +20,11 @@
       "sizes": "512x512"
     }
   ],
-  "start_url": ".",
+  "start_url": "/",
+  "scope": "/",
   "display": "standalone",
-  "theme_color": "#000000",
-  "background_color": "#ffffff"
+  "orientation": "any",
+  "theme_color": "#5b3fa8",
+  "background_color": "#f7f6f2",
+  "categories": ["education", "productivity"]
 }

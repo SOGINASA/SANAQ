@@ -1,5 +1,5 @@
 import { Link, NavLink, useNavigate } from 'react-router-dom';
-import { ArrowRight, Menu, Sparkles, X } from 'lucide-react';
+import { ArrowRight, Menu, X } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '../../shared/ui';
 import { LanguageSwitcher } from '../navigation/LanguageSwitcher';
@@ -8,7 +8,7 @@ import { useI18n } from '../../shared/i18n/i18n';
 
 export function Brand({ light = false, compactOnMobile = false }) {
   const { t } = useI18n();
-  return <Link to="/" className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-xl sm:gap-3" aria-label={t('brand.home')}><span className="grid h-10 w-10 place-items-center rounded-2xl bg-lavender-600 text-white shadow-lg shadow-lavender-200"><Sparkles className="h-5 w-5" aria-hidden="true" /></span><span className={`${compactOnMobile ? 'hidden min-[390px]:inline' : ''} font-display text-lg font-semibold tracking-[-0.04em] ${light ? 'text-white' : 'text-ink'}`}>SANAQ</span></Link>;
+  return <Link to="/" className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-xl sm:gap-3" aria-label={t('brand.home')}><img src="/sanaq-logo.svg" alt="" className="h-10 w-10 shrink-0" width="40" height="40" /><span className={`${compactOnMobile ? 'hidden min-[390px]:inline' : ''} font-display text-lg font-semibold tracking-[-0.04em] ${light ? 'text-white' : 'text-ink'}`}>SANAQ</span></Link>;
 }
 
 const links = [['nav.how', '/#product'], ['nav.features', '/#features'], ['nav.ai', '/#ai'], ['nav.teachers', '/teacher/dashboard']];

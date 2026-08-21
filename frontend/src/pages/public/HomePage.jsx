@@ -77,7 +77,7 @@ export function HomePage() {
               <div className="flex items-center gap-2 border-b border-stone-200 bg-paper px-5 py-4"><span className="h-3 w-3 rounded-full bg-danger-500" /><span className="h-3 w-3 rounded-full bg-warning-500" /><span className="h-3 w-3 rounded-full bg-mint-500" /><span className="ml-3 text-xs font-bold text-stone-400">{t('home.demoCabinet')}</span></div>
               <div className="grid lg:grid-cols-[210px_1fr]">
                 <div className="hidden border-r border-stone-200 bg-paper p-5 lg:block">
-                  <div className="flex items-center gap-3"><span className="grid h-9 w-9 place-items-center rounded-xl bg-lavender-600 text-white"><Sparkles className="h-4 w-4" /></span><span className="font-display font-semibold">SANAQ</span></div>
+                  <div className="flex items-center gap-3"><img src="/sanaq-logo.svg" alt="" className="h-9 w-9" width="36" height="36" /><span className="font-display font-semibold">SANAQ</span></div>
                   <div className="mt-8 space-y-2">{['overview', 'path', 'map', 'assistant'].map((key, index) => <div key={key} className={`rounded-xl px-3 py-3 text-sm font-bold ${index === 0 ? 'bg-lavender-100 text-lavender-700' : 'text-stone-500'}`}>{t(`home.demoNav.${key}`)}</div>)}</div>
                 </div>
                 <div className="p-5 sm:p-8">
