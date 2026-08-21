@@ -62,6 +62,14 @@ def test_teacher_class_assignment_and_student_notifications(
     )
     assert assigned.status_code == 201
 
+    feed = client.get(
+        f"/api/v1/classes/{classroom['id']}/feed", headers=student_headers,
+    )
+    assert feed.status_code == 200
+    feed_assignments = feed.get_json()["data"]["assignments"]
+    assert len(feed_assignments) == 1
+    assert feed_assignments[0]["module_id"] == "module-factoring"
+
     student_items = client.get(
         "/api/v1/students/me/assignments", headers=student_headers,
     ).get_json()["data"]["items"]

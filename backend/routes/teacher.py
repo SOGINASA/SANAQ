@@ -494,6 +494,17 @@ def create_assignment():
     title = str(data.get("title", "")).strip()
     if not title or not (data.get("module_id") or data.get("task_id")):
         return api_error("VALIDATION_ERROR", "Укажите название и модуль или задание", 422)
+    module_id = str(data.get("module_id") or "").strip()
+    if module_id:
+        module = db.session.get(LearningModule, module_id)
+        if not module:
+            return api_error("MODULE_NOT_FOUND", "Модуль не найден", 404)
+        if module.status != "published":
+            return api_error(
+                "MODULE_NOT_PUBLISHED",
+                "Сначала опубликуйте модуль, затем добавьте его в ленту класса",
+                409,
+            )
     due_at = None
     if data.get("due_at"):
         try:
@@ -502,7 +513,7 @@ def create_assignment():
             return api_error("VALIDATION_ERROR", "Некорректная дата", 422)
     assignment = Assignment(
         class_id=classroom.id, teacher_id=get_jwt_identity(), title=title,
-        module_id=data.get("module_id"), task_id=data.get("task_id"), due_at=due_at,
+        module_id=module_id or None, task_id=data.get("task_id"), due_at=due_at,
         status=str(data.get("status", "published")),
     )
     db.session.add(assignment)
