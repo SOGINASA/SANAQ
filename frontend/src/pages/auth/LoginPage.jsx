@@ -9,9 +9,9 @@ import mascot from '../../assets/images/sana-mascot.png';
 import { GraduationCap, School, ShieldCheck } from 'lucide-react';
 
 const demoAccounts = [
-  { role: 'student', email: 'student@sanaq.demo', icon: GraduationCap, tone: 'bg-lavender-100 text-lavender-700' },
-  { role: 'teacher', email: 'teacher@sanaq.demo', icon: School, tone: 'bg-mint-100 text-mint-700' },
-  { role: 'admin', email: 'admin@sanaq.demo', icon: ShieldCheck, tone: 'bg-amber-100 text-amber-800' },
+  { role: 'student', label: 'Ученик', email: 'student@sanaq.demo', icon: GraduationCap, tone: 'bg-lavender-100 text-lavender-700' },
+  { role: 'teacher', label: 'Учитель', email: 'teacher@sanaq.demo', icon: School, tone: 'bg-mint-100 text-mint-700' },
+  { role: 'admin', label: 'Администратор', email: 'admin@sanaq.demo', icon: ShieldCheck, tone: 'bg-amber-100 text-amber-800' },
 ];
 
 export function LoginPage() {
@@ -39,7 +39,7 @@ export function LoginPage() {
         <p className="eyebrow">{t('auth.welcomeBack')}</p><h1 className="mt-4 break-words font-display text-4xl font-semibold tracking-[-0.05em]">{t('auth.loginTitle')}</h1><p className="mt-3 text-stone-600">{t('auth.loginDescription')}</p>
         {error && <div className="mt-5 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-800" role="alert">{error}</div>}
         <div className="mt-8"><LoginForm onSubmit={submit} /></div>
-        {process.env.REACT_APP_SHOW_DEMO_LOGIN === 'true' && <section className="mt-7 border-t border-stone-200 pt-6" aria-labelledby="demo-login-title"><div className="flex items-center gap-3"><span className="h-px flex-1 bg-stone-200" /><h2 id="demo-login-title" className="text-xs font-bold uppercase tracking-[0.14em] text-stone-400">Быстрый демо-вход</h2><span className="h-px flex-1 bg-stone-200" /></div><div className="mt-4 grid gap-2">{demoAccounts.map((account) => { const Icon = account.icon; return <button key={account.role} type="button" disabled={Boolean(demoLoading)} onClick={() => demoLogin(account)} className="flex min-h-14 cursor-pointer items-center gap-3 rounded-2xl border border-stone-200 bg-paper px-3 text-left transition hover:border-lavender-300 hover:bg-lavender-50 disabled:cursor-wait disabled:opacity-50"><span className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl ${account.tone}`}><Icon className={`h-5 w-5 ${demoLoading === account.role ? 'animate-pulse' : ''}`} /></span><span className="min-w-0 flex-1"><strong className="block">Войти как {account.label.toLowerCase()}</strong><span className="block truncate text-xs text-stone-500">{account.email}</span></span><span className="text-lg text-stone-400">→</span></button>; })}</div></section>}
+        {process.env.REACT_APP_SHOW_DEMO_LOGIN !== 'false' && <section className="mt-7 border-t border-stone-200 pt-6" aria-labelledby="demo-login-title"><div className="flex items-center gap-3"><span className="h-px flex-1 bg-stone-200" /><h2 id="demo-login-title" className="text-xs font-bold uppercase tracking-[0.14em] text-stone-400">Быстрый демо-вход</h2><span className="h-px flex-1 bg-stone-200" /></div><div className="mt-4 grid gap-2">{demoAccounts.map((account) => { const Icon = account.icon; return <button key={account.role} type="button" disabled={Boolean(demoLoading)} onClick={() => demoLogin(account)} className="flex min-h-14 cursor-pointer items-center gap-3 rounded-2xl border border-stone-200 bg-paper px-3 text-left transition hover:border-lavender-300 hover:bg-lavender-50 disabled:cursor-wait disabled:opacity-50"><span className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl ${account.tone}`}><Icon className={`h-5 w-5 ${demoLoading === account.role ? 'animate-pulse' : ''}`} /></span><span className="min-w-0 flex-1"><strong className="block">Войти как {account.label.toLowerCase()}</strong><span className="block truncate text-xs text-stone-500">{account.email}</span></span><span className="text-lg text-stone-400">→</span></button>; })}</div></section>}
         <p className="mt-7 text-center text-sm text-stone-600">{t('auth.noAccount')} <Link className="font-bold text-lavender-700" to="/register">{t('auth.register')}</Link></p>
       </div>
     </div>
