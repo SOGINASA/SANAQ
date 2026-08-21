@@ -52,6 +52,7 @@ export function AssistantPage() {
   const [topics, setTopics] = useState([]);
   const [grade, setGrade] = useState(9);
   const [toast, setToast] = useState('');
+  const scrollAreaRef = useRef(null);
   const bottomRef = useRef(null);
   const textareaRef = useRef(null);
   const requestControllerRef = useRef(null);
@@ -115,7 +116,12 @@ export function AssistantPage() {
 
   useEffect(() => {
     if (!messages.length && !thinking) return;
-    window.requestAnimationFrame(() => bottomRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'end' }));
+    const frame = window.requestAnimationFrame(() => {
+      const scrollArea = scrollAreaRef.current;
+      if (!scrollArea) return;
+      scrollArea.scrollTop = scrollArea.scrollHeight;
+    });
+    return () => window.cancelAnimationFrame(frame);
   }, [messages, thinking]);
 
   const resetTextarea = () => {
@@ -235,21 +241,23 @@ export function AssistantPage() {
   };
 
   return (
-    <div className="flex h-full min-h-0 w-full flex-col bg-paper">
-      <header className="flex h-16 shrink-0 items-center gap-2 border-b border-stone-200 px-3 sm:px-5" aria-label={t('assistantPage.chatPanel')}>
-        <button onClick={() => navigate('/student/dashboard')} className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl text-stone-600 transition hover:bg-stone-100 lg:hidden" aria-label={t('assistantPage.back')}><ArrowLeft className="h-5 w-5" /></button>
-        <img src={mascot} alt="" className="h-10 w-10 shrink-0 rounded-2xl object-cover" />
-        <div className="min-w-0 flex-1">
-          <h1 className="font-display text-sm font-semibold sm:text-base">SANA</h1>
-          <p className="truncate text-xs text-stone-500">{t('assistantPage.assistantTopic', { topic })}</p>
+    <div className="flex h-full min-h-0 w-full flex-col overflow-hidden bg-paper">
+      <header className="shrink-0 border-b border-stone-200 bg-paper pt-[env(safe-area-inset-top)]" aria-label={t('assistantPage.chatPanel')}>
+        <div className="flex h-16 min-w-0 items-center gap-1.5 px-2 sm:gap-2 sm:px-5">
+          <button onClick={() => navigate('/student/dashboard')} className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl text-stone-600 transition hover:bg-stone-100 lg:hidden" aria-label={t('assistantPage.back')}><ArrowLeft className="h-5 w-5" /></button>
+          <img src={mascot} alt="" className="hidden h-10 w-10 shrink-0 rounded-2xl object-cover min-[380px]:block" />
+          <div className="min-w-0 flex-1">
+            <h1 className="font-display text-sm font-semibold sm:text-base">SANA</h1>
+            <p className="hidden truncate text-xs text-stone-500 min-[350px]:block">{t('assistantPage.assistantTopic', { topic })}</p>
+          </div>
+          <button onClick={() => setHistoryOpen(true)} className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl text-stone-600 transition hover:bg-stone-100" aria-label={t('assistantPage.history')}><History className="h-5 w-5" /></button>
+          <button onClick={() => setContextOpen(true)} className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl text-stone-600 transition hover:bg-stone-100 sm:hidden" aria-label={t('assistantPage.chooseTopic')}><BookOpen className="h-5 w-5" /></button>
+          <button onClick={() => setContextOpen(true)} className="hidden min-h-11 items-center gap-2 rounded-2xl px-3 text-sm font-bold text-stone-600 transition hover:bg-stone-100 sm:flex"><BookOpen className="h-4 w-4 text-lavender-600" /><span className="max-w-48 truncate">{topic}</span><ChevronDown className="h-4 w-4" /></button>
+          <button onClick={newChat} className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl text-stone-600 transition hover:bg-stone-100" aria-label={t('assistantPage.newChat')}><Plus className="h-5 w-5" /></button>
         </div>
-        <button onClick={() => setHistoryOpen(true)} className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl text-stone-600 transition hover:bg-stone-100" aria-label={t('assistantPage.history')}><History className="h-5 w-5" /></button>
-        <button onClick={() => setContextOpen(true)} className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl text-stone-600 transition hover:bg-stone-100 sm:hidden" aria-label={t('assistantPage.chooseTopic')}><BookOpen className="h-5 w-5" /></button>
-        <button onClick={() => setContextOpen(true)} className="hidden min-h-11 items-center gap-2 rounded-2xl px-3 text-sm font-bold text-stone-600 transition hover:bg-stone-100 sm:flex"><BookOpen className="h-4 w-4 text-lavender-600" /><span className="max-w-48 truncate">{topic}</span><ChevronDown className="h-4 w-4" /></button>
-        <button onClick={newChat} className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl text-stone-600 transition hover:bg-stone-100" aria-label={t('assistantPage.newChat')}><Plus className="h-5 w-5" /></button>
       </header>
 
-      <main className="min-h-0 flex-1 overflow-y-auto overscroll-contain" aria-label={t('assistantPage.dialog')} aria-live="polite">
+      <section ref={scrollAreaRef} className="min-h-0 flex-1 overflow-y-auto overscroll-contain [overflow-anchor:none]" aria-label={t('assistantPage.dialog')} aria-live="polite" aria-busy={thinking}>
         {messages.length === 0 && !thinking ? (
           <div className="mx-auto flex min-h-full w-full max-w-3xl flex-col justify-center px-4 py-10 sm:px-6">
             <div className="text-center">
@@ -278,16 +286,16 @@ export function AssistantPage() {
             </div>
           </div>
         ) : (
-          <div className="mx-auto w-full max-w-3xl px-4 py-7 sm:px-6 sm:py-10">
-            <div className="mb-8 flex items-center justify-center gap-2 text-xs font-bold text-stone-500"><BookOpen className="h-4 w-4 text-lavender-600" /> {t('assistantPage.usesTopic', { topic })}</div>
-            <div className="space-y-7">
+          <div className="mx-auto w-full max-w-3xl px-3 py-4 min-[380px]:px-4 sm:px-6 sm:py-8">
+            <div className="mb-5 flex items-center justify-center gap-2 text-center text-xs font-bold leading-5 text-stone-500 sm:mb-7"><BookOpen className="h-4 w-4 shrink-0 text-lavender-600" /> <span className="break-words">{t('assistantPage.usesTopic', { topic })}</span></div>
+            <div className="space-y-5 sm:space-y-7">
               {messages.map((item) => (
-                <article key={item.id} className={`sana-message flex gap-3 sm:gap-4 ${item.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                <article key={item.id} className={`sana-message flex min-w-0 gap-2.5 sm:gap-4 ${item.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                   {item.role === 'assistant' && <span className="mt-1 grid h-9 w-9 shrink-0 place-items-center rounded-2xl bg-lavender-600 text-white"><Sparkles className="h-4 w-4" /></span>}
-                  <div className={item.role === 'user' ? 'max-w-[88%] rounded-3xl rounded-br-md bg-ink px-5 py-3 text-sm leading-7 text-white sm:max-w-[75%]' : 'min-w-0 max-w-[calc(100%-52px)] text-sm leading-7 text-stone-700 sm:text-base'}>
+                  <div className={item.role === 'user' ? 'max-w-[82%] break-words rounded-3xl rounded-br-md bg-ink px-4 py-2.5 text-[15px] leading-6 text-white [overflow-wrap:anywhere] sm:max-w-[75%] sm:px-5 sm:py-3' : 'min-w-0 flex-1 break-words text-[15px] leading-6 text-stone-700 [overflow-wrap:anywhere] sm:text-base sm:leading-7'}>
                     <p className="whitespace-pre-wrap">{item.content ?? item.text}</p>
                     {item.hint && <div className="mt-4 rounded-2xl bg-warning-100 p-4"><p className="flex items-center gap-2 text-xs font-extrabold uppercase tracking-wider text-warning-700"><Lightbulb className="h-4 w-4" /> {t('assistantPage.yourTurn')}</p><p className="mt-2 text-sm font-semibold leading-6 text-ink">{item.hint}</p></div>}
-                    {item.role === 'assistant' && <div className="mt-3 flex gap-1 text-stone-400"><button onClick={() => { navigator.clipboard?.writeText(`${item.content ?? item.text ?? ''} ${item.hint || ''}`.trim()); setToast(t('assistantPage.toasts.copied')); }} className="grid h-9 w-9 place-items-center rounded-xl hover:bg-stone-100 hover:text-ink" aria-label={t('assistantPage.copy')}><Copy className="h-4 w-4" /></button><button onClick={() => setToast(t('assistantPage.toasts.rated'))} className="grid h-9 w-9 place-items-center rounded-xl hover:bg-stone-100 hover:text-ink" aria-label={t('assistantPage.useful')}><ThumbsUp className="h-4 w-4" /></button><button onClick={() => reportMessage(item.id)} className="grid h-9 w-9 place-items-center rounded-xl hover:bg-stone-100 hover:text-ink" aria-label={t('assistantPage.notUseful')}><ThumbsDown className="h-4 w-4" /></button></div>}
+                    {item.role === 'assistant' && <div className="mt-2 flex gap-1 text-stone-400"><button onClick={() => { navigator.clipboard?.writeText(`${item.content ?? item.text ?? ''} ${item.hint || ''}`.trim()); setToast(t('assistantPage.toasts.copied')); }} className="grid h-11 w-11 place-items-center rounded-xl transition hover:bg-stone-100 hover:text-ink" aria-label={t('assistantPage.copy')}><Copy className="h-4 w-4" /></button><button onClick={() => setToast(t('assistantPage.toasts.rated'))} className="grid h-11 w-11 place-items-center rounded-xl transition hover:bg-stone-100 hover:text-ink" aria-label={t('assistantPage.useful')}><ThumbsUp className="h-4 w-4" /></button><button onClick={() => reportMessage(item.id)} className="grid h-11 w-11 place-items-center rounded-xl transition hover:bg-stone-100 hover:text-ink" aria-label={t('assistantPage.notUseful')}><ThumbsDown className="h-4 w-4" /></button></div>}
                   </div>
                 </article>
               ))}
@@ -296,9 +304,9 @@ export function AssistantPage() {
             <div ref={bottomRef} className="h-2" />
           </div>
         )}
-      </main>
+      </section>
 
-      <footer className="shrink-0 border-t border-stone-200 bg-paper px-3 pb-[calc(5.75rem+env(safe-area-inset-bottom))] pt-3 sm:px-5 lg:pb-4">
+      <footer className="shrink-0 border-t border-stone-200 bg-paper px-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-2 sm:px-5 sm:pb-[calc(1rem+env(safe-area-inset-bottom))] sm:pt-3">
         <div className="mx-auto w-full max-w-3xl">
           {messages.length > 0 && !thinking && <div className="mb-2 flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none]">{followUpPrompts.map((key) => { const prompt = t(`assistantPage.followUps.${key}`); return <button key={key} onClick={() => sendMessage(prompt)} className="min-h-10 shrink-0 rounded-full border border-stone-200 px-4 text-xs font-bold text-stone-600 transition hover:border-lavender-300 hover:bg-lavender-50">{prompt}</button>; })}</div>}
           <form onSubmit={handleSubmit} className="flex items-end gap-1 rounded-3xl border border-stone-300 bg-white p-2 shadow-sm transition focus-within:border-lavender-500 focus-within:ring-4 focus-within:ring-lavender-100">
@@ -306,13 +314,13 @@ export function AssistantPage() {
             <textarea ref={textareaRef} id="assistant-message" rows="1" value={message} onChange={handleInput} onKeyDown={handleKeyDown} placeholder={t('assistantPage.message')} className="min-h-11 max-h-36 flex-1 resize-none overflow-y-auto border-0 bg-transparent px-2 py-2.5 text-base leading-6 outline-none placeholder:text-stone-400" />
             <button type="submit" disabled={!message.trim() || thinking || authStatus !== 'authenticated'} className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-lavender-600 text-white transition hover:bg-lavender-700 disabled:bg-stone-200 disabled:text-stone-400" aria-label={t('assistantPage.send')}><ArrowUp className="h-5 w-5" /></button>
           </form>
-          <p className="mt-2 text-center text-[11px] leading-4 text-stone-400">{t('assistantPage.disclaimer')}</p>
+          <p className="mt-1.5 hidden text-center text-[11px] leading-4 text-stone-400 min-[380px]:block sm:mt-2">{t('assistantPage.disclaimer')}</p>
         </div>
       </footer>
 
       {historyOpen && <div className="fixed inset-0 z-50 bg-ink/25" onClick={() => setHistoryOpen(false)} aria-hidden="true" />}
-      {historyOpen && <aside className="fixed inset-y-0 left-0 z-[60] flex w-[min(340px,88vw)] flex-col border-r border-stone-200 bg-paper shadow-2xl lg:left-72" aria-label={t('assistantPage.history')}>
-        <div className="flex h-16 items-center justify-between border-b border-stone-200 px-4">
+      {historyOpen && <aside className="fixed inset-y-0 left-0 z-[60] flex w-[min(340px,88vw)] flex-col border-r border-stone-200 bg-paper pb-[env(safe-area-inset-bottom)] pt-[env(safe-area-inset-top)] shadow-2xl lg:left-72" aria-label={t('assistantPage.history')}>
+        <div className="flex h-16 shrink-0 items-center justify-between border-b border-stone-200 px-4">
           <div><p className="font-display font-semibold">{t('assistantPage.historyTitle')}</p><p className="text-xs text-stone-500">{t('assistantPage.historyDescription')}</p></div>
           <button onClick={() => setHistoryOpen(false)} className="grid h-10 w-10 place-items-center rounded-xl hover:bg-stone-100" aria-label={t('assistantPage.closeHistory')}><X className="h-5 w-5" /></button>
         </div>
