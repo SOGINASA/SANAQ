@@ -47,7 +47,7 @@ export function ClassDetailsPage() {
       setWeakSkills(weakResponse.data.items || []);
       setAnnouncements(feedResponse.data.announcements || []);
       setAssignments(feedResponse.data.assignments || []);
-      const availableModules = moduleResponse.data.items || [];
+      const availableModules = (moduleResponse.data.items || []).filter((item) => item.status === 'published');
       setModules(availableModules);
       setAssignment((current) => ({ ...current, module_id: current.module_id || availableModules[0]?.id || '' }));
     } catch (requestError) { setError(requestError.message); }

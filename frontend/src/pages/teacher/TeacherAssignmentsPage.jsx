@@ -23,8 +23,9 @@ export function TeacherAssignmentsPage() {
     setLoading(true); setError('');
     try {
       const [assignmentResponse, classResponse, moduleResponse] = await Promise.all([teacherApi.assignments(), teacherApi.classes(), adminContentApi.list()]);
-      setAssignments(assignmentResponse.data.items || []); setClasses(classResponse.data.items || []); setModules(moduleResponse.data.items || []);
-      setForm((current) => ({ ...current, class_id: current.class_id || classResponse.data.items?.[0]?.id || '', module_id: current.module_id || moduleResponse.data.items?.[0]?.id || '' }));
+      const publishedModules = (moduleResponse.data.items || []).filter((item) => item.status === 'published');
+      setAssignments(assignmentResponse.data.items || []); setClasses(classResponse.data.items || []); setModules(publishedModules);
+      setForm((current) => ({ ...current, class_id: current.class_id || classResponse.data.items?.[0]?.id || '', module_id: current.module_id || publishedModules[0]?.id || '' }));
     } catch (requestError) { setError(requestError.message); } finally { setLoading(false); }
   };
   useEffect(() => { load(); }, []);

@@ -52,12 +52,14 @@ export function ClassFeed({ announcements = [], assignments = [], role = 'studen
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
             <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-mint-100 text-mint-700"><BookOpenCheck className="h-5 w-5" /></span>
             <div className="min-w-0 flex-1">
-              <p className="text-xs font-bold uppercase tracking-[0.14em] text-mint-700">{t('classFeed.assignment')}</p>
-              <h2 className="mt-1 break-words text-lg font-extrabold">{item.title}</h2>
+              <p className="text-xs font-bold uppercase tracking-[0.14em] text-mint-700">{t(item.module_id ? 'classFeed.module' : 'classFeed.assignment')}</p>
+              <h2 className="mt-1 break-words text-lg font-extrabold">{item.module_title || item.title}</h2>
+              {item.module_description && <p className="mt-1 break-words text-sm leading-6 text-stone-600">{item.module_description}</p>}
+              {item.module_title && item.title !== item.module_title && <p className="mt-2 break-words text-xs font-semibold text-stone-500">{t('classFeed.assignmentName', { title: item.title })}</p>}
               <p className="mt-2 flex items-center gap-2 text-sm text-stone-500"><CalendarClock className="h-4 w-4 shrink-0" />{item.due_at ? t('classFeed.due', { date: dateLabel(item.due_at, locale, true) }) : t('classFeed.noDeadline')}</p>
               {role === 'teacher' && <ProgressBar className="mt-4 max-w-xl" value={item.progress || 0} label={t('classFeed.completed', { completed: item.completed_students || 0, total: item.total_students || 0 })} />}
             </div>
-            <Button variant={role === 'student' ? 'primary' : 'outline'} className="w-full sm:w-auto" onClick={() => onOpenAssignment?.(item)}>{t(role === 'student' ? 'classFeed.start' : 'classFeed.details')}</Button>
+            <Button variant={role === 'student' ? 'primary' : 'outline'} className="w-full sm:w-auto" onClick={() => onOpenAssignment?.(item)}>{t(role === 'student' ? item.module_id ? 'classFeed.openModule' : 'classFeed.start' : 'classFeed.details')}</Button>
           </div>
         </Card>
       ))}

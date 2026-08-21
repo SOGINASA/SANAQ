@@ -127,6 +127,7 @@ def _student_rows(classroom):
 
 def _assignment_payload(assignment):
     classroom = db.session.get(Classroom, assignment.class_id)
+    module = db.session.get(LearningModule, assignment.module_id) if assignment.module_id else None
     student_ids = db.session.scalars(
         db.select(ClassEnrollment.student_id).where(ClassEnrollment.class_id == assignment.class_id)
     ).all()
@@ -154,6 +155,8 @@ def _assignment_payload(assignment):
     return {
         "id": assignment.id, "title": assignment.title, "class_id": assignment.class_id,
         "class_name": classroom.name if classroom else None, "module_id": assignment.module_id,
+        "module_title": localized(module.title) if module else None,
+        "module_description": localized(module.description) if module else None,
         "task_id": assignment.task_id, "due_at": assignment.due_at.isoformat() if assignment.due_at else None,
         "status": assignment.status, "completed_students": completed, "total_students": total,
         "progress": round(completed / total * 100) if total else 0,
@@ -494,6 +497,14 @@ def create_assignment():
     title = str(data.get("title", "")).strip()
     if not title or not (data.get("module_id") or data.get("task_id")):
         return api_error("VALIDATION_ERROR", "Укажите название и модуль или задание", 422)
+    if data.get("module_id"):
+        module = db.session.get(LearningModule, str(data["module_id"]))
+        if not module or module.status != "published":
+            return api_error("MODULE_NOT_PUBLISHED", "Назначить можно только опубликованный материал", 409)
+    if data.get("task_id"):
+        task = db.session.get(Task, str(data["task_id"]))
+        if not task or not task.is_published:
+            return api_error("TASK_NOT_PUBLISHED", "Назначить можно только опубликованное задание", 409)
     due_at = None
     if data.get("due_at"):
         try:
