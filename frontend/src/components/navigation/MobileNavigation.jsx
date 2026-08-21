@@ -13,8 +13,11 @@ export function MobileNavigation({ role = 'student' }) {
   const { pathname } = useLocation();
   const [moreOpen, setMoreOpen] = useState(false);
   const items = getNavigationItems(role);
-  const primaryItems = items.slice(0, 3);
-  const moreItems = items.slice(3);
+  const mobileItems = role === 'student'
+    ? [items[0], items[1], items[4], items[3], items[2], ...items.slice(5)]
+    : items;
+  const primaryItems = mobileItems.slice(0, 3);
+  const moreItems = mobileItems.slice(3);
   const moreActive = moreItems.some(([, to]) => pathname === to || pathname.startsWith(`${to}/`));
 
   return <>

@@ -10,7 +10,9 @@ beforeEach(() => useAccessibilityStore.setState({ locale: 'ru' }));
 
 test('student can open pages omitted from the bottom bar', () => {
   renderNavigation('student', '/student/dashboard');
+  expect(screen.getByRole('link', { name: 'Ассистент SANA' })).toHaveAttribute('href', '/student/assistant');
   fireEvent.click(screen.getByRole('button', { name: 'Ещё' }));
+  expect(screen.getByRole('link', { name: 'Мой маршрут' })).toHaveAttribute('href', '/student/path');
   expect(screen.getByRole('link', { name: 'Карта знаний' })).toHaveAttribute('href', '/student/knowledge-map');
   expect(screen.getByRole('link', { name: 'Прогресс' })).toHaveAttribute('href', '/student/progress');
   expect(screen.getByRole('link', { name: 'Настройки' })).toHaveAttribute('href', '/student/settings');
