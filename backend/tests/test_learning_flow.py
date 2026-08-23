@@ -1,4 +1,5 @@
 def test_diagnostic_to_progress_vertical_slice(client, student_headers):
+    from models import DiagnosticQuestion, Task, db
     profile = client.put("/api/v1/students/me/profile", headers=student_headers, json={
         "grade": 9,
         "subject_ids": ["mathematics"],
@@ -14,14 +15,6 @@ def test_diagnostic_to_progress_vertical_slice(client, student_headers):
     assert created.status_code == 201
     diagnostic_id = created.get_json()["data"]["diagnostic"]["id"]
 
-    correct_answers = {
-        "diag-common-factor": "wrong",
-        "diag-grouping": "wrong",
-        "diag-discriminant": "1",
-        "diag-quadratic-roots": "2,3",
-        "diag-parabola": "Вверх",
-        "diag-vertex": "2,3",
-    }
     seen = set()
     while True:
         next_response = client.get(
@@ -34,18 +27,24 @@ def test_diagnostic_to_progress_vertical_slice(client, student_headers):
             break
         assert "acceptable_answers" not in question
         seen.add(question["id"])
+        stored_question = db.session.get(DiagnosticQuestion, question["id"])
+        answer_value = (
+            "definitely-wrong"
+            if question["skill_id"] in {"common-factor", "grouping"}
+            else stored_question.acceptable_answers[0]
+        )
         answer = client.post(
             f"/api/v1/diagnostics/{diagnostic_id}/answers",
             headers=student_headers,
             json={
                 "question_id": question["id"],
-                "answer": correct_answers[question["id"]],
+                "answer": answer_value,
                 "time_spent_seconds": 20,
                 "attempt_number": 1,
             },
         )
         assert answer.status_code == 201
-    assert seen == set(correct_answers)
+    assert len(seen) == 6
 
     completed = client.post(
         f"/api/v1/diagnostics/{diagnostic_id}/complete", headers=student_headers
@@ -62,6 +61,7 @@ def test_diagnostic_to_progress_vertical_slice(client, student_headers):
     assert next_step["reason"]
     assert next_step["source_skill_ids"] == ["common-factor"]
     task_id = next_step["task_id"]
+    stored_task = db.session.get(Task, task_id)
 
     task = client.get(f"/api/v1/tasks/{task_id}", headers=student_headers)
     assert task.status_code == 200
@@ -74,7 +74,7 @@ def test_diagnostic_to_progress_vertical_slice(client, student_headers):
     answer = client.post(
         f"/api/v1/attempts/{attempt_id}/answers",
         headers=student_headers,
-        json={"answer": "6(x+2)"},
+        json={"answer": stored_task.acceptable_answers[0]},
     )
     assert answer.status_code == 201
     assert answer.get_json()["data"]["is_correct"] is True

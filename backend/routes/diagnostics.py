@@ -12,7 +12,12 @@ from models import (
     db,
 )
 from services.events import record_learning_event
-from services.learning import answer_is_correct, build_or_recalculate_path, complete_diagnostic_profile
+from services.learning import (
+    answer_is_correct,
+    build_or_recalculate_path,
+    complete_diagnostic_profile,
+    selected_diagnostic_questions,
+)
 from utils.decorators import roles_required
 from utils.localization import localized
 from utils.responses import api_error, success
@@ -42,11 +47,7 @@ def _question_payload(question):
 
 
 def _diagnostic_payload(diagnostic):
-    total = db.session.scalar(
-        db.select(db.func.count()).select_from(DiagnosticQuestion).where(
-            DiagnosticQuestion.subject_id == diagnostic.subject_id
-        )
-    )
+    total = len(selected_diagnostic_questions(diagnostic))
     answered = db.session.scalar(
         db.select(db.func.count()).select_from(DiagnosticAnswer).where(
             DiagnosticAnswer.diagnostic_id == diagnostic.id
@@ -71,14 +72,11 @@ def _next_question(diagnostic):
     answered_ids = db.select(DiagnosticAnswer.question_id).where(
         DiagnosticAnswer.diagnostic_id == diagnostic.id
     )
-    unanswered = db.session.scalars(
-        db.select(DiagnosticQuestion)
-        .where(
-            DiagnosticQuestion.subject_id == diagnostic.subject_id,
-            DiagnosticQuestion.id.not_in(answered_ids),
-        )
-        .order_by(DiagnosticQuestion.order_index)
-    ).all()
+    answered = set(db.session.scalars(answered_ids).all())
+    unanswered = [
+        question for question in selected_diagnostic_questions(diagnostic)
+        if question.id not in answered
+    ]
     if not unanswered:
         return None
 

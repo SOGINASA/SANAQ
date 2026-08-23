@@ -1,3 +1,4 @@
+import hashlib
 from datetime import datetime, timedelta, timezone
 
 from models import (
@@ -59,6 +60,27 @@ def answer_is_correct(answer, acceptable_answers):
     return normalized in {normalize_answer(item) for item in (acceptable_answers or [])}
 
 
+def selected_diagnostic_questions(diagnostic):
+    """Choose one stable question variant per skill for this diagnostic.
+
+    The diagnostic id makes different runs receive different variants, while
+    keeping the selection unchanged when a learner refreshes or resumes.
+    """
+    questions = db.session.scalars(
+        db.select(DiagnosticQuestion)
+        .where(DiagnosticQuestion.subject_id == diagnostic.subject_id)
+        .order_by(DiagnosticQuestion.order_index, DiagnosticQuestion.id)
+    ).all()
+    variants_by_skill = {}
+    for question in questions:
+        variants_by_skill.setdefault(question.skill_id, []).append(question)
+    selected = []
+    for skill_id, variants in variants_by_skill.items():
+        digest = hashlib.sha256(f"{diagnostic.id}:{skill_id}".encode("utf-8")).digest()
+        selected.append(variants[int.from_bytes(digest[:4], "big") % len(variants)])
+    return sorted(selected, key=lambda item: (item.order_index, item.id))
+
+
 def mastery_status(mastery, next_review_at=None):
     if next_review_at:
         review_at = next_review_at
@@ -74,11 +96,7 @@ def mastery_status(mastery, next_review_at=None):
 
 
 def complete_diagnostic_profile(diagnostic):
-    questions = db.session.scalars(
-        db.select(DiagnosticQuestion)
-        .where(DiagnosticQuestion.subject_id == diagnostic.subject_id)
-        .order_by(DiagnosticQuestion.order_index)
-    ).all()
+    questions = selected_diagnostic_questions(diagnostic)
     answers = db.session.scalars(
         db.select(DiagnosticAnswer).where(DiagnosticAnswer.diagnostic_id == diagnostic.id)
     ).all()
