@@ -114,4 +114,6 @@ def test_diagnostic_to_progress_vertical_slice(client, student_headers):
         headers=student_headers,
     )
     assert knowledge_map.status_code == 200
-    assert len(knowledge_map.get_json()["data"]["nodes"]) == 6
+    map_data = knowledge_map.get_json()["data"]
+    assert map_data["grade"] == 9
+    assert len(map_data["nodes"]) == 36

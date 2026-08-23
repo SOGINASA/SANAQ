@@ -6,7 +6,7 @@ from flask_jwt_extended import get_jwt, get_jwt_identity, jwt_required
 
 from models import (
     AIReport, AuditLog, ClassEnrollment, Classroom, KnowledgeState, LearningModule,
-    MaterialUpload, PrerequisiteEdge, StudentGoal, Topic, db,
+    MaterialUpload, PrerequisiteEdge, StudentGoal, StudentProfile, Topic, db,
 )
 from services.learning import (
     MASTERY_THRESHOLD,
@@ -112,6 +112,18 @@ def archive_goal(goalId):
 
 def _student_map(student_id, subject_id):
     skills = available_learning_skills(subject_id)
+    profile = db.session.get(StudentProfile, student_id)
+    grade = profile.grade if profile else db.session.scalar(
+        db.select(Classroom.grade)
+        .join(ClassEnrollment, ClassEnrollment.class_id == Classroom.id)
+        .where(
+            ClassEnrollment.student_id == student_id,
+            Classroom.subject_id == subject_id,
+        )
+        .limit(1)
+    )
+    if grade:
+        skills = [skill for skill in skills if db.session.get(Topic, skill.topic_id).grade == grade]
     states = db.session.scalars(
         db.select(KnowledgeState).where(
             KnowledgeState.student_id == student_id,
@@ -135,7 +147,7 @@ def _student_map(student_id, subject_id):
     edges = db.session.scalars(
         db.select(PrerequisiteEdge).where(PrerequisiteEdge.skill_id.in_([skill.id for skill in skills]))
     ).all() if skills else []
-    return {"subject_id": subject_id, "nodes": nodes, "edges": [{"from": item.prerequisite_skill_id, "to": item.skill_id} for item in edges]}
+    return {"subject_id": subject_id, "grade": grade, "nodes": nodes, "edges": [{"from": item.prerequisite_skill_id, "to": item.skill_id} for item in edges]}
 
 
 @governance_bp.get("/students/<studentId>/knowledge-map")

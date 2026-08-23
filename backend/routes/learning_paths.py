@@ -15,6 +15,7 @@ from models import (
 from services.events import record_learning_event
 from services.learning import (
     MASTERY_THRESHOLD,
+    PACE_SETTINGS,
     available_learning_skills,
     build_or_recalculate_path,
     mastery_status,
@@ -169,6 +170,16 @@ def update_learning_path(pathId):
         if pace not in {"light", "balanced", "intensive"}:
             return api_error("VALIDATION_ERROR", "Темп: light, balanced или intensive", 422)
         path.pace = pace
+        path.weekday_minutes, path.weekend_minutes = PACE_SETTINGS[pace]
+    for field in ("weekday_minutes", "weekend_minutes"):
+        if field in data:
+            try:
+                minutes = int(data[field])
+            except (TypeError, ValueError):
+                return api_error("VALIDATION_ERROR", "Время должно быть целым числом минут", 422)
+            if not 5 <= minutes <= 240:
+                return api_error("VALIDATION_ERROR", "Время должно быть от 5 до 240 минут", 422)
+            setattr(path, field, minutes)
     if "target_date" in data:
         try:
             path.target_date = date.fromisoformat(data["target_date"]) if data["target_date"] else None
@@ -182,7 +193,14 @@ def update_learning_path(pathId):
 @roles_required("student")
 def knowledge_map():
     subject_id = request.args.get("subject_id", "mathematics")
+    profile = db.session.get(StudentProfile, get_jwt_identity())
+    grade = profile.grade if profile else None
     skills = available_learning_skills(subject_id)
+    if grade:
+        skills = [
+            skill for skill in skills
+            if db.session.get(Topic, skill.topic_id).grade == grade
+        ]
     if not skills:
         return api_error("SUBJECT_NOT_FOUND", "Предмет не найден", 404)
     states = db.session.scalars(
@@ -224,6 +242,7 @@ def knowledge_map():
     ).all()
     return success({
         "subject_id": subject_id,
+        "grade": grade,
         "nodes": nodes,
         "edges": [
             {"from": edge.prerequisite_skill_id, "to": edge.skill_id}

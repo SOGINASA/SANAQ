@@ -148,12 +148,14 @@ def register_cli_commands(app):
 
     @app.cli.command("seed-curriculum")
     def seed_curriculum():
-        from services.curriculum import seed_math_curriculum
+        from services.curriculum import seed_curriculum_learning_content, seed_math_curriculum
         result = seed_math_curriculum()
+        content = seed_curriculum_learning_content()
         print(
             f"SANAQ mathematics curriculum {result['version']} seeded: "
             f"{result['topics']} topics, {result['skills']} skills, "
-            f"{result['prerequisite_edges']} prerequisite edges"
+            f"{result['prerequisite_edges']} prerequisite edges, "
+            f"{content['tasks']} tasks, {content['diagnostic_questions']} diagnostic questions"
         )
 
     @app.cli.command("create-admin")

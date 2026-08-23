@@ -41,15 +41,9 @@ export function PlanGenerationPage() {
           ? await learningPathApi.recalculate(pathId)
           : await learningPathApi.get(pathId);
         if (active) setActiveStep(3);
-        const preview = await learningPathApi.previewStudyPlan({
-          subject_id: response.data.learning_path.subject_id || 'mathematics',
-          weekday_minutes: 20,
-          weekend_minutes: 30,
-          max_skills: 20,
-        });
         if (active) {
           setPath(response.data.learning_path);
-          setStudyPlan(preview.data.study_plan);
+          setStudyPlan({ summary: response.data.learning_path.schedule });
           setActiveStep(generationStepKeys.length);
         }
       } catch (requestError) {

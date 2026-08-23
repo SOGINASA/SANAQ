@@ -1,5 +1,5 @@
 import hashlib
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 
 from models import (
     Diagnostic,
@@ -20,6 +20,11 @@ from utils.localization import localized
 
 MASTERY_THRESHOLD = 0.75
 ALGORITHM_VERSION = "prerequisite-gap-v1"
+PACE_SETTINGS = {
+    "light": (15, 25),
+    "balanced": (30, 45),
+    "intensive": (45, 60),
+}
 
 
 def available_learning_skills(subject_id):
@@ -66,10 +71,19 @@ def selected_diagnostic_questions(diagnostic):
     The diagnostic id makes different runs receive different variants, while
     keeping the selection unchanged when a learner refreshes or resumes.
     """
-    questions = db.session.scalars(
+    query = (
         db.select(DiagnosticQuestion)
-        .where(DiagnosticQuestion.subject_id == diagnostic.subject_id)
-        .order_by(DiagnosticQuestion.order_index, DiagnosticQuestion.id)
+        .join(Skill, DiagnosticQuestion.skill_id == Skill.id)
+        .join(Topic, Skill.topic_id == Topic.id)
+        .where(
+            DiagnosticQuestion.subject_id == diagnostic.subject_id,
+            Topic.grade == diagnostic.grade,
+        )
+    )
+    if diagnostic.subject_id == "mathematics" and diagnostic.grade == 9:
+        query = query.where(DiagnosticQuestion.id.not_like("diag-math-g%"))
+    questions = db.session.scalars(
+        query.order_by(DiagnosticQuestion.order_index, DiagnosticQuestion.id)
     ).all()
     variants_by_skill = {}
     for question in questions:
@@ -142,6 +156,9 @@ def build_or_recalculate_path(student_id, subject_id, goal_id, diagnostic_id=Non
             goal_id=goal_id,
             diagnostic_id=diagnostic_id,
             title={"ru": "Персональный маршрут по математике", "kk": "Математика бойынша жеке бағыт"},
+            target_date=date.today() + timedelta(days=30),
+            weekday_minutes=PACE_SETTINGS["balanced"][0],
+            weekend_minutes=PACE_SETTINGS["balanced"][1],
             algorithm_version=ALGORITHM_VERSION,
         )
         db.session.add(path)
@@ -154,6 +171,7 @@ def build_or_recalculate_path(student_id, subject_id, goal_id, diagnostic_id=Non
     diagnostic = db.session.get(Diagnostic, diagnostic_id) if diagnostic_id else None
     grade = diagnostic.grade if diagnostic else profile.grade if profile else 9
     from services.learning_plan import rank_student_curriculum, record_path_ranking
+    from services.planner import PlannerConfig, generate_deterministic_plan
 
     curriculum_state, ranked_ids, ranking = rank_student_curriculum(
         student_id,
@@ -162,13 +180,49 @@ def build_or_recalculate_path(student_id, subject_id, goal_id, diagnostic_id=Non
         selectable_skill_ids=[skill.id for skill in skills],
     )
     state_item_by_skill = {item["id"]: item for item in curriculum_state["items"]}
-    completed_ids = [
-        skill.id for skill in skills
-        if state_item_by_skill.get(skill.id, {}).get("mastery", 0) >= MASTERY_THRESHOLD
-    ]
-    ordered_ids = ranked_ids + [
-        skill_id for skill_id in completed_ids if skill_id not in ranked_ids
-    ]
+    target_date = path.target_date or date.today() + timedelta(days=30)
+    if target_date < date.today():
+        target_date = date.today() + timedelta(days=30)
+        path.target_date = target_date
+    plan = generate_deterministic_plan(
+        curriculum_state,
+        PlannerConfig(
+            start_date=date.today(),
+            target_date=target_date,
+            weekday_minutes=path.weekday_minutes or PACE_SETTINGS["balanced"][0],
+            weekend_minutes=path.weekend_minutes or PACE_SETTINGS["balanced"][1],
+            max_skills=20,
+        ),
+        ranked_ids,
+    )
+    ordered_ids = []
+    schedule_by_skill = {}
+    for day in plan["days"]:
+        for item in day["items"]:
+            skill_id = item["skill_id"]
+            schedule = schedule_by_skill.setdefault(skill_id, {
+                "planned_date": date.fromisoformat(day["date"]),
+                "planned_minutes": 0,
+            })
+            schedule["planned_minutes"] += item["duration_minutes"]
+            if item["activity"] != "spaced_review" and skill_id not in ordered_ids:
+                ordered_ids.append(skill_id)
+
+    # A defensive fallback keeps a usable route even if a very short target
+    # horizon cannot fit a complete planner block.
+    if not ordered_ids:
+        ordered_ids = ranked_ids[:20]
+
+    if diagnostic:
+        diagnosed_gap_ids = [
+            question.skill_id
+            for question in selected_diagnostic_questions(diagnostic)
+            if question.skill_id in ordered_ids
+            and state_item_by_skill.get(question.skill_id, {}).get("mastery", 0) < MASTERY_THRESHOLD
+        ]
+        ordered_ids = diagnosed_gap_ids + [
+            skill_id for skill_id in ordered_ids if skill_id not in diagnosed_gap_ids
+        ]
     skill_by_id = {skill.id: skill for skill in skills}
     ordered_skills = [
         skill_by_id[skill_id] for skill_id in ordered_ids if skill_id in skill_by_id
@@ -213,6 +267,8 @@ def build_or_recalculate_path(student_id, subject_id, goal_id, diagnostic_id=Non
             status=status,
             reason=reason,
             confidence=state.confidence if state else 0.5,
+            planned_date=schedule_by_skill.get(skill.id, {}).get("planned_date"),
+            planned_minutes=schedule_by_skill.get(skill.id, {}).get("planned_minutes", 0),
             completed_at=datetime.now(timezone.utc) if status == "completed" else None,
         ))
     path.algorithm_version = ranking.get(
@@ -221,6 +277,7 @@ def build_or_recalculate_path(student_id, subject_id, goal_id, diagnostic_id=Non
     path.updated_at = datetime.now(timezone.utc)
     db.session.flush()
     path._ranking = ranking
+    path._study_plan_summary = plan["summary"]
     record_path_ranking(student_id, path.id, operation, ranking)
     return path
 
@@ -247,6 +304,8 @@ def serialize_step(step, include_task=True):
         "source_skill_ids": [step.skill_id],
         "confidence": round(step.confidence, 2),
         "algorithm_version": path.algorithm_version if path else ALGORITHM_VERSION,
+        "planned_date": step.planned_date.isoformat() if step.planned_date else None,
+        "planned_minutes": step.planned_minutes,
     }
     if include_task:
         payload["task_id"] = step.task_id
@@ -264,6 +323,8 @@ def serialize_path(path, include_steps=True):
         "title": localized(path.title),
         "status": path.status,
         "pace": path.pace,
+        "weekday_minutes": path.weekday_minutes,
+        "weekend_minutes": path.weekend_minutes,
         "target_date": path.target_date.isoformat() if path.target_date else None,
         "progress": path_progress(path.id),
         "algorithm_version": path.algorithm_version,
@@ -276,6 +337,11 @@ def serialize_path(path, include_steps=True):
             .order_by(LearningStep.order_index)
         ).all()
         payload["steps"] = [serialize_step(step) for step in steps]
+        payload["schedule"] = {
+            "selected_skills": len(steps),
+            "scheduled_days": len({step.planned_date for step in steps if step.planned_date}),
+            "planned_minutes": sum(step.planned_minutes or 0 for step in steps),
+        }
     return payload
 
 

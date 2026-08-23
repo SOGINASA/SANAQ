@@ -325,6 +325,8 @@ class LearningPath(db.Model):
     status = db.Column(db.String(20), nullable=False, default="active", index=True)
     target_date = db.Column(db.Date)
     pace = db.Column(db.String(20), nullable=False, default="balanced")
+    weekday_minutes = db.Column(db.Integer, nullable=False, default=30)
+    weekend_minutes = db.Column(db.Integer, nullable=False, default=45)
     algorithm_version = db.Column(db.String(50), nullable=False, default="prerequisite-gap-v1")
     created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utc_now)
     updated_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utc_now, onupdate=utc_now)
@@ -341,6 +343,8 @@ class LearningStep(db.Model):
     status = db.Column(db.String(20), nullable=False, default="locked")
     reason = db.Column(db.JSON, nullable=False)
     confidence = db.Column(db.Float, nullable=False, default=0.8)
+    planned_date = db.Column(db.Date)
+    planned_minutes = db.Column(db.Integer, nullable=False, default=0)
     completed_at = db.Column(db.DateTime(timezone=True))
 
 
