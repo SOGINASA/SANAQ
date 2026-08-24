@@ -40,6 +40,10 @@ LEARNING_SCHEMA_COLUMNS = {
         "planned_date": "DATE",
         "planned_minutes": "INTEGER DEFAULT 0 NOT NULL",
     },
+    "assignments": {
+        "material_id": "VARCHAR(36)",
+        "include_workbook": "BOOLEAN DEFAULT TRUE NOT NULL",
+    },
 }
 
 

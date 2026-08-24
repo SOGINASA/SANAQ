@@ -1,11 +1,12 @@
 import secrets
 from datetime import date, datetime, timezone
+from urllib.parse import quote
 
 from flask import Blueprint, Response, request
 from flask_jwt_extended import get_jwt, get_jwt_identity, jwt_required
 
 from models import (
-    AIReport, AuditLog, ClassEnrollment, Classroom, KnowledgeState, LearningModule,
+    AIReport, Assignment, AuditLog, ClassEnrollment, Classroom, KnowledgeState, LearningModule,
     MaterialUpload, PrerequisiteEdge, StudentGoal, StudentProfile, Topic, db,
 )
 from services.learning import (
@@ -204,9 +205,24 @@ def download_material_content(materialId):
     item = db.session.get(MaterialUpload, materialId)
     if not item or item.status != "ready":
         return api_error("MATERIAL_NOT_FOUND", "Материал не найден", 404)
-    if item.owner_id != get_jwt_identity() and get_jwt().get("role") != "admin":
+    allowed = item.owner_id == get_jwt_identity() or get_jwt().get("role") == "admin"
+    if not allowed and get_jwt().get("role") == "student":
+        allowed = db.session.scalar(
+            db.select(db.func.count()).select_from(Assignment)
+            .join(ClassEnrollment, ClassEnrollment.class_id == Assignment.class_id)
+            .where(
+                Assignment.material_id == item.id,
+                Assignment.status == "published",
+                ClassEnrollment.student_id == get_jwt_identity(),
+            )
+        ) > 0
+    if not allowed:
         return api_error("FORBIDDEN", "Нет доступа к материалу", 403)
-    return Response(item.content, content_type=item.content_type, headers={"Content-Disposition": f'inline; filename="{item.filename}"'})
+    safe_name = item.filename.replace('"', "").replace("\r", "").replace("\n", "")
+    return Response(item.content, content_type=item.content_type, headers={
+        "Content-Disposition": f"attachment; filename=workbook.pdf; filename*=UTF-8''{quote(safe_name)}",
+        "Cache-Control": "private, max-age=300",
+    })
 
 
 @governance_bp.post("/ai/feedback/<feedbackId>/report")

@@ -136,6 +136,8 @@
 | GET | `/modules` | user | Фильтр по предмету, классу, теме, языку |
 | GET | `/modules/:moduleId` | user | Модуль и список уроков |
 | GET | `/lessons/:lessonId` | user | Теория, примеры и доступные задания |
+| GET | `/lessons/:lessonId/workbook.pdf` | user | Брендированный пятистраничный A4-воркбук урока |
+| GET | `/modules/:moduleId/workbook.pdf` | user | Единый PDF-воркбук по урокам модуля |
 | POST | `/modules` | teacher/admin | Создать модуль |
 | PATCH | `/modules/:moduleId` | author/admin | Изменить модуль |
 | PUT | `/modules/:moduleId/editor` | teacher/admin | Атомарно сохранить модуль, уроки и задания с проверкой `expected_version` |
@@ -146,7 +148,7 @@
 | DELETE | `/lessons/:lessonId` | teacher/admin | Удалить урок вместе с его заданиями |
 | POST | `/materials/upload-url` | teacher/admin | Получить signed URL для загрузки файла |
 | PUT | `/materials/:materialId/content` | signed token | Загрузить содержимое файла по одноразовой ссылке |
-| GET | `/materials/:materialId/content` | owner/admin | Получить загруженный материал |
+| GET | `/materials/:materialId/content` | owner/linked student/admin | Получить загруженный материал |
 
 Контент имеет статусы `draft`, `review`, `published`, `archived`, автора, язык и версию.
 
