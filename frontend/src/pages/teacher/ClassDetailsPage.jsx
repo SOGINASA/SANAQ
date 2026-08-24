@@ -11,7 +11,7 @@ import { Button, Card, Dialog, Skeleton, StatusToast, Tabs } from '../../shared/
 import { useI18n } from '../../shared/i18n/i18n';
 
 const EMPTY_ANNOUNCEMENT = { title: '', body: '', is_pinned: false };
-const EMPTY_ASSIGNMENT = { title: '', module_id: '', due_at: '' };
+const EMPTY_ASSIGNMENT = { title: '', module_id: '', due_at: '', include_workbook: true, file: null };
 
 export function ClassDetailsPage() {
   const { t } = useI18n();

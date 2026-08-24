@@ -15,6 +15,7 @@ from werkzeug.exceptions import HTTPException
 from config import DATABASE_DIR, get_config
 from models import User, db
 from utils.responses import api_error
+from services.google_oauth import init_google_oauth
 
 
 migrate = Migrate()
@@ -29,6 +30,7 @@ def create_app(config_object=None):
     db.init_app(app)
     migrate.init_app(app, db)
     jwt.init_app(app)
+    init_google_oauth(app)
     CORS(
         app,
         origins=app.config["CORS_ORIGINS"],
@@ -64,6 +66,7 @@ def create_app(config_object=None):
         governance_bp,
         diagnostics_bp,
         learning_paths_bp,
+        passkeys_bp,
         profiles_bp,
         progress_bp,
         system_bp,
@@ -74,6 +77,7 @@ def create_app(config_object=None):
     prefix = app.config["API_PREFIX"]
     app.register_blueprint(system_bp, url_prefix=prefix)
     app.register_blueprint(auth_bp, url_prefix=f"{prefix}/auth")
+    app.register_blueprint(passkeys_bp, url_prefix=f"{prefix}/auth/passkeys")
     app.register_blueprint(admin_bp, url_prefix=f"{prefix}/admin")
     app.register_blueprint(profiles_bp, url_prefix=prefix)
     app.register_blueprint(catalog_bp, url_prefix=prefix)
@@ -148,12 +152,14 @@ def register_cli_commands(app):
 
     @app.cli.command("seed-curriculum")
     def seed_curriculum():
-        from services.curriculum import seed_math_curriculum
+        from services.curriculum import seed_curriculum_learning_content, seed_math_curriculum
         result = seed_math_curriculum()
+        content = seed_curriculum_learning_content()
         print(
             f"SANAQ mathematics curriculum {result['version']} seeded: "
             f"{result['topics']} topics, {result['skills']} skills, "
-            f"{result['prerequisite_edges']} prerequisite edges"
+            f"{result['prerequisite_edges']} prerequisite edges, "
+            f"{content['tasks']} tasks, {content['diagnostic_questions']} diagnostic questions"
         )
 
     @app.cli.command("create-admin")

@@ -8,10 +8,12 @@ export const navigationItems = {
   ],
   teacher: [
     ['nav.classOverview', '/teacher/dashboard', LayoutDashboard], ['nav.content', '/teacher/content', LibraryBig], ['nav.assignments', '/teacher/assignments', ListChecks],
+    ['nav.settings', '/teacher/settings', Settings],
   ],
   admin: [
     ['nav.adminOverview', '/admin/dashboard', LayoutDashboard], ['nav.users', '/admin/users', Users], ['nav.content', '/admin/content', LibraryBig],
     ['nav.classes', '/admin/classes', School], ['nav.moderation', '/admin/moderation', FileCheck2], ['nav.system', '/admin/system', Activity], ['nav.audit', '/admin/audit', ShieldCheck],
+    ['nav.settings', '/admin/settings', Settings],
   ],
 };
 

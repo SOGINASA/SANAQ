@@ -32,7 +32,7 @@ from models import (
     User,
     db,
 )
-from services.curriculum import seed_math_curriculum
+from services.curriculum import seed_curriculum_learning_content, seed_math_curriculum
 
 
 def _upsert(model, identity, **values):
@@ -73,6 +73,7 @@ def _add_en(value, text):
 
 def seed_demo_data():
     seed_math_curriculum(commit=False)
+    seed_curriculum_learning_content(commit=False)
     _upsert(
         Subject,
         "mathematics",

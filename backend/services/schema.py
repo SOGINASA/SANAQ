@@ -6,6 +6,9 @@ from models import (
     AIMessage,
     ClassAnnouncement,
     CurriculumTopicMetadata,
+    OAuthIdentity,
+    OAuthLoginCode,
+    PasskeyCredential,
     SkillPlanningMetadata,
     db,
 )
@@ -33,6 +36,21 @@ AI_SCHEMA_COLUMNS = {
     },
 }
 
+LEARNING_SCHEMA_COLUMNS = {
+    "learning_paths": {
+        "weekday_minutes": "INTEGER DEFAULT 30 NOT NULL",
+        "weekend_minutes": "INTEGER DEFAULT 45 NOT NULL",
+    },
+    "learning_steps": {
+        "planned_date": "DATE",
+        "planned_minutes": "INTEGER DEFAULT 0 NOT NULL",
+    },
+    "assignments": {
+        "material_id": "VARCHAR(36)",
+        "include_workbook": "BOOLEAN DEFAULT TRUE NOT NULL",
+    },
+}
+
 
 def ensure_runtime_schema():
     """Create additive runtime tables and columns without touching existing data."""
@@ -44,10 +62,12 @@ def ensure_runtime_schema():
         ClassAnnouncement.__table__.create(bind=db.engine, checkfirst=True)
         CurriculumTopicMetadata.__table__.create(bind=db.engine, checkfirst=True)
         SkillPlanningMetadata.__table__.create(bind=db.engine, checkfirst=True)
-        Assignment.__table__.create(bind=db.engine, checkfirst=True)
+        OAuthIdentity.__table__.create(bind=db.engine, checkfirst=True)
+        OAuthLoginCode.__table__.create(bind=db.engine, checkfirst=True)
+        PasskeyCredential.__table__.create(bind=db.engine, checkfirst=True)
         inspector = inspect(db.engine)
         tables = set(inspector.get_table_names())
-    for table_name, definitions in AI_SCHEMA_COLUMNS.items():
+    for table_name, definitions in {**AI_SCHEMA_COLUMNS, **LEARNING_SCHEMA_COLUMNS}.items():
         if table_name not in tables:
             continue
         existing = {column["name"] for column in inspector.get_columns(table_name)}

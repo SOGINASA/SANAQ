@@ -52,7 +52,16 @@
 | Метод | Маршрут | Доступ | Назначение |
 |---|---|---|---|
 | POST | `/auth/register` | public | Регистрация ученика или учителя |
+| GET | `/auth/google` | public | Начало входа через Google OAuth |
+| GET | `/auth/google/callback` | public | Callback Google OAuth |
+| POST | `/auth/google/exchange` | public | Обмен одноразового OAuth-кода на JWT-сессию |
 | POST | `/auth/login` | public | Вход по email/телефону и паролю |
+| POST | `/auth/passkeys/authentication/options` | public | Начало входа по passkey/биометрии |
+| POST | `/auth/passkeys/authentication/verify` | public | Проверка WebAuthn-ответа и выдача JWT-сессии |
+| GET | `/auth/passkeys` | user | Список добавленных passkey пользователя |
+| POST | `/auth/passkeys/registration/options` | user | Начало добавления passkey на устройство |
+| POST | `/auth/passkeys/registration/verify` | user | Проверка и сохранение публичного ключа passkey |
+| DELETE | `/auth/passkeys/:credential_id` | user | Удаление passkey пользователя |
 | POST | `/auth/refresh` | cookie | Обновление access token |
 | POST | `/auth/logout` | user | Отзыв refresh-сессии |
 | POST | `/auth/forgot-password` | public | Отправка одноразового кода/ссылки |
@@ -127,6 +136,8 @@
 | GET | `/modules` | user | Фильтр по предмету, классу, теме, языку |
 | GET | `/modules/:moduleId` | user | Модуль и список уроков |
 | GET | `/lessons/:lessonId` | user | Теория, примеры и доступные задания |
+| GET | `/lessons/:lessonId/workbook.pdf` | user | Брендированный пятистраничный A4-воркбук урока |
+| GET | `/modules/:moduleId/workbook.pdf` | user | Единый PDF-воркбук по урокам модуля |
 | POST | `/modules` | teacher/admin | Создать модуль |
 | PATCH | `/modules/:moduleId` | author/admin | Изменить модуль |
 | PUT | `/modules/:moduleId/editor` | teacher/admin | Атомарно сохранить модуль, уроки и задания с проверкой `expected_version` |
@@ -137,7 +148,7 @@
 | DELETE | `/lessons/:lessonId` | teacher/admin | Удалить урок вместе с его заданиями |
 | POST | `/materials/upload-url` | teacher/admin | Получить signed URL для загрузки файла |
 | PUT | `/materials/:materialId/content` | signed token | Загрузить содержимое файла по одноразовой ссылке |
-| GET | `/materials/:materialId/content` | owner/admin | Получить загруженный материал |
+| GET | `/materials/:materialId/content` | owner/linked student/admin | Получить загруженный материал |
 
 Контент имеет статусы `draft`, `review`, `published`, `archived`, автора, язык и версию.
 

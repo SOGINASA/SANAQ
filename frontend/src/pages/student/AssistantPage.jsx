@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -25,6 +25,10 @@ import mascot from '../../assets/images/sana-mascot.png';
 import { aiTutorApi } from '../../features/ai-tutor/aiTutorApi';
 import { catalogApi } from '../../shared/api/catalogApi';
 import { useI18n } from '../../shared/i18n/i18n';
+
+const RichMessage = lazy(() => import('../../shared/ui/RichMessage').then((module) => ({
+  default: module.RichMessage,
+})));
 
 const starterPrompts = [
   { icon: Lightbulb, key: 'explain' },
@@ -293,7 +297,9 @@ export function AssistantPage() {
                 <article key={item.id} className={`sana-message flex min-w-0 gap-2.5 sm:gap-4 ${item.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                   {item.role === 'assistant' && <span className="mt-1 grid h-9 w-9 shrink-0 place-items-center rounded-2xl bg-lavender-600 text-white"><Sparkles className="h-4 w-4" /></span>}
                   <div className={item.role === 'user' ? 'max-w-[82%] break-words rounded-3xl rounded-br-md bg-ink px-4 py-2.5 text-[15px] leading-6 text-white [overflow-wrap:anywhere] sm:max-w-[75%] sm:px-5 sm:py-3' : 'min-w-0 flex-1 break-words text-[15px] leading-6 text-stone-700 [overflow-wrap:anywhere] sm:text-base sm:leading-7'}>
-                    <p className="whitespace-pre-wrap">{item.content ?? item.text}</p>
+                    {item.role === 'assistant'
+                      ? <Suspense fallback={<p className="whitespace-pre-wrap">{item.content ?? item.text}</p>}><RichMessage>{item.content ?? item.text}</RichMessage></Suspense>
+                      : <p className="whitespace-pre-wrap">{item.content ?? item.text}</p>}
                     {item.hint && <div className="mt-4 rounded-2xl bg-warning-100 p-4"><p className="flex items-center gap-2 text-xs font-extrabold uppercase tracking-wider text-warning-700"><Lightbulb className="h-4 w-4" /> {t('assistantPage.yourTurn')}</p><p className="mt-2 text-sm font-semibold leading-6 text-ink">{item.hint}</p></div>}
                     {item.role === 'assistant' && <div className="mt-2 flex gap-1 text-stone-400"><button onClick={() => { navigator.clipboard?.writeText(`${item.content ?? item.text ?? ''} ${item.hint || ''}`.trim()); setToast(t('assistantPage.toasts.copied')); }} className="grid h-11 w-11 place-items-center rounded-xl transition hover:bg-stone-100 hover:text-ink" aria-label={t('assistantPage.copy')}><Copy className="h-4 w-4" /></button><button onClick={() => setToast(t('assistantPage.toasts.rated'))} className="grid h-11 w-11 place-items-center rounded-xl transition hover:bg-stone-100 hover:text-ink" aria-label={t('assistantPage.useful')}><ThumbsUp className="h-4 w-4" /></button><button onClick={() => reportMessage(item.id)} className="grid h-11 w-11 place-items-center rounded-xl transition hover:bg-stone-100 hover:text-ink" aria-label={t('assistantPage.notUseful')}><ThumbsDown className="h-4 w-4" /></button></div>}
                   </div>

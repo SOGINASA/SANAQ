@@ -113,7 +113,7 @@ export function AppShell({ role = 'student' }) {
               {profileOpen && (
                 <div className="absolute right-0 top-14 z-50 w-[min(16rem,calc(100vw-1rem))] rounded-3xl border border-stone-200 bg-paper p-2 shadow-2xl" role="menu">
                   <div className="border-b border-stone-200 p-3"><p className="font-bold">{displayName}</p><p className="text-xs text-stone-500">{user?.email || t('shell.emailUnavailable')}</p></div>
-                  <button onClick={() => { navigate(role === 'admin' ? '/admin/dashboard' : role === 'student' ? '/student/settings' : '/teacher/dashboard'); setProfileOpen(false); }} className="mt-2 flex min-h-11 w-full cursor-pointer items-center gap-3 rounded-xl px-3 text-sm font-bold hover:bg-stone-100" role="menuitem"><Settings className="h-4 w-4" /> {t('shell.profileSettings')}</button>
+                  <button onClick={() => { navigate(role === 'admin' ? '/admin/settings' : role === 'student' ? '/student/settings' : '/teacher/settings'); setProfileOpen(false); }} className="mt-2 flex min-h-11 w-full cursor-pointer items-center gap-3 rounded-xl px-3 text-sm font-bold hover:bg-stone-100" role="menuitem"><Settings className="h-4 w-4" /> {t('shell.profileSettings')}</button>
                   <button onClick={leaveSession} className="flex min-h-11 w-full cursor-pointer items-center gap-3 rounded-xl px-3 text-sm font-bold text-danger-700 hover:bg-danger-100" role="menuitem"><LogOut className="h-4 w-4" /> {t('shell.logout')}</button>
                 </div>
               )}

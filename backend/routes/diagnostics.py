@@ -69,13 +69,14 @@ def _diagnostic_payload(diagnostic):
 
 
 def _next_question(diagnostic):
-    answered_ids = db.select(DiagnosticAnswer.question_id).where(
-        DiagnosticAnswer.diagnostic_id == diagnostic.id
-    )
-    answered = set(db.session.scalars(answered_ids).all())
+    answered_ids = set(db.session.scalars(
+        db.select(DiagnosticAnswer.question_id).where(
+            DiagnosticAnswer.diagnostic_id == diagnostic.id
+        )
+    ).all())
     unanswered = [
         question for question in selected_diagnostic_questions(diagnostic)
-        if question.id not in answered
+        if question.id not in answered_ids
     ]
     if not unanswered:
         return None
@@ -115,7 +116,8 @@ def create_diagnostic():
 
     active = db.session.scalar(
         db.select(Diagnostic).filter_by(
-            student_id=get_jwt_identity(), subject_id=subject_id, status="in_progress"
+            student_id=get_jwt_identity(), subject_id=subject_id, grade=grade,
+            status="in_progress"
         )
     )
     if active:
@@ -173,7 +175,12 @@ def submit_diagnostic_answer(diagnosticId):
         return api_error("DIAGNOSTIC_COMPLETED", "Диагностика уже завершена", 409)
     data = request.get_json(silent=True) or {}
     question = db.session.get(DiagnosticQuestion, str(data.get("question_id", "")))
-    if not question or question.subject_id != diagnostic.subject_id:
+    allowed_question_ids = {item.id for item in selected_diagnostic_questions(diagnostic)}
+    if (
+        not question
+        or question.subject_id != diagnostic.subject_id
+        or question.id not in allowed_question_ids
+    ):
         return api_error("QUESTION_NOT_FOUND", "Вопрос не найден", 404)
     if db.session.scalar(db.select(DiagnosticAnswer).filter_by(
         diagnostic_id=diagnostic.id, question_id=question.id

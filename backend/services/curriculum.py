@@ -1,15 +1,22 @@
 import json
+import re
 from pathlib import Path
 
 from models import (
     CurriculumTopicMetadata,
+    DiagnosticQuestion,
+    LearningModule,
+    Lesson,
     PrerequisiteEdge,
     Skill,
     SkillPlanningMetadata,
     Subject,
+    Task,
     Topic,
     db,
 )
+from services.task_generation.generators import generate_task
+from services.lesson_guides import authored_practice_for_topic
 
 
 CURRICULUM_PATH = (
@@ -253,3 +260,136 @@ def seed_math_curriculum(path=CURRICULUM_PATH, commit=True):
         "skills": skill_count,
         "prerequisite_edges": len(curriculum_edges),
     }
+
+
+def seed_curriculum_learning_content(path=CURRICULUM_PATH, commit=True):
+    """Materialize one runnable lesson/task per catalog skill and grade diagnostics.
+
+    The curriculum graph is the source of truth for route planning. This
+    idempotent projection gives every graph node real learning content, so a
+    plan can never become empty merely because an editor has not authored a
+    bespoke lesson yet.
+    """
+    payload = load_math_curriculum(path)
+    created_tasks = 0
+    created_questions = 0
+
+    for topic in payload["topics"]:
+        module_id = f"module-{topic['id']}"
+        lesson_id = f"lesson-{topic['id']}"
+        topic_name = topic["name"]
+        _upsert(
+            LearningModule,
+            module_id,
+            subject_id="mathematics",
+            topic_id=topic["id"],
+            title=topic_name,
+            description={
+                "ru": f"Теория, примеры и практика по теме «{topic_name['ru']}».",
+                "kk": f"«{topic_name['kk']}» тақырыбы бойынша теория, мысалдар және практика.",
+            },
+            grade=topic["grade"],
+            status="published",
+            version=1,
+        )
+        _upsert(
+            Lesson,
+            lesson_id,
+            module_id=module_id,
+            title=topic_name,
+            theory={
+                "ru": f"Разберём основные правила темы «{topic_name['ru']}» и применим их по шагам.",
+                "kk": f"«{topic_name['kk']}» тақырыбының негізгі ережелерін қарастырып, оларды қадамдап қолданамыз.",
+            },
+            example={
+                "ru": "Сначала определите известные данные, выберите правило и проверьте полученный ответ.",
+                "kk": "Алдымен белгілі деректерді анықтап, ережені таңдаңыз және алынған жауапты тексеріңіз.",
+            },
+            order_index=topic["order"],
+        )
+
+        skills = topic["skills"]
+        authored_practice = authored_practice_for_topic(topic["id"])
+        for skill_index, skill in enumerate(skills):
+            raw_difficulty = _skill_value(payload, topic, skill, "difficulty")
+            difficulty = 1 if raw_difficulty < 0.4 else 2 if raw_difficulty < 0.72 else 3
+            generated = generate_task(
+                skill,
+                difficulty=difficulty,
+                seed=topic["grade"] * 100 + skill_index,
+                distractors=[item for item in skills if item["id"] != skill["id"]],
+            )
+            if skill_index < len(authored_practice):
+                prompt, answer = authored_practice[skill_index]
+                generated.update({
+                    "prompt": {"ru": prompt, "kk": prompt},
+                    "task_type": "short_answer",
+                    "options": [],
+                    "acceptable_answers": _authored_answer_variants(answer),
+                    "hint": {
+                        "ru": "Назовите правило, выполните преобразования по строкам и проверьте ответ.",
+                        "kk": "Ережені атап, түрлендірулерді жолмен орындап, жауапты тексеріңіз.",
+                    },
+                    "explanation": {
+                        "ru": f"После последовательного решения получаем: {answer}.",
+                        "kk": f"Қадамдық шешімнен кейінгі жауап: {answer}.",
+                    },
+                })
+            task_id = f"task-{skill['id']}"
+            _upsert(
+                Task,
+                task_id,
+                lesson_id=lesson_id,
+                skill_id=skill["id"],
+                prompt=generated["prompt"],
+                task_type=generated["task_type"],
+                difficulty=generated["difficulty"],
+                options=generated["options"],
+                acceptable_answers=generated["acceptable_answers"],
+                hint=generated["hint"],
+                explanation=generated["explanation"],
+                is_published=True,
+            )
+            created_tasks += 1
+
+    # Six representative checkpoints per grade keep onboarding short while
+    # covering the beginning, middle and end of that grade's program.
+    for grade in payload["grades"]:
+        if grade == 9:
+            # The hand-authored grade 9 demo diagnostic remains the higher
+            # quality reference flow.
+            continue
+        grade_skills = [
+            skill
+            for topic in payload["topics"] if topic["grade"] == grade
+            for skill in topic["skills"]
+        ]
+        indexes = [0, 5, 11, 17, 23, len(grade_skills) - 1]
+        for order_index, skill_index in enumerate(indexes, 1):
+            skill = grade_skills[skill_index]
+            task = db.session.get(Task, f"task-{skill['id']}")
+            _upsert(
+                DiagnosticQuestion,
+                f"diag-{skill['id']}",
+                subject_id="mathematics",
+                skill_id=skill["id"],
+                prompt=task.prompt,
+                options=task.options,
+                acceptable_answers=task.acceptable_answers,
+                difficulty=task.difficulty,
+                order_index=order_index,
+            )
+            created_questions += 1
+
+    if commit:
+        db.session.commit()
+    return {"tasks": created_tasks, "diagnostic_questions": created_questions}
+
+
+def _authored_answer_variants(answer):
+    """Keep the printed answer while accepting a student's concise equivalent."""
+    values = [str(answer).strip()]
+    equation_parts = re.findall(r"(?:^|;)\s*[A-Za-zА-Яа-я₀-₉]+\s*=\s*([^;]+)", str(answer))
+    if equation_parts:
+        values.append(equation_parts[-1].strip())
+    return list(dict.fromkeys(value for value in values if value))
