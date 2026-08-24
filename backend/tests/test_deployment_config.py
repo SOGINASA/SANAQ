@@ -57,6 +57,16 @@ def test_production_frontend_hides_demo_login_by_default():
     assert "REACT_APP_SHOW_DEMO_LOGIN === 'true'" in login_page
 
 
+def test_google_oauth_http_client_is_installed_in_all_backend_images():
+    development = (ROOT / "backend" / "requirements.txt").read_text(encoding="utf-8")
+    production = (ROOT / "backend" / "requirements-production.txt").read_text(
+        encoding="utf-8"
+    )
+
+    assert "requests==2.34.2" in development
+    assert "requests==2.34.2" in production
+
+
 def test_checked_pathnet_checkpoint_is_packaged_for_production():
     checkpoint = ROOT / "backend" / "ml" / "artifacts" / "pathnet-v2-outcomes-notebook.pt"
     dockerfile = (ROOT / "backend" / "Dockerfile").read_text(encoding="utf-8")
