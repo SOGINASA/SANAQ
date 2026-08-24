@@ -289,7 +289,20 @@
 | PATCH | `/admin/ai/reports/:reportId` | admin | Обработать жалобу |
 | GET | `/admin/audit-log` | admin | Журнал критических действий |
 
-## 17. Аналитические события
+## 17. Тарифы и оплата
+
+| Метод | Маршрут | Доступ | Назначение |
+|---|---|---|---|
+| GET | `/billing/plans` | public | Три MVP-тарифа и их стоимость |
+| GET | `/billing/subscription` | user | Активная подписка пользователя |
+| POST | `/billing/payments` | user | Создать идемпотентную попытку оплаты |
+| GET | `/billing/payments/:paymentId` | owner | Проверить статус своей оплаты |
+| POST | `/billing/payments/:paymentId/demo-confirm` | owner, dev only | Подтвердить явно обозначенную demo-оплату |
+| GET | `/admin/payments` | admin | Реестр платежей для сверки с Kaspi Pay |
+| POST | `/admin/payments/:paymentId/confirm` | admin | Подтвердить оплату после сверки |
+| POST | `/admin/payments/:paymentId/cancel` | admin | Отменить неподтверждённую попытку |
+
+## 18. Аналитические события
 
 | Метод | Маршрут | Доступ | Назначение |
 |---|---|---|---|
@@ -299,7 +312,7 @@
 
 Не отправлять в аналитику текст свободных AI-диалогов и персональные ответы без отдельного согласия.
 
-## 18. Основные модели данных
+## 19. Основные модели данных
 
 - `User`: id, role, name, locale, region, timezone, consent flags, status.
 - `StudentProfile`: user_id, grade, subject_ids, goal_ids, accessibility settings.
@@ -314,8 +327,9 @@
 - `Goal`, `Assignment`, `Achievement`, `Notification`.
 - `AIConversation`, `AIMessage`, `AITrace`, `AIReport`.
 - `AuditLog`.
+- `Payment`, `Subscription`.
 
-## 19. События домена
+## 20. События домена
 
 Backend полезно разделить на модули, но для хакатона развернуть единым модульным приложением. Границы модулей могут общаться событиями:
 
@@ -326,7 +340,7 @@ Backend полезно разделить на модули, но для хак�
 - `assignment.published` → уведомить учеников;
 - `ai.feedback_reported` → создать запись модерации.
 
-## 20. Приоритет реализации
+## 21. Приоритет реализации
 
 ### P0 — обязательный вертикальный срез
 
@@ -340,7 +354,7 @@ Backend полезно разделить на модули, но для хак�
 
 Полная админ-панель, загрузка файлов, расширенная модерация, несколько школ, push/SMS, offline sync и внешние интеграции.
 
-## 21. Минимальные нефункциональные требования
+## 22. Минимальные нефункциональные требования
 
 - OpenAPI/Swagger генерируется из кода и доступен только в dev/staging.
 - Валидация всех входных DTO и ограничение длины свободного текста.

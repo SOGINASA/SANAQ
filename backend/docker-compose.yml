@@ -46,6 +46,10 @@ services:
       PATHNET_MODEL_PATH: /app/ml/artifacts/pathnet-v2-outcomes-notebook.pt
       PATHNET_TOP_K: ${PATHNET_TOP_K:-20}
       PATHNET_CANARY_PERCENT: ${PATHNET_CANARY_PERCENT:-0}
+      PAYMENT_PROVIDER: ${PAYMENT_PROVIDER:-kaspi}
+      KASPI_PAYMENT_MODE: ${KASPI_PAYMENT_MODE:-kaspi_link}
+      KASPI_PAYMENT_URL: ${KASPI_PAYMENT_URL:-}
+      KASPI_ALLOW_DEMO_CHECKOUT: ${KASPI_ALLOW_DEMO_CHECKOUT:-false}
     volumes:
       - ./database:/app/database
     restart: unless-stopped

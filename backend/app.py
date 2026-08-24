@@ -40,6 +40,7 @@ def create_app(config_object=None):
             "Accept-Language",
             "Authorization",
             "Content-Type",
+            "Idempotency-Key",
             "X-CSRF-TOKEN",
             "X-Request-ID",
         ],
@@ -61,6 +62,7 @@ def create_app(config_object=None):
         ai_bp,
         attempts_bp,
         auth_bp,
+        billing_bp,
         catalog_bp,
         content_bp,
         governance_bp,
@@ -90,6 +92,7 @@ def create_app(config_object=None):
     app.register_blueprint(teacher_bp, url_prefix=prefix)
     app.register_blueprint(engagement_bp, url_prefix=prefix)
     app.register_blueprint(governance_bp, url_prefix=prefix)
+    app.register_blueprint(billing_bp, url_prefix=prefix)
 
     register_error_handlers(app)
     register_jwt_callbacks(jwt)

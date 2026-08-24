@@ -645,3 +645,73 @@ class ProductEvent(db.Model):
     properties = db.Column(db.JSON, nullable=False, default=dict)
     occurred_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utc_now)
     created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utc_now)
+
+
+class Payment(db.Model):
+    __tablename__ = "payments"
+    __table_args__ = (
+        db.UniqueConstraint("user_id", "idempotency_key", name="uq_payment_user_idempotency"),
+    )
+
+    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = db.Column(db.String(36), db.ForeignKey("users.id"), nullable=False, index=True)
+    plan_id = db.Column(db.String(40), nullable=False, index=True)
+    provider = db.Column(db.String(30), nullable=False, default="kaspi")
+    provider_mode = db.Column(db.String(30), nullable=False)
+    provider_reference = db.Column(db.String(100), unique=True, nullable=False, index=True)
+    amount_tiyn = db.Column(db.Integer, nullable=False)
+    currency = db.Column(db.String(3), nullable=False, default="KZT")
+    status = db.Column(db.String(30), nullable=False, default="pending", index=True)
+    checkout_url = db.Column(db.Text)
+    idempotency_key = db.Column(db.String(100), nullable=False)
+    failure_code = db.Column(db.String(80))
+    created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utc_now)
+    updated_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utc_now, onupdate=utc_now)
+    paid_at = db.Column(db.DateTime(timezone=True))
+    cancelled_at = db.Column(db.DateTime(timezone=True))
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "plan_id": self.plan_id,
+            "provider": self.provider,
+            "provider_mode": self.provider_mode,
+            "provider_reference": self.provider_reference,
+            "amount_tiyn": self.amount_tiyn,
+            "amount": self.amount_tiyn / 100,
+            "currency": self.currency,
+            "status": self.status,
+            "checkout_url": self.checkout_url,
+            "failure_code": self.failure_code,
+            "created_at": utc_iso(self.created_at),
+            "updated_at": utc_iso(self.updated_at),
+            "paid_at": utc_iso(self.paid_at),
+            "cancelled_at": utc_iso(self.cancelled_at),
+        }
+
+
+class Subscription(db.Model):
+    __tablename__ = "subscriptions"
+
+    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = db.Column(db.String(36), db.ForeignKey("users.id"), nullable=False, unique=True, index=True)
+    plan_id = db.Column(db.String(40), nullable=False, index=True)
+    payment_id = db.Column(db.String(36), db.ForeignKey("payments.id"), nullable=False, index=True)
+    status = db.Column(db.String(30), nullable=False, default="active", index=True)
+    starts_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utc_now)
+    expires_at = db.Column(db.DateTime(timezone=True), nullable=False)
+    created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utc_now)
+    updated_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utc_now, onupdate=utc_now)
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "user_id": self.user_id,
+            "plan_id": self.plan_id,
+            "payment_id": self.payment_id,
+            "status": self.status,
+            "starts_at": utc_iso(self.starts_at),
+            "expires_at": utc_iso(self.expires_at),
+            "created_at": utc_iso(self.created_at),
+            "updated_at": utc_iso(self.updated_at),
+        }

@@ -11,7 +11,7 @@ export function Brand({ light = false, compactOnMobile = false }) {
   return <Link to="/" className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-xl sm:gap-3" aria-label={t('brand.home')}><img src="/sanaq-logo.svg" alt="" className="h-10 w-10 shrink-0" width="40" height="40" /><span className={`${compactOnMobile ? 'hidden min-[390px]:inline' : ''} font-display text-lg font-semibold tracking-[-0.04em] ${light ? 'text-white' : 'text-ink'}`}>SANAQ</span></Link>;
 }
 
-const links = [['nav.how', '/#product'], ['nav.features', '/#features'], ['nav.ai', '/#ai'], ['nav.teachers', '/teacher/dashboard']];
+const links = [['nav.how', '/#product'], ['nav.features', '/#features'], ['nav.pricing', '/pricing'], ['nav.ai', '/#ai'], ['nav.teachers', '/teacher/dashboard']];
 
 export function Header() {
   const [open, setOpen] = useState(false);

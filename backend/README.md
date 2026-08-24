@@ -120,12 +120,22 @@ docker compose up --build
 | POST/PATCH/DELETE | `/api/v1/modules...`, `/api/v1/lessons...`, `/api/v1/tasks...` | Управление учебным контентом |
 | GET | `/api/v1/admin/users` | Список пользователей для admin |
 | PATCH | `/api/v1/admin/users/:id/status` | Роль и статус пользователя |
+| GET/POST | `/api/v1/billing/...` | Тарифы, создание и проверка платежа, подписка |
+| GET/POST | `/api/v1/admin/payments...` | Сверка и подтверждение платежей администратором |
 
 Успешные ответы используют envelope `data/meta`, ошибки — `error` с `request_id`,
 как определено в контракте. Роли: `student`, `teacher`, `admin`; идентификаторы — UUID.
 
 Все URL из `API_ROUTES.md` зарегистрированы с рабочей серверной логикой. Контрактный тест
 проверяет точное совпадение URL и HTTP-методов с Flask-приложением.
+
+## Оплата через Kaspi Pay
+
+Три MVP-тарифа стоят по 1 ₸ и активируются на 30 дней. В development доступен явно
+обозначенный симулятор без списания денег. Production открывает merchant-ссылку Kaspi Pay,
+а доступ включается только после сверки платежа администратором. Настройка хоста, переменные
+окружения и границы открытой интеграции описаны в
+[`docs/KASPI_PAYMENT_SETUP.md`](docs/KASPI_PAYMENT_SETUP.md).
 
 ## Уроки и воркбуки
 

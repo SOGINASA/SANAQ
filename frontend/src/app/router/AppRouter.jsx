@@ -5,6 +5,7 @@ import { TeacherLayout } from '../../components/layout/TeacherLayout';
 import { HomePage } from '../../pages/public/HomePage';
 import { AboutPage } from '../../pages/public/AboutPage';
 import { AccessibilityPage } from '../../pages/public/AccessibilityPage';
+import { PricingPage } from '../../pages/public/PricingPage';
 import { LoginPage } from '../../pages/auth/LoginPage';
 import { RegisterPage } from '../../pages/auth/RegisterPage';
 import { GoogleCallbackPage } from '../../pages/auth/GoogleCallbackPage';
@@ -21,6 +22,8 @@ import { SettingsPage } from '../../pages/student/SettingsPage';
 import { AssistantPage } from '../../pages/student/AssistantPage';
 import { PlanGenerationPage } from '../../pages/student/PlanGenerationPage';
 import { StudentClassPage } from '../../pages/student/StudentClassPage';
+import { BillingPage } from '../../pages/student/BillingPage';
+import { DemoCheckoutPage } from '../../pages/student/DemoCheckoutPage';
 import { TeacherDashboardPage } from '../../pages/teacher/TeacherDashboardPage';
 import { ClassDetailsPage } from '../../pages/teacher/ClassDetailsPage';
 import { StudentDetailsPage } from '../../pages/teacher/StudentDetailsPage';
@@ -35,6 +38,7 @@ import { AdminClassesPage } from '../../pages/admin/AdminClassesPage';
 import { AdminModerationPage } from '../../pages/admin/AdminModerationPage';
 import { AdminSystemPage } from '../../pages/admin/AdminSystemPage';
 import { AdminAuditPage } from '../../pages/admin/AdminAuditPage';
+import { AdminBillingPage } from '../../pages/admin/AdminBillingPage';
 import { NotFoundPage } from '../../pages/shared/NotFoundPage';
 import { SecuritySettingsPage } from '../../pages/shared/SecuritySettingsPage';
 import { ProtectedRoute } from '../../components/common/ProtectedRoute';
@@ -46,6 +50,7 @@ export function AppRouter() {
       <Route path="/" element={<HomePage />} />
       <Route path="/about" element={<AboutPage />} />
       <Route path="/accessibility" element={<AccessibilityPage />} />
+      <Route path="/pricing" element={<PricingPage />} />
       <Route path="/ui-kit" element={<DesignSystemPage />} />
     </Route>
     <Route path="/login" element={<LoginPage />} />
@@ -68,6 +73,8 @@ export function AppRouter() {
           <Route path="class" element={<StudentClassPage />} />
           <Route path="classes/:classId" element={<StudentClassPage />} />
           <Route path="settings" element={<SettingsPage />} />
+          <Route path="billing" element={<BillingPage />} />
+          <Route path="billing/demo/:paymentId" element={<DemoCheckoutPage />} />
         </Route>
       </Route>
       <Route element={<RoleRoute role="teacher" />}>
@@ -93,6 +100,7 @@ export function AppRouter() {
           <Route path="moderation" element={<AdminModerationPage />} />
           <Route path="system" element={<AdminSystemPage />} />
           <Route path="audit" element={<AdminAuditPage />} />
+          <Route path="billing" element={<AdminBillingPage />} />
           <Route path="settings" element={<SecuritySettingsPage />} />
         </Route>
       </Route>
