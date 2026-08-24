@@ -6,7 +6,7 @@ from flask_jwt_extended import get_jwt, get_jwt_identity
 
 from models import (
     Assignment, Attempt, ClassAnnouncement, ClassEnrollment, Classroom, KnowledgeState, LearningModule, LearningPath,
-    LearningStep, Notification, StudentProfile, Task, TeacherComment, User, db,
+    LearningStep, MaterialUpload, Notification, StudentProfile, Task, TeacherComment, User, db,
 )
 from services.learning import available_learning_skills
 from utils.decorators import roles_required
@@ -182,11 +182,23 @@ def _assignment_payload(assignment, include_students=False, student_id=None):
         "class_name": classroom.name if classroom else None, "module_id": assignment.module_id,
         "module_title": localized(module.title) if module else None,
         "module_description": localized(module.description) if module else None,
-        "task_id": assignment.task_id, "due_at": assignment.due_at.isoformat() if assignment.due_at else None,
+        "task_id": assignment.task_id, "material_id": assignment.material_id,
+        "due_at": assignment.due_at.isoformat() if assignment.due_at else None,
         "status": assignment.status, "completed_students": completed, "total_students": total,
         "started_students": started, "total_tasks": task_count, "progress": overall_progress,
         "created_at": assignment.created_at.isoformat(),
     }
+    material = db.session.get(MaterialUpload, assignment.material_id) if assignment.material_id else None
+    if material and material.status == "ready":
+        payload["workbook"] = {
+            "kind": "uploaded", "material_id": material.id, "filename": material.filename,
+            "download_url": f"/materials/{material.id}/content",
+        }
+    elif assignment.include_workbook and assignment.module_id:
+        payload["workbook"] = {
+            "kind": "generated", "filename": f"sanaq-{assignment.module_id}-workbook.pdf",
+            "download_url": f"/modules/{assignment.module_id}/workbook.pdf",
+        }
     if include_students:
         payload["student_progress"] = student_progress
     if student_id:
@@ -548,6 +560,13 @@ def create_assignment():
         task = db.session.get(Task, str(data["task_id"]))
         if not task or not task.is_published:
             return api_error("TASK_NOT_PUBLISHED", "Назначить можно только опубликованное задание", 409)
+    material_id = str(data.get("material_id") or "").strip() or None
+    if material_id:
+        material = db.session.get(MaterialUpload, material_id)
+        if not material or material.owner_id != get_jwt_identity() or material.status != "ready":
+            return api_error("MATERIAL_NOT_FOUND", "Загруженный воркбук не найден", 404)
+        if material.content_type != "application/pdf" or not material.filename.lower().endswith(".pdf"):
+            return api_error("WORKBOOK_FORMAT_INVALID", "Воркбук должен быть PDF-файлом", 422)
     due_at = None
     if data.get("due_at"):
         try:
@@ -556,7 +575,8 @@ def create_assignment():
             return api_error("VALIDATION_ERROR", "Некорректная дата", 422)
     assignment = Assignment(
         class_id=classroom.id, teacher_id=get_jwt_identity(), title=title,
-        module_id=module_id or None, task_id=data.get("task_id"), due_at=due_at,
+        module_id=module_id or None, task_id=data.get("task_id"), material_id=material_id,
+        include_workbook=bool(data.get("include_workbook", True)), due_at=due_at,
         status=str(data.get("status", "published")),
     )
     db.session.add(assignment)

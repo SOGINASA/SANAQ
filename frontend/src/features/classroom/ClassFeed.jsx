@@ -1,6 +1,9 @@
-import { BookOpenCheck, CalendarClock, Megaphone, Pin, Trash2 } from 'lucide-react';
+import { useState } from 'react';
+import { BookOpenCheck, CalendarClock, Download, FileText, Megaphone, Pin, Trash2 } from 'lucide-react';
 import { Button, Card, ProgressBar } from '../../shared/ui';
 import { useI18n } from '../../shared/i18n/i18n';
+import { contentApi } from '../../shared/api/contentApi';
+import { saveBlobResponse } from '../../shared/lib/downloadFile';
 
 const dateLocales = { ru: 'ru-RU', kk: 'kk-KZ', en: 'en-US' };
 
@@ -13,10 +16,23 @@ function dateLabel(value, locale, withTime = false) {
 
 export function ClassFeed({ announcements = [], assignments = [], role = 'student', onOpenAssignment, onRemoveAnnouncement }) {
   const { locale, t } = useI18n();
+  const [downloadingId, setDownloadingId] = useState(null);
+  const [downloadError, setDownloadError] = useState('');
   const items = [
     ...announcements.map((item) => ({ ...item, kind: 'announcement', sortDate: item.created_at })),
     ...assignments.map((item) => ({ ...item, kind: 'assignment', sortDate: item.created_at })),
   ].sort((left, right) => new Date(right.sortDate) - new Date(left.sortDate));
+
+  const downloadWorkbook = async (item) => {
+    setDownloadingId(item.id); setDownloadError('');
+    try {
+      const response = item.workbook.kind === 'uploaded'
+        ? await contentApi.material(item.workbook.material_id)
+        : await contentApi.moduleWorkbook(item.module_id);
+      saveBlobResponse(response, item.workbook.filename || `sanaq-${item.id}-workbook.pdf`);
+    } catch (error) { setDownloadError(error.message); }
+    finally { setDownloadingId(null); }
+  };
 
   if (!items.length) {
     return (
@@ -30,6 +46,7 @@ export function ClassFeed({ announcements = [], assignments = [], role = 'studen
 
   return (
     <div className="grid gap-4">
+      {downloadError && <p className="state-error" role="alert">{downloadError}</p>}
       {items.map((item) => item.kind === 'announcement' ? (
         <Card key={`announcement-${item.id}`} className={`p-5 sm:p-6 ${item.is_pinned ? 'border-lavender-300 bg-lavender-50' : ''}`}>
           <div className="flex items-start gap-4">
@@ -60,8 +77,9 @@ export function ClassFeed({ announcements = [], assignments = [], role = 'studen
               {role === 'teacher' && <ProgressBar className="mt-4 max-w-xl" value={item.progress || 0} label={t('assignmentProgress.summary', { completed: item.completed_students || 0, started: item.started_students || 0, total: item.total_students || 0 })} />}
               {role === 'student' && item.my_progress && <ProgressBar className="mt-4 max-w-xl" value={item.my_progress.progress || 0} label={item.my_progress.status === 'completed' ? t('assignmentProgress.studentCompleted') : item.my_progress.status === 'in_progress' ? t('assignmentProgress.partsCompleted', { completed: item.my_progress.completed_tasks, total: item.my_progress.total_tasks }) : t('assignmentProgress.notStarted')} tone={item.my_progress.status === 'completed' ? 'mint' : 'violet'} />}
             </div>
-            <Button variant={role === 'student' ? 'primary' : 'outline'} className="w-full sm:w-auto" onClick={() => onOpenAssignment?.(item)}>{t(role === 'student' ? item.module_id ? 'classFeed.openModule' : 'classFeed.start' : 'classFeed.details')}</Button>
+            <div className="grid w-full shrink-0 gap-2 sm:w-auto"><Button variant={role === 'student' ? 'primary' : 'outline'} className="w-full" onClick={() => onOpenAssignment?.(item)}>{t(role === 'student' ? item.module_id ? 'classFeed.openModule' : 'classFeed.start' : 'classFeed.details')}</Button>{item.workbook && <Button variant="outline" className="w-full" loading={downloadingId === item.id} onClick={() => downloadWorkbook(item)}><Download className="h-4 w-4" /> {t('classFeed.downloadWorkbook')}</Button>}</div>
           </div>
+          {item.workbook && <div className="mt-4 flex items-start gap-3 rounded-2xl bg-lavender-50 p-3 text-sm text-lavender-800"><FileText className="mt-0.5 h-4 w-4 shrink-0" /><span><strong>{t('classFeed.workbook')}</strong><span className="mt-0.5 block break-all text-xs text-stone-500">{item.workbook.filename}</span></span></div>}
         </Card>
       ))}
     </div>

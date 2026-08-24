@@ -469,6 +469,8 @@ class Assignment(db.Model):
     title = db.Column(db.String(200), nullable=False)
     module_id = db.Column(db.String(64), db.ForeignKey("learning_modules.id"))
     task_id = db.Column(db.String(64), db.ForeignKey("tasks.id"))
+    material_id = db.Column(db.String(36), db.ForeignKey("material_uploads.id"))
+    include_workbook = db.Column(db.Boolean, nullable=False, default=True)
     due_at = db.Column(db.DateTime(timezone=True))
     status = db.Column(db.String(20), nullable=False, default="draft", index=True)
     created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utc_now)

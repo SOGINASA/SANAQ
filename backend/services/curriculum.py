@@ -1,4 +1,5 @@
 import json
+import re
 from pathlib import Path
 
 from models import (
@@ -15,6 +16,7 @@ from models import (
     db,
 )
 from services.task_generation.generators import generate_task
+from services.lesson_guides import authored_practice_for_topic
 
 
 CURRICULUM_PATH = (
@@ -307,6 +309,7 @@ def seed_curriculum_learning_content(path=CURRICULUM_PATH, commit=True):
         )
 
         skills = topic["skills"]
+        authored_practice = authored_practice_for_topic(topic["id"])
         for skill_index, skill in enumerate(skills):
             raw_difficulty = _skill_value(payload, topic, skill, "difficulty")
             difficulty = 1 if raw_difficulty < 0.4 else 2 if raw_difficulty < 0.72 else 3
@@ -316,6 +319,22 @@ def seed_curriculum_learning_content(path=CURRICULUM_PATH, commit=True):
                 seed=topic["grade"] * 100 + skill_index,
                 distractors=[item for item in skills if item["id"] != skill["id"]],
             )
+            if skill_index < len(authored_practice):
+                prompt, answer = authored_practice[skill_index]
+                generated.update({
+                    "prompt": {"ru": prompt, "kk": prompt},
+                    "task_type": "short_answer",
+                    "options": [],
+                    "acceptable_answers": _authored_answer_variants(answer),
+                    "hint": {
+                        "ru": "Назовите правило, выполните преобразования по строкам и проверьте ответ.",
+                        "kk": "Ережені атап, түрлендірулерді жолмен орындап, жауапты тексеріңіз.",
+                    },
+                    "explanation": {
+                        "ru": f"После последовательного решения получаем: {answer}.",
+                        "kk": f"Қадамдық шешімнен кейінгі жауап: {answer}.",
+                    },
+                })
             task_id = f"task-{skill['id']}"
             _upsert(
                 Task,
@@ -365,3 +384,12 @@ def seed_curriculum_learning_content(path=CURRICULUM_PATH, commit=True):
     if commit:
         db.session.commit()
     return {"tasks": created_tasks, "diagnostic_questions": created_questions}
+
+
+def _authored_answer_variants(answer):
+    """Keep the printed answer while accepting a student's concise equivalent."""
+    values = [str(answer).strip()]
+    equation_parts = re.findall(r"(?:^|;)\s*[A-Za-zА-Яа-я₀-₉]+\s*=\s*([^;]+)", str(answer))
+    if equation_parts:
+        values.append(equation_parts[-1].strip())
+    return list(dict.fromkeys(value for value in values if value))

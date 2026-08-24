@@ -8,6 +8,7 @@ from models import (
     KnowledgeState,
     LearningPath,
     LearningStep,
+    Lesson,
     PrerequisiteEdge,
     Skill,
     StudentProfile,
@@ -309,6 +310,10 @@ def serialize_step(step, include_task=True):
     }
     if include_task:
         payload["task_id"] = step.task_id
+        task = db.session.get(Task, step.task_id)
+        lesson = db.session.get(Lesson, task.lesson_id) if task else None
+        payload["lesson_id"] = lesson.id if lesson else None
+        payload["module_id"] = lesson.module_id if lesson else None
     return payload
 
 

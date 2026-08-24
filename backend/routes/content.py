@@ -1,10 +1,14 @@
 import uuid
+from urllib.parse import quote
 
-from flask import Blueprint, request
+from flask import Blueprint, Response, request
 from flask_jwt_extended import get_jwt, jwt_required
 
 from models import LearningModule, Lesson, Skill, Task, db
+from services.lesson_guides import build_lesson_guide
+from services.workbooks import render_workbook
 from utils.localization import localized
+from utils.localization import requested_locale
 from utils.responses import api_error, success
 from utils.decorators import roles_required
 
@@ -52,6 +56,11 @@ def lesson_payload(lesson, include_content=True, editor=False):
             "example": localized(lesson.example),
             "tasks": [task_payload(task, editor=editor) for task in tasks],
         })
+        module = db.session.get(LearningModule, lesson.module_id)
+        if module:
+            payload["guide"] = build_lesson_guide(
+                module, lesson, tasks=tasks, locale=requested_locale()
+            )
     return payload
 
 
@@ -388,6 +397,45 @@ def lesson_details(lessonId):
     if not lesson:
         return api_error("LESSON_NOT_FOUND", "Урок не найден", 404)
     return success({"lesson": lesson_payload(lesson)})
+
+
+def _workbook_response(module, lessons):
+    locale = requested_locale()
+    pdf = render_workbook(module, lessons, locale=locale)
+    filename = f"sanaq-{module.id}-workbook.pdf"
+    response = Response(pdf, content_type="application/pdf")
+    response.headers["Content-Disposition"] = (
+        f"attachment; filename={filename}; filename*=UTF-8''{quote(filename)}"
+    )
+    response.headers["Cache-Control"] = "private, no-store"
+    response.headers["X-Workbook-Version"] = "workbook-v1"
+    return response
+
+
+@content_bp.get("/lessons/<lessonId>/workbook.pdf")
+@jwt_required(locations=["headers"])
+def lesson_workbook(lessonId):
+    lesson = db.session.get(Lesson, lessonId)
+    module = db.session.get(LearningModule, lesson.module_id) if lesson else None
+    is_editor = get_jwt().get("role") in {"teacher", "admin"}
+    if not lesson or not module or (module.status != "published" and not is_editor):
+        return api_error("LESSON_NOT_FOUND", "Урок не найден", 404)
+    return _workbook_response(module, [lesson])
+
+
+@content_bp.get("/modules/<moduleId>/workbook.pdf")
+@jwt_required(locations=["headers"])
+def module_workbook(moduleId):
+    module = db.session.get(LearningModule, moduleId)
+    is_editor = get_jwt().get("role") in {"teacher", "admin"}
+    if not module or (module.status != "published" and not is_editor):
+        return api_error("MODULE_NOT_FOUND", "Модуль не найден", 404)
+    lessons = db.session.scalars(
+        db.select(Lesson).where(Lesson.module_id == module.id).order_by(Lesson.order_index)
+    ).all()
+    if not lessons:
+        return api_error("WORKBOOK_EMPTY", "В модуле нет уроков для воркбука", 409)
+    return _workbook_response(module, lessons)
 
 
 @content_bp.get("/tasks/<taskId>")
