@@ -1,4 +1,4 @@
-from flask import Blueprint, current_app, request
+from flask import Blueprint, request
 from flask_jwt_extended import get_jwt_identity, jwt_required
 
 from models import AuditLog, Payment, User, db
@@ -16,7 +16,7 @@ def _payment_payload(payment):
     payload["instructions"] = {
         "amount_tiyn": payment.amount_tiyn,
         "reference": payment.provider_reference,
-        "requires_manual_confirmation": payment.provider_mode == "kaspi_link",
+        "requires_manual_confirmation": False,
     }
     return payload
 
@@ -46,12 +46,7 @@ def start_payment():
         return api_error("PLAN_NOT_FOUND", "Тариф не найден", 404)
     if not 8 <= len(idempotency_key) <= 100:
         return api_error("IDEMPOTENCY_KEY_REQUIRED", "Укажите ключ идемпотентности", 422)
-    try:
-        payment, created = create_payment(get_jwt_identity(), plan_id, idempotency_key)
-    except RuntimeError as error:
-        code = str(error)
-        status = 503 if code in {"KASPI_NOT_CONFIGURED", "DEMO_CHECKOUT_DISABLED"} else 500
-        return api_error(code, code, status)
+    payment, created = create_payment(get_jwt_identity(), plan_id, idempotency_key)
     return success({"payment": _payment_payload(payment)}, status=201 if created else 200)
 
 
@@ -70,7 +65,7 @@ def confirm_demo_payment(paymentId):
     payment = db.session.get(Payment, paymentId)
     if not payment or payment.user_id != get_jwt_identity():
         return api_error("PAYMENT_NOT_FOUND", "Платёж не найден", 404)
-    if payment.provider_mode != "demo" or not current_app.config["KASPI_ALLOW_DEMO_CHECKOUT"]:
+    if payment.provider_mode != "demo":
         return api_error("DEMO_CHECKOUT_DISABLED", "Demo checkout отключён", 403)
     try:
         subscription = activate_payment(payment)

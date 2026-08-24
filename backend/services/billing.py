@@ -83,19 +83,11 @@ def create_payment(user_id, plan_id, idempotency_key):
     if existing:
         return existing, False
 
-    mode = current_app.config["KASPI_PAYMENT_MODE"]
-    if mode not in {"demo", "kaspi_link"}:
-        raise RuntimeError("PAYMENT_MODE_INVALID")
-    if mode == "demo" and not current_app.config["KASPI_ALLOW_DEMO_CHECKOUT"]:
-        raise RuntimeError("DEMO_CHECKOUT_DISABLED")
-    if mode == "kaspi_link" and not current_app.config["KASPI_PAYMENT_URL"]:
-        raise RuntimeError("KASPI_NOT_CONFIGURED")
-
     payment = Payment(
         user_id=user_id,
         plan_id=plan_id,
         provider=current_app.config["PAYMENT_PROVIDER"],
-        provider_mode=mode,
+        provider_mode="demo",
         provider_reference=f"SANAQ-{secrets.token_hex(5).upper()}",
         amount_tiyn=plan["amount_tiyn"],
         currency="KZT",
@@ -104,11 +96,7 @@ def create_payment(user_id, plan_id, idempotency_key):
     )
     db.session.add(payment)
     db.session.flush()
-    payment.checkout_url = (
-        f"/student/billing/demo/{payment.id}"
-        if mode == "demo"
-        else current_app.config["KASPI_PAYMENT_URL"]
-    )
+    payment.checkout_url = f"/student/billing/demo/{payment.id}"
     db.session.commit()
     return payment, True
 

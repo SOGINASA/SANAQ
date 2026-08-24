@@ -48,8 +48,8 @@ def test_user_cannot_read_another_users_payment(client, app, student_headers, cr
     assert response.status_code == 404
 
 
-def test_real_kaspi_link_never_self_confirms(client, app, student_headers):
-    app.config.update(KASPI_PAYMENT_MODE="kaspi_link", KASPI_PAYMENT_URL="https://pay.kaspi.kz/pay/test")
+def test_legacy_merchant_environment_cannot_disable_demo_flow(client, app, student_headers):
+    app.config.update(KASPI_PAYMENT_MODE="kaspi_link", KASPI_PAYMENT_URL="")
     response = client.post(
         "/api/v1/billing/payments",
         headers=student_headers | {"Idempotency-Key": "real-link-test"},
@@ -57,13 +57,14 @@ def test_real_kaspi_link_never_self_confirms(client, app, student_headers):
     )
     assert response.status_code == 201
     payment = response.get_json()["data"]["payment"]
-    assert payment["checkout_url"] == "https://pay.kaspi.kz/pay/test"
+    assert payment["provider_mode"] == "demo"
+    assert payment["checkout_url"].startswith("/student/billing/demo/")
     assert payment["status"] == "pending"
-    denied = client.post(
+    confirmed = client.post(
         f"/api/v1/billing/payments/{payment['id']}/demo-confirm",
         headers=student_headers,
     )
-    assert denied.status_code == 403
+    assert confirmed.status_code == 200
 
 
 def test_admin_can_confirm_pending_kaspi_payment(client, app, student_headers, admin_headers):

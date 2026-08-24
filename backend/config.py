@@ -59,9 +59,6 @@ class Config:
     PATHNET_CANARY_PERCENT = int(os.environ.get("PATHNET_CANARY_PERCENT", "0"))
 
     PAYMENT_PROVIDER = os.environ.get("PAYMENT_PROVIDER", "kaspi").strip().lower()
-    KASPI_PAYMENT_MODE = os.environ.get("KASPI_PAYMENT_MODE", "demo").strip().lower()
-    KASPI_PAYMENT_URL = os.environ.get("KASPI_PAYMENT_URL", "").strip()
-    KASPI_ALLOW_DEMO_CHECKOUT = _as_bool("KASPI_ALLOW_DEMO_CHECKOUT", True)
 
     SECRET_KEY = os.environ.get("SECRET_KEY", "sanaq-development-secret-key-only")
     SQLALCHEMY_DATABASE_URI = os.environ.get("DATABASE_URL") or (
@@ -135,8 +132,6 @@ class ProductionConfig(Config):
         "SESSION_COOKIE_SECURE",
         _as_bool("JWT_COOKIE_SECURE", True),
     )
-    KASPI_PAYMENT_MODE = os.environ.get("KASPI_PAYMENT_MODE", "kaspi_link").strip().lower()
-    KASPI_ALLOW_DEMO_CHECKOUT = _as_bool("KASPI_ALLOW_DEMO_CHECKOUT", False)
 
 
 CONFIG_BY_ENV = {

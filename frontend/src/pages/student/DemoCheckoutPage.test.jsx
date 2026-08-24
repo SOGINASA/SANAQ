@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { billingApi } from '../../features/billing/billingApi';
 import { I18nContext } from '../../shared/i18n/i18n';
@@ -20,13 +20,16 @@ describe('DemoCheckoutPage', () => {
     billingApi.confirmDemo.mockResolvedValue({ data: { payment: { ...payment, status: 'paid' } } });
   });
 
-  afterEach(() => jest.restoreAllMocks());
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
 
   test('clearly completes the demo flow after returning from Kaspi', async () => {
     window.sessionStorage.setItem('sanaq-demo-kaspi-payment-1', 'opened');
-    render(<I18nContext.Provider value={{ locale: 'ru' }}><MemoryRouter initialEntries={['/student/billing/demo/payment-1']}><Routes><Route path="/student/billing/demo/:paymentId" element={<DemoCheckoutPage />} /></Routes></MemoryRouter></I18nContext.Provider>);
+    render(<I18nContext.Provider value={{ locale: 'ru' }}><MemoryRouter initialEntries={['/student/billing/demo/payment-1']}><Routes><Route path="/student/billing/demo/:paymentId" element={<DemoCheckoutPage processingDelayMs={1} />} /></Routes></MemoryRouter></I18nContext.Provider>);
 
-    fireEvent.click(await screen.findByRole('button', { name: /Я вернулся/ }));
+    expect(await screen.findByText('Проверяем оплату')).toBeInTheDocument();
+    expect(billingApi.confirmDemo).not.toHaveBeenCalled();
 
     await waitFor(() => expect(billingApi.confirmDemo).toHaveBeenCalledWith('payment-1'));
     expect(await screen.findByText('Добро пожаловать в SANAQ!')).toBeInTheDocument();
