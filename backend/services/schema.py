@@ -7,6 +7,7 @@ from models import (
     CurriculumTopicMetadata,
     OAuthIdentity,
     OAuthLoginCode,
+    PasskeyCredential,
     SkillPlanningMetadata,
     db,
 )
@@ -54,6 +55,7 @@ def ensure_runtime_schema():
         SkillPlanningMetadata.__table__.create(bind=db.engine, checkfirst=True)
         OAuthIdentity.__table__.create(bind=db.engine, checkfirst=True)
         OAuthLoginCode.__table__.create(bind=db.engine, checkfirst=True)
+        PasskeyCredential.__table__.create(bind=db.engine, checkfirst=True)
         inspector = inspect(db.engine)
         tables = set(inspector.get_table_names())
     for table_name, definitions in {**AI_SCHEMA_COLUMNS, **LEARNING_SCHEMA_COLUMNS}.items():

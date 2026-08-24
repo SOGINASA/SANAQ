@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { Eye, EyeOff } from 'lucide-react';
+import { Eye, EyeOff, Fingerprint } from 'lucide-react';
 import { authApi } from './authApi';
 import { Button, Dialog, StatusToast } from '../../shared/ui';
 import { useI18n } from '../../shared/i18n/i18n';
 import { AuthDivider, GoogleAuthButton } from './GoogleAuthButton';
+import { isPasskeySupported, passkeyBrowserError } from './passkeyClient';
 
-export function LoginForm({ onSubmit }) {
+export function LoginForm({ onSubmit, onPasskeyLogin }) {
   const { t } = useI18n();
   const [show, setShow] = useState(false);
   const [form, setForm] = useState({ email: '', password: '' });
@@ -15,6 +16,8 @@ export function LoginForm({ onSubmit }) {
   const [recoveryLoading, setRecoveryLoading] = useState(false);
   const [recoveryError, setRecoveryError] = useState('');
   const [status, setStatus] = useState('');
+  const [passkeyLoading, setPasskeyLoading] = useState(false);
+  const [passkeyError, setPasskeyError] = useState('');
 
   const submit = async (event) => {
     event.preventDefault(); setLoading(true);
@@ -22,6 +25,12 @@ export function LoginForm({ onSubmit }) {
     finally { setLoading(false); }
   };
   const openRecovery = () => { setRecoveryEmail(form.email); setRecoveryError(''); setRecoveryOpen(true); };
+  const loginWithPasskey = async () => {
+    setPasskeyLoading(true); setPasskeyError('');
+    try { await onPasskeyLogin(); }
+    catch (error) { setPasskeyError(passkeyBrowserError(error, t)); }
+    finally { setPasskeyLoading(false); }
+  };
   const requestRecovery = async () => {
     setRecoveryLoading(true); setRecoveryError('');
     try { const result = await authApi.forgotPassword(recoveryEmail); setRecoveryOpen(false); setStatus(result.data.message || t('auth.recoverySent')); }
@@ -31,6 +40,8 @@ export function LoginForm({ onSubmit }) {
 
   return <>
     <form onSubmit={submit} className="space-y-5">
+      <Button type="button" variant="outline" loading={passkeyLoading} disabled={!isPasskeySupported()} onClick={loginWithPasskey} className="w-full"><Fingerprint className="h-5 w-5" /> {t('passkeys.signIn')}</Button>
+      {passkeyError && <div className="rounded-2xl border border-red-200 bg-red-50 p-3 text-sm text-red-800" role="alert">{passkeyError}</div>}
       <GoogleAuthButton />
       <AuthDivider />
       <div><label className="field-label" htmlFor="email">Email</label><input id="email" type="email" autoComplete="email" required className="field-control" value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} /></div>

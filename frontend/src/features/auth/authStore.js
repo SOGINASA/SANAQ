@@ -30,6 +30,17 @@ export const useAuthStore = create((set) => ({
       throw error;
     }
   },
+  loginWithPasskey: async () => {
+    set({ status: 'loading', error: null });
+    try {
+      const result = await authApi.loginWithPasskey();
+      set({ user: result.data.user, status: 'authenticated', error: null });
+      return result;
+    } catch (error) {
+      set({ status: 'anonymous', error });
+      throw error;
+    }
+  },
   register: async (payload) => {
     set({ status: 'loading', error: null });
     try {

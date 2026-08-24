@@ -59,6 +59,9 @@ class User(db.Model):
     oauth_login_codes = db.relationship(
         "OAuthLoginCode", back_populates="user", cascade="all, delete-orphan"
     )
+    passkey_credentials = db.relationship(
+        "PasskeyCredential", back_populates="user", cascade="all, delete-orphan"
+    )
 
     def set_password(self, password):
         self.password_hash = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
@@ -142,6 +145,34 @@ class OAuthLoginCode(db.Model):
     used_at = db.Column(db.DateTime(timezone=True))
 
     user = db.relationship("User", back_populates="oauth_login_codes")
+
+
+class PasskeyCredential(db.Model):
+    __tablename__ = "passkey_credentials"
+
+    id = db.Column(db.String(1024), primary_key=True)
+    user_id = db.Column(db.String(36), db.ForeignKey("users.id"), nullable=False, index=True)
+    public_key = db.Column(db.LargeBinary, nullable=False)
+    sign_count = db.Column(db.Integer, nullable=False, default=0)
+    name = db.Column(db.String(100), nullable=False, default="Passkey")
+    transports = db.Column(db.JSON, nullable=False, default=list)
+    device_type = db.Column(db.String(30))
+    backed_up = db.Column(db.Boolean, nullable=False, default=False)
+    created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utc_now)
+    last_used_at = db.Column(db.DateTime(timezone=True))
+
+    user = db.relationship("User", back_populates="passkey_credentials")
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "name": self.name,
+            "transports": self.transports or [],
+            "device_type": self.device_type,
+            "backed_up": self.backed_up,
+            "created_at": utc_iso(self.created_at),
+            "last_used_at": utc_iso(self.last_used_at),
+        }
 
 
 class StudentProfile(db.Model):

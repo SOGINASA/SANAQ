@@ -34,7 +34,7 @@ def _tokens_for(user):
     )
 
 
-def _auth_response(user, status=200, extra=None):
+def issue_auth_response(user, status=200, extra=None):
     access_token, refresh_token = _tokens_for(user)
     decoded_refresh = decode_token(refresh_token)
     db.session.add(RefreshSession(
@@ -201,7 +201,7 @@ def google_exchange():
     if claimed.rowcount != 1:
         db.session.rollback()
         return api_error("INVALID_OAUTH_CODE", "Код авторизации уже использован", 401)
-    return _auth_response(user, extra={"is_new_user": login_code.is_new_user})
+    return issue_auth_response(user, extra={"is_new_user": login_code.is_new_user})
 
 
 @auth_bp.post("/register")
@@ -243,7 +243,7 @@ def register():
     user.set_password(password)
     db.session.add(user)
     db.session.commit()
-    return _auth_response(user, 201)
+    return issue_auth_response(user, 201)
 
 
 @auth_bp.post("/login")
@@ -259,7 +259,7 @@ def login():
         return api_error("INVALID_CREDENTIALS", "Неверный email или пароль", 401)
 
     user.last_login_at = datetime.now(timezone.utc)
-    return _auth_response(user)
+    return issue_auth_response(user)
 
 
 @auth_bp.post("/refresh")

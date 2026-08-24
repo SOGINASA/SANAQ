@@ -66,6 +66,7 @@ def create_app(config_object=None):
         governance_bp,
         diagnostics_bp,
         learning_paths_bp,
+        passkeys_bp,
         profiles_bp,
         progress_bp,
         system_bp,
@@ -76,6 +77,7 @@ def create_app(config_object=None):
     prefix = app.config["API_PREFIX"]
     app.register_blueprint(system_bp, url_prefix=prefix)
     app.register_blueprint(auth_bp, url_prefix=f"{prefix}/auth")
+    app.register_blueprint(passkeys_bp, url_prefix=f"{prefix}/auth/passkeys")
     app.register_blueprint(admin_bp, url_prefix=f"{prefix}/admin")
     app.register_blueprint(profiles_bp, url_prefix=prefix)
     app.register_blueprint(catalog_bp, url_prefix=prefix)

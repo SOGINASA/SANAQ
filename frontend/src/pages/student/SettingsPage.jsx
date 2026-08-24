@@ -7,6 +7,7 @@ import { Button, Card, StatusToast } from '../../shared/ui';
 import { goalsApi } from '../../features/goals/goalsApi';
 import { translate, useI18n } from '../../shared/i18n/i18n';
 import { useNavigate } from 'react-router-dom';
+import { PasskeySettingsCard } from '../../features/auth/PasskeySettingsCard';
 
 function Toggle({ checked, onChange, label, description }) {
   return (
@@ -157,6 +158,8 @@ export function SettingsPage() {
           {!goals.length && <p className="text-sm text-stone-500">{t('settings.noGoals')}</p>}
         </div>
       </Card>
+
+      <PasskeySettingsCard onStatus={setStatus} onError={setError} />
 
       <Card className="mt-5 p-6 sm:p-8">
         <h2 className="text-xl font-extrabold">{t('settings.interfaceLanguage')}</h2>

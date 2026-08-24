@@ -1,6 +1,7 @@
 import os
 from datetime import timedelta
 from pathlib import Path
+from urllib.parse import urlparse
 
 
 BACKEND_DIR = Path(__file__).resolve().parent
@@ -19,6 +20,13 @@ def _cors_origins():
     if raw:
         return [origin.strip() for origin in raw.split(",") if origin.strip()]
     return ["http://localhost:3000", "http://127.0.0.1:3000"]
+
+
+def _webauthn_origins(frontend_url):
+    raw = os.environ.get("WEBAUTHN_ORIGINS")
+    if raw:
+        return [origin.strip().rstrip("/") for origin in raw.split(",") if origin.strip()]
+    return [frontend_url.rstrip("/")]
 
 
 class Config:
@@ -66,6 +74,11 @@ class Config:
     GOOGLE_REDIRECT_URI = os.environ.get("GOOGLE_REDIRECT_URI", "")
     OAUTH_LOGIN_CODE_EXPIRES = timedelta(minutes=2)
 
+    WEBAUTHN_RP_ID = os.environ.get("WEBAUTHN_RP_ID", urlparse(FRONTEND_URL).hostname or "localhost")
+    WEBAUTHN_RP_NAME = os.environ.get("WEBAUTHN_RP_NAME", "SANAQ")
+    WEBAUTHN_ORIGINS = _webauthn_origins(FRONTEND_URL)
+    WEBAUTHN_CHALLENGE_EXPIRES = timedelta(minutes=5)
+
     JWT_SECRET_KEY = os.environ.get("JWT_SECRET_KEY", "sanaq-development-jwt-secret-key")
     JWT_ACCESS_TOKEN_EXPIRES = timedelta(minutes=30)
     JWT_REFRESH_TOKEN_EXPIRES = timedelta(days=30)
@@ -74,6 +87,9 @@ class Config:
     JWT_COOKIE_SECURE = _as_bool("JWT_COOKIE_SECURE", False)
     JWT_COOKIE_SAMESITE = "Lax"
     JWT_COOKIE_CSRF_PROTECT = False
+    SESSION_COOKIE_HTTPONLY = True
+    SESSION_COOKIE_SAMESITE = "Lax"
+    SESSION_COOKIE_SECURE = _as_bool("SESSION_COOKIE_SECURE", False)
 
 
 class DevelopmentConfig(Config):
@@ -101,6 +117,10 @@ class ProductionConfig(Config):
     AUTO_CREATE_DB = _as_bool("AUTO_CREATE_DB", False)
     SEED_DEMO_DATA = _as_bool("SEED_DEMO_DATA", False)
     JWT_COOKIE_SECURE = _as_bool("JWT_COOKIE_SECURE", True)
+    SESSION_COOKIE_SECURE = _as_bool(
+        "SESSION_COOKIE_SECURE",
+        _as_bool("JWT_COOKIE_SECURE", True),
+    )
 
 
 CONFIG_BY_ENV = {

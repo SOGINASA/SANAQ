@@ -36,6 +36,7 @@ import { AdminModerationPage } from '../../pages/admin/AdminModerationPage';
 import { AdminSystemPage } from '../../pages/admin/AdminSystemPage';
 import { AdminAuditPage } from '../../pages/admin/AdminAuditPage';
 import { NotFoundPage } from '../../pages/shared/NotFoundPage';
+import { SecuritySettingsPage } from '../../pages/shared/SecuritySettingsPage';
 import { ProtectedRoute } from '../../components/common/ProtectedRoute';
 import { RoleRoute } from '../../components/common/RoleRoute';
 
@@ -78,6 +79,7 @@ export function AppRouter() {
           <Route path="content/new" element={<ContentEditorPage />} />
           <Route path="content/:moduleId/edit" element={<ContentEditorPage />} />
           <Route path="assignments" element={<TeacherAssignmentsPage />} />
+          <Route path="settings" element={<SecuritySettingsPage />} />
         </Route>
       </Route>
       <Route element={<RoleRoute role="admin" />}>
@@ -91,6 +93,7 @@ export function AppRouter() {
           <Route path="moderation" element={<AdminModerationPage />} />
           <Route path="system" element={<AdminSystemPage />} />
           <Route path="audit" element={<AdminAuditPage />} />
+          <Route path="settings" element={<SecuritySettingsPage />} />
         </Route>
       </Route>
     </Route>
