@@ -89,10 +89,10 @@ class Config:
         "/api/v1/auth",
     )
     JWT_COOKIE_SECURE = _as_bool("JWT_COOKIE_SECURE", False)
-    JWT_COOKIE_SAMESITE = "Lax"
+    JWT_COOKIE_SAMESITE = os.environ.get("JWT_COOKIE_SAMESITE", "Lax")
     JWT_COOKIE_CSRF_PROTECT = False
     SESSION_COOKIE_HTTPONLY = True
-    SESSION_COOKIE_SAMESITE = "Lax"
+    SESSION_COOKIE_SAMESITE = os.environ.get("SESSION_COOKIE_SAMESITE", "Lax")
     SESSION_COOKIE_SECURE = _as_bool("SESSION_COOKIE_SECURE", False)
     SESSION_COOKIE_NAME = os.environ.get("SESSION_COOKIE_NAME", "sanaq_session")
     SESSION_COOKIE_PATH = os.environ.get("SESSION_COOKIE_PATH", "/")

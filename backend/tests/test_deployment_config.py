@@ -83,9 +83,11 @@ def test_sanaq_uses_an_isolated_session_cookie():
     root_compose = (ROOT / "compose.yaml").read_text(encoding="utf-8")
 
     assert "SESSION_COOKIE_NAME: ${SESSION_COOKIE_NAME:-sanaq_session}" in backend_compose
+    assert "SESSION_COOKIE_SAMESITE: ${SESSION_COOKIE_SAMESITE:-Lax}" in backend_compose
     assert "SESSION_COOKIE_PATH: ${SESSION_COOKIE_PATH:-/}" in backend_compose
     assert "JWT_REFRESH_COOKIE_PATH: ${JWT_REFRESH_COOKIE_PATH:-/api/v1/auth}" in backend_compose
     assert "SESSION_COOKIE_NAME: ${SESSION_COOKIE_NAME:-sanaq_session}" in root_compose
+    assert "SESSION_COOKIE_SAMESITE: ${SESSION_COOKIE_SAMESITE:-Lax}" in root_compose
     assert "SESSION_COOKIE_PATH: ${SESSION_COOKIE_PATH:-/}" in root_compose
     assert "JWT_REFRESH_COOKIE_PATH: ${JWT_REFRESH_COOKIE_PATH:-/api/v1/auth}" in root_compose
 
