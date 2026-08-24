@@ -1,7 +1,16 @@
 from pathlib import Path
 
+from config import _webauthn_origins
+
 
 ROOT = Path(__file__).resolve().parents[2]
+
+
+def test_webauthn_origin_does_not_include_public_url_path(monkeypatch):
+    monkeypatch.delenv("WEBAUTHN_ORIGINS", raising=False)
+    assert _webauthn_origins("https://foodtrack.beast-inside.kz/sanaq") == [
+        "https://foodtrack.beast-inside.kz"
+    ]
 
 
 def test_production_compose_uses_groq_without_ollama_service():
@@ -65,6 +74,20 @@ def test_google_oauth_http_client_is_installed_in_all_backend_images():
 
     assert "requests==2.34.2" in development
     assert "requests==2.34.2" in production
+
+
+def test_sanaq_uses_an_isolated_session_cookie():
+    backend_compose = (ROOT / "backend" / "docker-compose.yml").read_text(
+        encoding="utf-8"
+    )
+    root_compose = (ROOT / "compose.yaml").read_text(encoding="utf-8")
+
+    assert "SESSION_COOKIE_NAME: ${SESSION_COOKIE_NAME:-sanaq_session}" in backend_compose
+    assert "SESSION_COOKIE_PATH: ${SESSION_COOKIE_PATH:-/}" in backend_compose
+    assert "JWT_REFRESH_COOKIE_PATH: ${JWT_REFRESH_COOKIE_PATH:-/api/v1/auth}" in backend_compose
+    assert "SESSION_COOKIE_NAME: ${SESSION_COOKIE_NAME:-sanaq_session}" in root_compose
+    assert "SESSION_COOKIE_PATH: ${SESSION_COOKIE_PATH:-/}" in root_compose
+    assert "JWT_REFRESH_COOKIE_PATH: ${JWT_REFRESH_COOKIE_PATH:-/api/v1/auth}" in root_compose
 
 
 def test_checked_pathnet_checkpoint_is_packaged_for_production():

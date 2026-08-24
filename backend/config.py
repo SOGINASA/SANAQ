@@ -26,7 +26,8 @@ def _webauthn_origins(frontend_url):
     raw = os.environ.get("WEBAUTHN_ORIGINS")
     if raw:
         return [origin.strip().rstrip("/") for origin in raw.split(",") if origin.strip()]
-    return [frontend_url.rstrip("/")]
+    parsed = urlparse(frontend_url)
+    return [f"{parsed.scheme}://{parsed.netloc}"]
 
 
 class Config:
@@ -83,13 +84,18 @@ class Config:
     JWT_ACCESS_TOKEN_EXPIRES = timedelta(minutes=30)
     JWT_REFRESH_TOKEN_EXPIRES = timedelta(days=30)
     JWT_TOKEN_LOCATION = ["headers", "cookies"]
-    JWT_REFRESH_COOKIE_PATH = "/api/v1/auth"
+    JWT_REFRESH_COOKIE_PATH = os.environ.get(
+        "JWT_REFRESH_COOKIE_PATH",
+        "/api/v1/auth",
+    )
     JWT_COOKIE_SECURE = _as_bool("JWT_COOKIE_SECURE", False)
     JWT_COOKIE_SAMESITE = "Lax"
     JWT_COOKIE_CSRF_PROTECT = False
     SESSION_COOKIE_HTTPONLY = True
     SESSION_COOKIE_SAMESITE = "Lax"
     SESSION_COOKIE_SECURE = _as_bool("SESSION_COOKIE_SECURE", False)
+    SESSION_COOKIE_NAME = os.environ.get("SESSION_COOKIE_NAME", "sanaq_session")
+    SESSION_COOKIE_PATH = os.environ.get("SESSION_COOKIE_PATH", "/")
 
 
 class DevelopmentConfig(Config):
