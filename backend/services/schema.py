@@ -1,6 +1,7 @@
 from sqlalchemy import inspect, text
 
 from models import (
+    Assignment,
     AIConversation,
     AIMessage,
     ClassAnnouncement,
@@ -11,6 +12,10 @@ from models import (
 
 
 AI_SCHEMA_COLUMNS = {
+    "assignments": {
+        "target_student_ids": "JSON DEFAULT '[]' NOT NULL",
+        "assignment_kind": "VARCHAR(30) DEFAULT 'standard' NOT NULL",
+    },
     "ai_conversations": {
         "title": "VARCHAR(120) DEFAULT 'Новый диалог' NOT NULL",
         "subject": "VARCHAR(80) DEFAULT 'Математика' NOT NULL",
@@ -39,6 +44,7 @@ def ensure_runtime_schema():
         ClassAnnouncement.__table__.create(bind=db.engine, checkfirst=True)
         CurriculumTopicMetadata.__table__.create(bind=db.engine, checkfirst=True)
         SkillPlanningMetadata.__table__.create(bind=db.engine, checkfirst=True)
+        Assignment.__table__.create(bind=db.engine, checkfirst=True)
         inspector = inspect(db.engine)
         tables = set(inspector.get_table_names())
     for table_name, definitions in AI_SCHEMA_COLUMNS.items():

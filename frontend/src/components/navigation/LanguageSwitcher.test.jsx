@@ -37,3 +37,18 @@ test('can switch from Kazakh to Russian without remounting', () => {
   expect(screen.getByText('Настройки')).toBeInTheDocument();
   expect(document.documentElement.lang).toBe('ru');
 });
+
+test('renders the styled navbar menu and switches language', () => {
+  render(<I18nProvider><LanguageSwitcher navbar /><TranslationProbe /></I18nProvider>);
+
+  fireEvent.click(screen.getByRole('button', { name: 'Выбрать язык интерфейса' }));
+  const menu = screen.getByRole('listbox', { name: 'Выбрать язык интерфейса' });
+
+  expect(menu).toBeInTheDocument();
+  expect(screen.getByRole('option', { name: /Қазақша/ })).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('option', { name: /Қазақша/ }));
+
+  expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+  expect(screen.getByText('Баптаулар')).toBeInTheDocument();
+  expect(document.documentElement.lang).toBe('kk-KZ');
+});

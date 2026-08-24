@@ -1,12 +1,12 @@
 import secrets
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from flask import Blueprint, request
 from flask_jwt_extended import get_jwt, get_jwt_identity
 
 from models import (
     Assignment, Attempt, ClassAnnouncement, ClassEnrollment, Classroom, KnowledgeState, LearningModule, LearningPath,
-    LearningStep, Notification, StudentProfile, Task, TeacherComment, User, db,
+    LearningStep, Lesson, Notification, PrerequisiteEdge, Skill, StudentProfile, Task, TaskAnswer, TeacherComment, User, db,
 )
 from services.learning import available_learning_skills
 from utils.decorators import roles_required
@@ -15,6 +15,40 @@ from utils.responses import api_error, success
 
 
 teacher_bp = Blueprint("teacher", __name__)
+
+
+MISCONCEPTION_COPY = {
+    "common-factor": {
+        "code": "common_factor_not_maximal",
+        "title": {"ru": "Не найден наибольший общий множитель", "kk": "Ең үлкен ортақ көбейткіш табылмады", "en": "Greatest common factor not identified"},
+        "description": {"ru": "Ученик выносит только часть общего множителя или не замечает его.", "kk": "Оқушы ортақ көбейткіштің бір бөлігін ғана шығарады немесе оны байқамайды.", "en": "The learner factors out only part of the common factor or misses it."},
+    },
+    "grouping": {
+        "code": "factor_pair_mismatch",
+        "title": {"ru": "Неверно подобрана пара множителей", "kk": "Көбейткіштер жұбы қате таңдалды", "en": "Incorrect factor pair"},
+        "description": {"ru": "Выбранные числа не дают одновременно нужную сумму и произведение.", "kk": "Таңдалған сандар қажетті қосынды мен көбейтіндіні қатар бермейді.", "en": "The selected numbers do not produce both the required sum and product."},
+    },
+    "discriminant": {
+        "code": "discriminant_sign_or_formula",
+        "title": {"ru": "Ошибка в знаке или формуле дискриминанта", "kk": "Дискриминант таңбасында немесе формуласында қате", "en": "Discriminant sign or formula error"},
+        "description": {"ru": "Неверно подставлен коэффициент или обработан знак в D=b²−4ac.", "kk": "D=b²−4ac формуласында коэффициент немесе таңба қате қолданылған.", "en": "A coefficient or sign was handled incorrectly in D=b²−4ac."},
+    },
+    "quadratic-roots": {
+        "code": "quadratic_roots_confused",
+        "title": {"ru": "Перепутаны корни квадратного уравнения", "kk": "Квадрат теңдеудің түбірлері шатастырылды", "en": "Quadratic roots confused"},
+        "description": {"ru": "Ошибка возникла при переходе от разложения или дискриминанта к корням.", "kk": "Жіктеуден немесе дискриминанттан түбірлерге өту кезінде қате кетті.", "en": "The error occurred when moving from factoring or the discriminant to the roots."},
+    },
+    "parabola": {
+        "code": "parabola_coefficient_misread",
+        "title": {"ru": "Неверно прочитан коэффициент параболы", "kk": "Парабола коэффициенті қате оқылды", "en": "Parabola coefficient misread"},
+        "description": {"ru": "Знак или модуль коэффициента a неверно связан с направлением и шириной графика.", "kk": "a коэффициентінің таңбасы немесе модулі график бағытымен қате байланыстырылған.", "en": "The sign or magnitude of coefficient a was mapped incorrectly to the graph."},
+    },
+    "vertex": {
+        "code": "vertex_sign_confused",
+        "title": {"ru": "Перепутан знак координаты вершины", "kk": "Төбе координатасының таңбасы шатастырылды", "en": "Vertex coordinate sign confused"},
+        "description": {"ru": "В форме y=a(x−h)²+k неверно определены h или k.", "kk": "y=a(x−h)²+k түрінде h немесе k қате анықталған.", "en": "h or k was identified incorrectly in y=a(x−h)²+k."},
+    },
+}
 
 
 def _notification_title(locale, kind, context=""):
@@ -131,6 +165,9 @@ def _assignment_payload(assignment, include_students=False, student_id=None):
         db.select(User).join(ClassEnrollment, ClassEnrollment.student_id == User.id)
         .where(ClassEnrollment.class_id == assignment.class_id).order_by(User.name)
     ).all()
+    target_ids = assignment.target_student_ids or []
+    if target_ids:
+        students = [student for student in students if student.id in target_ids]
     module = db.session.get(LearningModule, assignment.module_id) if assignment.module_id else None
     student_ids = [student.id for student in students]
     task_ids = []
@@ -184,6 +221,7 @@ def _assignment_payload(assignment, include_students=False, student_id=None):
         "module_description": localized(module.description) if module else None,
         "task_id": assignment.task_id, "due_at": assignment.due_at.isoformat() if assignment.due_at else None,
         "status": assignment.status, "completed_students": completed, "total_students": total,
+        "assignment_kind": assignment.assignment_kind, "target_student_ids": target_ids,
         "started_students": started, "total_tasks": task_count, "progress": overall_progress,
         "created_at": assignment.created_at.isoformat(),
     }
@@ -305,6 +343,12 @@ def class_feed(classId):
     assignments = db.session.scalars(
         assignment_query.order_by(Assignment.created_at.desc())
     ).all()
+    if get_jwt().get("role") == "student":
+        student_id = get_jwt_identity()
+        assignments = [
+            item for item in assignments
+            if not item.target_student_ids or student_id in item.target_student_ids
+        ]
     teacher = db.session.get(User, classroom.teacher_id)
     return success({
         "class": {**_class_payload(classroom, details=True), "teacher_name": teacher.name if teacher else "Учитель"},
@@ -424,6 +468,82 @@ def class_weak_skills(classId):
     } for skill_id, value in aggregates.items()]
     items.sort(key=lambda item: item["mastery"])
     return success({"items": items})
+
+
+@teacher_bp.get("/classes/<classId>/error-map")
+@roles_required("teacher")
+def class_error_map(classId):
+    classroom, error = _class_or_error(classId)
+    if error:
+        return error
+    student_ids = db.session.scalars(
+        db.select(ClassEnrollment.student_id).where(ClassEnrollment.class_id == classroom.id)
+    ).all()
+    since = datetime.now(timezone.utc) - timedelta(days=30)
+    rows = db.session.execute(
+        db.select(TaskAnswer, Attempt, Task, User, Skill)
+        .join(Attempt, TaskAnswer.attempt_id == Attempt.id)
+        .join(Task, Attempt.task_id == Task.id)
+        .join(User, Attempt.student_id == User.id)
+        .join(Skill, Task.skill_id == Skill.id)
+        .where(
+            Attempt.student_id.in_(student_ids),
+            TaskAnswer.is_correct.is_(False),
+            TaskAnswer.answered_at >= since,
+        )
+        .order_by(TaskAnswer.answered_at.desc())
+    ).all() if student_ids else []
+    aggregates = {}
+    for answer, attempt, task, user, skill in rows:
+        lesson = db.session.get(Lesson, task.lesson_id)
+        module = db.session.get(LearningModule, lesson.module_id) if lesson else None
+        copy = MISCONCEPTION_COPY.get(skill.id, {
+            "code": f"{skill.id}_practice_error",
+            "title": {"ru": f"Ошибка в навыке «{localized(skill.name, 'ru')}»", "kk": f"«{localized(skill.name, 'kk')}» дағдысындағы қате", "en": f"Error in {localized(skill.name, 'en')}"},
+            "description": {"ru": "Повторяющаяся ошибка требует дополнительной практики.", "kk": "Қайталанатын қате қосымша жаттығуды қажет етеді.", "en": "A recurring error requires additional practice."},
+        })
+        item = aggregates.setdefault(copy["code"], {
+            "code": copy["code"], "title": localized(copy["title"]),
+            "description": localized(copy["description"]), "skill_id": skill.id,
+            "skill_name": localized(skill.name), "module_id": module.id if module else None,
+            "module_title": localized(module.title) if module else None,
+            "error_count": 0, "students": {},
+            "last_seen_at": None,
+        })
+        item["error_count"] += 1
+        item["students"][user.id] = {"id": user.id, "name": user.name}
+        seen_at = answer.answered_at.isoformat()
+        if item["last_seen_at"] is None or seen_at > item["last_seen_at"]:
+            item["last_seen_at"] = seen_at
+    items = []
+    for item in aggregates.values():
+        affected = list(item.pop("students").values())
+        blocked_count = db.session.scalar(
+            db.select(db.func.count()).select_from(PrerequisiteEdge).where(
+                PrerequisiteEdge.prerequisite_skill_id == item["skill_id"]
+            )
+        ) or 0
+        item.update({
+            "student_count": len(affected), "students": affected,
+            "blocked_skill_count": blocked_count,
+            "severity": "high" if len(affected) >= 3 or item["error_count"] >= 5 else "medium" if len(affected) >= 2 or item["error_count"] >= 3 else "low",
+        })
+        recommended_task = db.session.scalar(
+            db.select(Task).where(
+                Task.skill_id == item["skill_id"], Task.is_published.is_(True)
+            ).order_by(Task.difficulty, Task.id)
+        )
+        item["recommended_task_id"] = recommended_task.id if recommended_task else None
+        item["recommended_task_prompt"] = localized(recommended_task.prompt) if recommended_task else None
+        item["recommended_lesson_id"] = recommended_task.lesson_id if recommended_task else None
+        items.append(item)
+    items.sort(key=lambda item: (-item["student_count"], -item["error_count"], item["title"]))
+    return success({
+        "period_days": 30,
+        "total_errors": sum(item["error_count"] for item in items),
+        "affected_students": len({student["id"] for item in items for student in item["students"]}),
+        "items": items,
+    })
 
 
 @teacher_bp.get("/teachers/me/dashboard")
@@ -548,6 +668,12 @@ def create_assignment():
         task = db.session.get(Task, str(data["task_id"]))
         if not task or not task.is_published:
             return api_error("TASK_NOT_PUBLISHED", "Назначить можно только опубликованное задание", 409)
+    requested_targets = list(dict.fromkeys(data.get("target_student_ids") or []))
+    class_student_ids = set(db.session.scalars(
+        db.select(ClassEnrollment.student_id).where(ClassEnrollment.class_id == classroom.id)
+    ).all())
+    if requested_targets and (len(requested_targets) > 100 or not set(requested_targets).issubset(class_student_ids)):
+        return api_error("INVALID_ASSIGNMENT_TARGETS", "Можно выбрать только учеников этого класса", 422)
     due_at = None
     if data.get("due_at"):
         try:
@@ -557,12 +683,12 @@ def create_assignment():
     assignment = Assignment(
         class_id=classroom.id, teacher_id=get_jwt_identity(), title=title,
         module_id=module_id or None, task_id=data.get("task_id"), due_at=due_at,
+        target_student_ids=requested_targets,
+        assignment_kind="corrective_micro" if requested_targets and data.get("task_id") else "standard",
         status=str(data.get("status", "published")),
     )
     db.session.add(assignment)
-    student_ids = db.session.scalars(
-        db.select(ClassEnrollment.student_id).where(ClassEnrollment.class_id == classroom.id)
-    ).all()
+    student_ids = requested_targets or list(class_student_ids)
     for student_id in student_ids:
         student = db.session.get(User, student_id)
         db.session.add(Notification(
@@ -617,4 +743,5 @@ def student_assignments():
         db.select(Assignment).where(Assignment.class_id.in_(class_ids), Assignment.status == "published")
         .order_by(Assignment.due_at)
     ).all() if class_ids else []
+    items = [item for item in items if not item.target_student_ids or get_jwt_identity() in item.target_student_ids]
     return success({"items": [_assignment_payload(item, student_id=get_jwt_identity()) for item in items]})

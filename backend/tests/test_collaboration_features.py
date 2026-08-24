@@ -1,6 +1,64 @@
 from datetime import datetime, timedelta, timezone
 
-from models import Attempt, KnowledgeState, Lesson, Notification, Task, db
+from models import Attempt, KnowledgeState, Lesson, Notification, Task, TaskAnswer, db
+
+
+def test_class_error_map_aggregates_wrong_answers(client, teacher_headers, student_headers, student):
+    classroom = client.post(
+        "/api/v1/classes", headers=teacher_headers,
+        json={"name": "9E", "subject_id": "mathematics", "grade": 9},
+    ).get_json()["data"]["class"]
+    client.post(
+        "/api/v1/classes/join", headers=student_headers,
+        json={"join_code": classroom["join_code"]},
+    )
+    attempt = Attempt(
+        student_id=student.id, task_id="task-discriminant", difficulty=2,
+        status="completed", score=0,
+    )
+    db.session.add(attempt)
+    db.session.flush()
+    db.session.add(TaskAnswer(
+        attempt_id=attempt.id, answer="25", is_correct=False, attempt_number=1,
+    ))
+    db.session.commit()
+
+    response = client.get(
+        f"/api/v1/classes/{classroom['id']}/error-map", headers=teacher_headers,
+    )
+    assert response.status_code == 200
+    data = response.get_json()["data"]
+    assert data["total_errors"] == 1
+    assert data["affected_students"] == 1
+    assert data["items"][0]["code"] == "discriminant_sign_or_formula"
+    assert data["items"][0]["module_id"] == "module-quadratic-equations"
+    assert data["items"][0]["recommended_task_id"]
+    assert data["items"][0]["recommended_lesson_id"] == "lesson-quadratic-equations"
+    assert data["items"][0]["students"][0]["id"] == student.id
+
+    corrective = client.post(
+        "/api/v1/assignments", headers=teacher_headers,
+        json={
+            "class_id": classroom["id"],
+            "title": "Коррекция: дискриминант",
+            "task_id": data["items"][0]["recommended_task_id"],
+            "target_student_ids": [student.id],
+            "status": "published",
+        },
+    )
+    assert corrective.status_code == 201
+    corrective_data = corrective.get_json()["data"]["assignment"]
+    assert corrective_data["assignment_kind"] == "corrective_micro"
+    assert corrective_data["target_student_ids"] == [student.id]
+    student_items = client.get(
+        "/api/v1/students/me/assignments", headers=student_headers,
+    ).get_json()["data"]["items"]
+    assert student_items[0]["id"] == corrective_data["id"]
+
+    forbidden = client.get(
+        f"/api/v1/classes/{classroom['id']}/error-map", headers=student_headers,
+    )
+    assert forbidden.status_code == 403
 
 
 def test_assignment_reports_partial_and_complete_student_progress(

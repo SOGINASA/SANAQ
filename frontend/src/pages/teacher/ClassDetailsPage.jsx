@@ -4,6 +4,7 @@ import { useParams } from 'react-router-dom';
 import { AssignmentProgressDetails, ClassFeed, classroomApi } from '../../features/classroom';
 import { adminContentApi } from '../../features/admin-content/adminContentApi';
 import { ClassHeatmap } from '../../features/teacher-dashboard/ClassHeatmap';
+import { ClassErrorMap } from '../../features/teacher-dashboard/ClassErrorMap';
 import { StudentTable } from '../../features/teacher-dashboard/StudentTable';
 import { teacherApi } from '../../features/teacher-dashboard/teacherApi';
 import { Button, Card, Dialog, Skeleton, StatusToast, Tabs } from '../../shared/ui';
@@ -19,6 +20,7 @@ export function ClassDetailsPage() {
   const [students, setStudents] = useState([]);
   const [analytics, setAnalytics] = useState(null);
   const [weakSkills, setWeakSkills] = useState([]);
+  const [errorMap, setErrorMap] = useState(null);
   const [announcements, setAnnouncements] = useState([]);
   const [assignments, setAssignments] = useState([]);
   const [modules, setModules] = useState([]);
@@ -37,14 +39,15 @@ export function ClassDetailsPage() {
   const load = useCallback(async () => {
     setError('');
     try {
-      const [details, studentResponse, analyticsResponse, weakResponse, feedResponse, moduleResponse] = await Promise.all([
+      const [details, studentResponse, analyticsResponse, weakResponse, errorMapResponse, feedResponse, moduleResponse] = await Promise.all([
         teacherApi.classDetails(classId), teacherApi.students(classId), teacherApi.analytics(classId),
-        teacherApi.weakSkills(classId), classroomApi.feed(classId), adminContentApi.list(),
+        teacherApi.weakSkills(classId), teacherApi.errorMap(classId), classroomApi.feed(classId), adminContentApi.list(),
       ]);
       setClassroom(details.data.class);
       setStudents(studentResponse.data.items || []);
       setAnalytics(analyticsResponse.data);
       setWeakSkills(weakResponse.data.items || []);
+      setErrorMap(errorMapResponse.data);
       setAnnouncements(feedResponse.data.announcements || []);
       setAssignments(feedResponse.data.assignments || []);
       const availableModules = (moduleResponse.data.items || []).filter((item) => item.status === 'published');
@@ -71,8 +74,25 @@ export function ClassDetailsPage() {
   const createAssignment = async () => {
     setActionLoading(true); setError('');
     try {
+      let taskId = assignment.task_id;
+      if (assignment.custom_task) {
+        const taskResponse = await adminContentApi.createTask({
+          lesson_id: assignment.lesson_id,
+          skill_id: assignment.skill_id,
+          prompt: assignment.custom_prompt.trim(),
+          task_type: 'short_answer',
+          difficulty: 1,
+          options: [],
+          acceptable_answers: [assignment.custom_answer.trim()],
+          hint: assignment.custom_hint.trim(),
+          explanation: assignment.custom_explanation.trim(),
+          is_published: true,
+        });
+        taskId = taskResponse.data.task.id;
+      }
       const response = await teacherApi.createAssignment({
         ...assignment, class_id: classId,
+        task_id: taskId,
         due_at: assignment.due_at ? new Date(assignment.due_at).toISOString() : null,
         status: 'published',
       });
@@ -108,6 +128,25 @@ export function ClassDetailsPage() {
   const copyCode = async () => {
     await navigator.clipboard?.writeText(classroom?.join_code || '');
     setToast(t('classDetails.copied'));
+  };
+
+  const openCorrectiveAssignment = (errorItem) => {
+    setAssignment({
+      title: t('errorMap.assignmentTitle', { skill: errorItem.skill_name }),
+      module_id: '',
+      task_id: errorItem.recommended_task_id,
+      task_prompt: errorItem.recommended_task_prompt,
+      lesson_id: errorItem.recommended_lesson_id,
+      skill_id: errorItem.skill_id,
+      target_student_ids: errorItem.students.map((student) => student.id),
+      custom_task: false,
+      custom_prompt: '',
+      custom_answer: '',
+      custom_hint: '',
+      custom_explanation: '',
+      due_at: '',
+    });
+    setAssignmentOpen(true);
   };
 
   if (loading) return <div className="mx-auto max-w-7xl"><Skeleton lines={4} /><Skeleton className="mt-6" lines={8} /></div>;
@@ -149,9 +188,9 @@ export function ClassDetailsPage() {
 
       {activeTab === 'students' && <Card className="mt-6 p-5 sm:p-8"><div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"><div><p className="eyebrow">{t('classWorkspace.participants')}</p><h2 className="mt-2 text-2xl font-extrabold">{t('classDetails.students')}</h2></div><label className="relative block"><span className="sr-only">{t('classDetails.search')}</span><Search className="absolute left-4 top-3.5 h-5 w-5 text-stone-400" /><input value={search} onChange={(event) => setSearch(event.target.value)} className="field-control pl-11 sm:w-72" placeholder={t('classDetails.searchPlaceholder')} /></label></div><div className="mt-5"><StudentTable students={students} search={search} /></div></Card>}
 
-      {activeTab === 'analytics' && <div className="mt-6 grid gap-6 lg:grid-cols-2"><Card className="min-w-0 p-6 sm:p-8"><h2 className="text-2xl font-extrabold">{t('classDetails.mastery')}</h2><div className="mt-7"><ClassHeatmap students={students} /></div></Card><Card className="p-6 sm:p-8"><p className="eyebrow">{t('classDetails.priority')}</p><h2 className="mt-2 text-2xl font-extrabold">{priority?.name || t('classDetails.noData')}</h2><p className="mt-4 text-stone-600">{t('classDetails.priorityText', { mastery: Math.round((priority?.mastery || 0) * 100), count: priority?.students_below_threshold || 0 })}</p><div className="mt-7 grid grid-cols-2 gap-3"><div className="rounded-2xl bg-lavender-100 p-4"><p className="font-display text-2xl font-semibold">{analytics?.average_mastery || 0}%</p><p className="text-sm text-stone-600">{t('classDetails.average')}</p></div><div className="rounded-2xl bg-mint-100 p-4"><p className="font-display text-2xl font-semibold">{analytics?.active_students || 0}</p><p className="text-sm text-stone-600">{t('classDetails.active')}</p></div></div></Card></div>}
+      {activeTab === 'analytics' && <div className="mt-6 grid gap-6 lg:grid-cols-2"><Card className="min-w-0 p-6 sm:p-8"><h2 className="text-2xl font-extrabold">{t('classDetails.mastery')}</h2><div className="mt-7"><ClassHeatmap students={students} /></div></Card><Card className="p-6 sm:p-8"><p className="eyebrow">{t('classDetails.priority')}</p><h2 className="mt-2 text-2xl font-extrabold">{priority?.name || t('classDetails.noData')}</h2><p className="mt-4 text-stone-600">{t('classDetails.priorityText', { mastery: Math.round((priority?.mastery || 0) * 100), count: priority?.students_below_threshold || 0 })}</p><div className="mt-7 grid grid-cols-2 gap-3"><div className="rounded-2xl bg-lavender-100 p-4"><p className="font-display text-2xl font-semibold">{analytics?.average_mastery || 0}%</p><p className="text-sm text-stone-600">{t('classDetails.average')}</p></div><div className="rounded-2xl bg-mint-100 p-4"><p className="font-display text-2xl font-semibold">{analytics?.active_students || 0}</p><p className="text-sm text-stone-600">{t('classDetails.active')}</p></div></div></Card><Card className="min-w-0 p-6 sm:p-8 lg:col-span-2"><p className="eyebrow">{t('errorMap.eyebrow')}</p><h2 className="mt-2 text-2xl font-extrabold">{t('errorMap.title')}</h2><p className="mt-2 text-sm text-stone-500">{t('errorMap.description')}</p><div className="mt-6"><ClassErrorMap data={errorMap} onAssign={openCorrectiveAssignment} /></div></Card></div>}
 
-      <Dialog open={assignmentOpen} onClose={() => setAssignmentOpen(false)} title={t('classWorkspace.newAssignment')} description={t('classWorkspace.assignmentDescription')} footer={<><Button variant="ghost" onClick={() => setAssignmentOpen(false)}>{t('classWorkspace.cancel')}</Button><Button loading={actionLoading} disabled={!assignment.title.trim() || !assignment.module_id} onClick={createAssignment}>{t('classWorkspace.assign')}</Button></>}><div className="grid gap-4"><label className="field-label">{t('classWorkspace.name')}<input className="field-control mt-2" value={assignment.title} onChange={(event) => setAssignment({ ...assignment, title: event.target.value })} placeholder={t('classWorkspace.namePlaceholder')} /></label><label className="field-label">{t('classWorkspace.module')}<select className="field-control mt-2" value={assignment.module_id} onChange={(event) => setAssignment({ ...assignment, module_id: event.target.value })}>{modules.map((item) => <option key={item.id} value={item.id}>{item.title}</option>)}</select></label><label className="field-label">{t('classWorkspace.deadline')} <span className="font-normal text-stone-400">{t('classWorkspace.optional')}</span><input type="datetime-local" className="field-control mt-2" value={assignment.due_at} onChange={(event) => setAssignment({ ...assignment, due_at: event.target.value })} /></label></div></Dialog>
+      <Dialog open={assignmentOpen} onClose={() => setAssignmentOpen(false)} title={assignment.task_id ? t('errorMap.dialogTitle') : t('classWorkspace.newAssignment')} description={assignment.task_id ? t('errorMap.dialogDescription', { count: assignment.target_student_ids?.length || 0 }) : t('classWorkspace.assignmentDescription')} footer={<><Button variant="ghost" onClick={() => setAssignmentOpen(false)}>{t('classWorkspace.cancel')}</Button><Button loading={actionLoading} disabled={!assignment.title.trim() || (assignment.custom_task ? !assignment.custom_prompt?.trim() || !assignment.custom_answer?.trim() : !(assignment.module_id || assignment.task_id))} onClick={createAssignment}>{t('classWorkspace.assign')}</Button></>}><div className="grid gap-4"><label className="field-label">{t('classWorkspace.name')}<input className="field-control mt-2" value={assignment.title} onChange={(event) => setAssignment({ ...assignment, title: event.target.value })} placeholder={t('classWorkspace.namePlaceholder')} /></label>{assignment.task_id ? <><div className="grid grid-cols-2 gap-2 rounded-2xl bg-stone-100 p-1"><button type="button" onClick={() => setAssignment({ ...assignment, custom_task: false })} className={`min-h-11 rounded-xl px-3 text-sm font-bold ${!assignment.custom_task ? 'bg-paper text-lavender-700 shadow-sm' : 'text-stone-500'}`}>{t('errorMap.useSuggested')}</button><button type="button" onClick={() => setAssignment({ ...assignment, custom_task: true })} className={`min-h-11 rounded-xl px-3 text-sm font-bold ${assignment.custom_task ? 'bg-paper text-lavender-700 shadow-sm' : 'text-stone-500'}`}>{t('errorMap.writeOwn')}</button></div>{assignment.custom_task ? <div className="grid gap-4"><label className="field-label">{t('errorMap.prompt')}<textarea rows="3" className="field-control mt-2 py-3" value={assignment.custom_prompt} onChange={(event) => setAssignment({ ...assignment, custom_prompt: event.target.value })} /></label><label className="field-label">{t('errorMap.correctAnswer')}<input className="field-control mt-2" value={assignment.custom_answer} onChange={(event) => setAssignment({ ...assignment, custom_answer: event.target.value })} /></label><label className="field-label">{t('errorMap.hint')}<input className="field-control mt-2" value={assignment.custom_hint} onChange={(event) => setAssignment({ ...assignment, custom_hint: event.target.value })} /></label><label className="field-label">{t('errorMap.explanation')}<textarea rows="2" className="field-control mt-2 py-3" value={assignment.custom_explanation} onChange={(event) => setAssignment({ ...assignment, custom_explanation: event.target.value })} /></label></div> : <div className="rounded-2xl bg-lavender-50 p-4"><span className="text-xs font-bold uppercase tracking-wider text-lavender-700">{t('errorMap.microTask')}</span><p className="mt-2 font-bold">{assignment.task_prompt}</p></div>}</> : <label className="field-label">{t('classWorkspace.module')}<select className="field-control mt-2" value={assignment.module_id} onChange={(event) => setAssignment({ ...assignment, module_id: event.target.value })}>{modules.map((item) => <option key={item.id} value={item.id}>{item.title}</option>)}</select></label>}<label className="field-label">{t('classWorkspace.deadline')} <span className="font-normal text-stone-400">{t('classWorkspace.optional')}</span><input type="datetime-local" className="field-control mt-2" value={assignment.due_at} onChange={(event) => setAssignment({ ...assignment, due_at: event.target.value })} /></label></div></Dialog>
       <Dialog open={Boolean(selectedAssignment)} onClose={() => setSelectedAssignment(null)} title={selectedAssignment?.title || ''} description={t('assignmentProgress.summary', { completed: selectedAssignment?.completed_students || 0, started: selectedAssignment?.started_students || 0, total: selectedAssignment?.total_students || 0 })} footer={<Button variant="ghost" onClick={() => setSelectedAssignment(null)}>{t('classWorkspace.close')}</Button>}><AssignmentProgressDetails assignment={selectedAssignment} /></Dialog>
       <Dialog open={Boolean(deleteTarget)} onClose={() => setDeleteTarget(null)} title={t('classWorkspace.deleteTitle')} description={t('classWorkspace.deleteDescription')} footer={<><Button variant="ghost" onClick={() => setDeleteTarget(null)}>{t('classWorkspace.cancel')}</Button><Button variant="danger" loading={actionLoading} onClick={removeAnnouncement}>{t('classWorkspace.delete')}</Button></>}><p className="rounded-2xl bg-stone-100 p-4 font-bold">{deleteTarget?.title}</p></Dialog>
       <StatusToast message={toast} onClose={() => setToast('')} />

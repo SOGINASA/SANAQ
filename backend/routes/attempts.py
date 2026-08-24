@@ -232,6 +232,23 @@ def _result_payload(attempt):
     state = db.session.scalar(db.select(KnowledgeState).filter_by(
         student_id=attempt.student_id, skill_id=task.skill_id
     ))
+    answer_count = db.session.scalar(
+        db.select(db.func.count()).select_from(TaskAnswer).where(TaskAnswer.attempt_id == attempt.id)
+    ) or 0
+    mastery = round(state.mastery, 2) if state else 0
+    correct = bool(answer and answer.is_correct)
+    if correct and answer_count == 1:
+        feedback_kind = "mastered_first_try"
+        headline = "Получилось с первой попытки"
+        detail = "Ответ уверенный. Можно переходить к следующему шагу маршрута."
+    elif correct:
+        feedback_kind = "mastered_after_support"
+        headline = "Ошибка исправлена"
+        detail = "Повторная попытка верная — основа закрепляется, но навык стоит повторить по расписанию."
+    else:
+        feedback_kind = "needs_reinforcement"
+        headline = "Навык пока требует закрепления"
+        detail = "Разберите объяснение и выполните более простое задание перед следующим шагом."
     return {
         "attempt": _attempt_payload(attempt),
         "is_correct": answer.is_correct if answer else False,
@@ -241,11 +258,20 @@ def _result_payload(attempt):
         "generated_by_ai": False,
         "skill": {
             "id": task.skill_id,
-            "mastery": round(state.mastery, 2) if state else 0,
+            "mastery": mastery,
             "status": mastery_status(state.mastery, state.next_review_at) if state else "available",
             "next_review_at": state.next_review_at.isoformat() if state and state.next_review_at else None,
         },
         "adaptation": _adaptation_payload(task, answer, state),
+        "feedback_summary": {
+            "kind": feedback_kind,
+            "headline": headline,
+            "detail": detail,
+            "attempt_count": answer_count,
+            "mastery_percent": round(mastery * 100),
+            "next_action": "continue_path" if correct else "retry_easier",
+            "next_review_at": state.next_review_at.isoformat() if state and state.next_review_at else None,
+        },
     }
 
 

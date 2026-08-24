@@ -1,5 +1,5 @@
 import hashlib
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 
 from models import (
     Diagnostic,
@@ -11,6 +11,7 @@ from models import (
     PrerequisiteEdge,
     Skill,
     StudentProfile,
+    StudentGoal,
     Task,
     Topic,
     db,
@@ -268,6 +269,31 @@ def serialize_path(path, include_steps=True):
         "progress": path_progress(path.id),
         "algorithm_version": path.algorithm_version,
         "ranking": path_ranking_metadata(path),
+    }
+    all_steps = db.session.scalars(
+        db.select(LearningStep).where(LearningStep.path_id == path.id)
+    ).all()
+    remaining_steps = sum(step.status != "completed" for step in all_steps)
+    steps_per_week = {"light": 3, "balanced": 5, "intensive": 7}.get(path.pace, 5)
+    estimated_days = 0 if remaining_steps == 0 else max(1, round(remaining_steps / steps_per_week * 7))
+    estimated_date = date.today() + timedelta(days=estimated_days)
+    goal = db.session.scalar(
+        db.select(StudentGoal).where(
+            StudentGoal.student_id == path.student_id,
+            StudentGoal.status == "active",
+        ).order_by(StudentGoal.target_date, StudentGoal.created_at.desc())
+    )
+    target_date = path.target_date or (goal.target_date if goal else None)
+    payload["goal_projection"] = {
+        "goal_id": goal.id if goal else None,
+        "title": goal.title if goal else localized(path.title),
+        "target_date": target_date.isoformat() if target_date else None,
+        "remaining_steps": remaining_steps,
+        "total_steps": len(all_steps),
+        "estimated_days": estimated_days,
+        "estimated_completion_date": estimated_date.isoformat(),
+        "steps_per_week": steps_per_week,
+        "status": "completed" if not remaining_steps else "at_risk" if target_date and estimated_date > target_date else "on_track",
     }
     if include_steps:
         steps = db.session.scalars(

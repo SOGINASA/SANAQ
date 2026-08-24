@@ -306,7 +306,7 @@ export function AssistantPage() {
         )}
       </section>
 
-      <footer className="shrink-0 border-t border-stone-200 bg-paper px-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-2 sm:px-5 sm:pb-[calc(1rem+env(safe-area-inset-bottom))] sm:pt-3">
+      <footer className="shrink-0 border-t border-stone-200 bg-paper px-3 pb-[calc(6rem+env(safe-area-inset-bottom))] pt-2 sm:px-5 sm:pb-[calc(6.25rem+env(safe-area-inset-bottom))] sm:pt-3 lg:pb-[calc(1rem+env(safe-area-inset-bottom))]">
         <div className="mx-auto w-full max-w-3xl">
           {messages.length > 0 && !thinking && <div className="mb-2 flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none]">{followUpPrompts.map((key) => { const prompt = t(`assistantPage.followUps.${key}`); return <button key={key} onClick={() => sendMessage(prompt)} className="min-h-10 shrink-0 rounded-full border border-stone-200 px-4 text-xs font-bold text-stone-600 transition hover:border-lavender-300 hover:bg-lavender-50">{prompt}</button>; })}</div>}
           <form onSubmit={handleSubmit} className="flex items-end gap-1 rounded-3xl border border-stone-300 bg-white p-2 shadow-sm transition focus-within:border-lavender-500 focus-within:ring-4 focus-within:ring-lavender-100">

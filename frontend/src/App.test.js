@@ -35,14 +35,15 @@ test('renders SANAQ landing page', () => {
   render(<App />);
   expect(screen.getByRole('heading', { name: /Учись не больше/i })).toBeInTheDocument();
   expect(screen.getAllByText('SANAQ').length).toBeGreaterThan(0);
-  expect(screen.getByRole('combobox', { name: 'Выбрать язык интерфейса' })).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Выбрать язык интерфейса' })).toBeInTheDocument();
   expect(screen.getByRole('button', { name: 'Войти' })).toBeInTheDocument();
   expect(screen.getByRole('button', { name: 'Открыть меню' })).toBeInTheDocument();
 });
 
 test('switches the rendered application from Russian to Kazakh', () => {
   render(<App />);
-  fireEvent.change(screen.getByRole('combobox', { name: 'Выбрать язык интерфейса' }), { target: { value: 'kk' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Выбрать язык интерфейса' }));
+  fireEvent.click(screen.getByRole('option', { name: /Қазақша/ }));
   expect(screen.getByRole('heading', { name: /Көп оқы.*Дәл оқы/i })).toBeInTheDocument();
   expect(screen.queryByRole('heading', { name: /Учись не больше/i })).not.toBeInTheDocument();
 });
@@ -61,6 +62,8 @@ test('renders the student assistant for an authenticated student', async () => {
   expect(screen.getByRole('heading', { name: /Чем помочь с учёбой/i })).toBeInTheDocument();
   expect(screen.getByLabelText(/Диалог с SANA/i)).toBeInTheDocument();
   expect(screen.getByPlaceholderText(/Сообщение для SANA/i)).toBeInTheDocument();
+  expect(screen.getByRole('navigation', { name: 'Мобильная навигация' })).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Открыть настройки доступности' })).toBeInTheDocument();
 });
 
 test('renders the API-backed assignments workflow for a teacher', async () => {

@@ -8,6 +8,7 @@ export const teacherApi = {
   students: (classId) => apiRequest({ method: 'GET', url: `/classes/${classId}/students` }),
   analytics: (classId) => apiRequest({ method: 'GET', url: `/classes/${classId}/analytics` }),
   weakSkills: (classId) => apiRequest({ method: 'GET', url: `/classes/${classId}/weak-skills` }),
+  errorMap: (classId) => apiRequest({ method: 'GET', url: `/classes/${classId}/error-map` }),
   studentProgress: (studentId) => apiRequest({ method: 'GET', url: `/teachers/students/${studentId}/progress` }),
   comment: (studentId, payload) => apiRequest({ method: 'POST', url: `/teachers/students/${studentId}/comments`, data: payload }),
   assignments: () => apiRequest({ method: 'GET', url: '/assignments' }),
