@@ -25,7 +25,7 @@ beforeEach(() => useAccessibilityStore.setState({ locale: 'en' }));
 
 test.each(viewports)('public header keeps login, language, and menu controls at %d px', (width) => {
   renderAt(width, <Header />);
-  expect(screen.getByRole('combobox', { name: 'Select interface language' })).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'Select interface language' })).toBeInTheDocument();
   expect(screen.getByRole('button', { name: 'Sign in' })).toBeInTheDocument();
   expect(screen.getByRole('button', { name: 'Open menu' })).toHaveClass('h-11', 'w-11');
 });

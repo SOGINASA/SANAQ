@@ -25,6 +25,7 @@ from models import (
     StudentProfile,
     Subject,
     Task,
+    TaskAnswer,
     TeacherComment,
     TeacherProfile,
     Topic,
@@ -487,6 +488,38 @@ def seed_demo_data():
                 started_at=now - timedelta(days=index + 1, minutes=12),
                 completed_at=now - timedelta(days=index + 1),
             )
+
+    error_samples = [
+        ("demo-student-stable", "task-common-factor", "2(4x+10)"),
+        ("demo-student-attention", "task-common-factor", "2(3x+6)"),
+        ("demo-student-attention", "task-discriminant-v2", "36"),
+        ("demo-student-risk", "task-common-factor-v2", "8(x+20)"),
+        ("demo-student-risk", "task-discriminant", "25"),
+        ("demo-student-risk", "task-vertex-v2", "1,-4"),
+    ]
+    for index, (student_id, task_id, wrong_answer) in enumerate(error_samples, 1):
+        attempt_id = f"seed-error-attempt-{index}"
+        task = db.session.get(Task, task_id)
+        _upsert(
+            Attempt,
+            attempt_id,
+            student_id=student_id,
+            task_id=task_id,
+            status="completed",
+            difficulty=task.difficulty,
+            score=0.0,
+            started_at=now - timedelta(hours=index + 2),
+            completed_at=now - timedelta(hours=index + 2, minutes=-4),
+        )
+        _upsert(
+            TaskAnswer,
+            f"seed-error-answer-{index}",
+            attempt_id=attempt_id,
+            answer=wrong_answer,
+            is_correct=False,
+            attempt_number=1,
+            answered_at=now - timedelta(hours=index + 2, minutes=-2),
+        )
 
     _upsert(
         Assignment,

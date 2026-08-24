@@ -17,7 +17,7 @@ export function HomePage() {
   return (
     <>
       <section className="hero-grid overflow-hidden border-b border-stone-200 py-14 sm:py-20 lg:py-24">
-        <div className="page-container grid items-center gap-12 lg:grid-cols-[1.08fr_0.92fr]">
+        <div className="page-container grid items-start gap-12 lg:grid-cols-[1.08fr_0.92fr]">
           <div className="animate-rise">
             <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-lavender-200 bg-lavender-50 px-4 py-2 text-sm font-bold text-lavender-700">
               <Sparkles className="h-4 w-4" aria-hidden="true" /> {t('home.badge')}

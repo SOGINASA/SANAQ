@@ -85,7 +85,7 @@ export function AppShell({ role = 'student' }) {
               <p className="hidden truncate font-bold sm:block">{role === 'admin' ? t('nav.adminArea') : role === 'teacher' ? t('teacher.dashboard') : t('shell.studentCabinet')}</p>
             </div>
             <div className="relative flex min-w-0 shrink-0 items-center gap-1 min-[360px]:gap-1.5 sm:gap-3">
-              <LanguageSwitcher compact />
+              <LanguageSwitcher navbar />
               <button onClick={toggleNotifications} className="relative grid h-11 w-11 cursor-pointer place-items-center rounded-2xl border border-stone-200 bg-paper" aria-label={t('shell.notifications')} aria-expanded={notificationsOpen}>
                 <Bell className="h-5 w-5" />{unreadCount > 0 && <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-coral" />}
               </button>
@@ -124,7 +124,7 @@ export function AppShell({ role = 'student' }) {
       <main id="dashboard-content" tabIndex="-1" className={immersiveAssistant ? 'h-dvh min-h-0 overflow-hidden p-0' : 'min-w-0 px-3 pb-[calc(7rem+env(safe-area-inset-bottom))] pt-5 sm:px-6 sm:pt-6 lg:px-8 lg:pb-10'}>
         <div key={pathname} className={`route-stage min-w-0 ${immersiveAssistant ? 'h-full min-h-0' : ''}`}><Outlet /></div>
       </main>
-      {!immersiveAssistant && <MobileNavigation role={role} />}
+      <MobileNavigation role={role} />
       <AccessibilityMenu context={immersiveAssistant ? 'assistant' : 'app'} />
     </div>
   );

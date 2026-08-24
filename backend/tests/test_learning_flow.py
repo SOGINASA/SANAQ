@@ -93,6 +93,9 @@ def test_diagnostic_to_progress_vertical_slice(client, student_headers):
     )
     assert attempt_result.status_code == 200
     assert attempt_result.get_json()["data"]["result"]["skill"]["mastery"] >= 0.75
+    feedback_summary = attempt_result.get_json()["data"]["result"]["feedback_summary"]
+    assert feedback_summary["kind"] == "mastered_first_try"
+    assert feedback_summary["attempt_count"] == 1
     adaptation = attempt_result.get_json()["data"]["result"]["adaptation"]
     assert adaptation["recommended_difficulty"] > adaptation["current_difficulty"]
     assert adaptation["reason"]
@@ -101,6 +104,13 @@ def test_diagnostic_to_progress_vertical_slice(client, student_headers):
         f"/api/v1/learning-paths/{path_id}/next-step", headers=student_headers
     ).get_json()["data"]["step"]
     assert updated_step["skill_id"] == "grouping"
+
+    path_response = client.get(
+        f"/api/v1/learning-paths/{path_id}", headers=student_headers,
+    ).get_json()["data"]["learning_path"]
+    assert path_response["goal_projection"]["remaining_steps"] >= 1
+    assert path_response["goal_projection"]["estimated_completion_date"]
+    assert path_response["goal_projection"]["status"] in {"on_track", "at_risk"}
 
     progress = client.get(
         "/api/v1/students/me/progress/summary?subject_id=mathematics",

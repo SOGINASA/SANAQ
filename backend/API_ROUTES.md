@@ -235,6 +235,7 @@
 | GET | `/classes/:classId/students` | linked teacher | Ученики и краткий прогресс |
 | GET | `/classes/:classId/analytics` | linked teacher | Тепловая карта навыков класса |
 | GET | `/classes/:classId/weak-skills` | linked teacher | Общие затруднения и группы риска |
+| GET | `/classes/:classId/error-map` | linked teacher | Живая карта повторяющихся ошибок класса |
 | GET | `/classes/:classId/feed` | linked user | Объявления и назначения класса |
 | POST | `/classes/:classId/announcements` | owner/admin | Опубликовать объявление класса |
 | DELETE | `/classes/:classId/announcements/:announcementId` | owner/admin | Удалить объявление класса |
