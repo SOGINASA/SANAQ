@@ -8,6 +8,6 @@ export function ProtectedRoute() {
   const status = useAuthStore((state) => state.status);
   const location = useLocation();
   if (status === 'loading') return <div className="grid min-h-screen place-items-center"><LoaderCircle className="h-8 w-8 animate-spin text-lavender-600" aria-label={t('route.checkingSession')} /></div>;
-  if (status !== 'authenticated') return <Navigate to="/login" replace state={{ from: location.pathname }} />;
+  if (status !== 'authenticated') return <Navigate to="/login" replace state={{ from: `${location.pathname}${location.search}${location.hash}` }} />;
   return <Outlet />;
 }

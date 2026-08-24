@@ -68,7 +68,7 @@ export function DemoCheckoutPage() {
     window.sessionStorage.setItem(demoKey, 'opened');
     leftPage.current = false;
     setPhase('waiting');
-    window.open(KASPI_HOME_URL, '_blank', 'noopener,noreferrer');
+    window.location.assign(KASPI_HOME_URL);
   };
 
   if (phase === 'success') return <div className="grid min-h-[calc(100dvh-10rem)] place-items-center py-6"><Card className="relative w-full max-w-xl overflow-hidden border-mint-200 p-6 text-center sm:p-10"><div className="absolute inset-x-0 top-0 h-2 bg-gradient-to-r from-mint-500 via-lime to-lavender-500" /><span className="mx-auto grid h-20 w-20 place-items-center rounded-[1.75rem] bg-mint-100 text-mint-700"><CheckCircle2 className="h-10 w-10" /></span><span className="mt-6 inline-flex rounded-full bg-warning-100 px-3 py-1 text-xs font-extrabold uppercase tracking-[0.12em] text-warning-700">{t('billing.demoBadge')}</span><h1 className="mt-4 text-3xl font-extrabold sm:text-4xl">{t('billing.welcomeTitle')}</h1><p className="mx-auto mt-3 max-w-md leading-7 text-stone-600">{t('billing.welcomeText')}</p><div className="mt-6 rounded-3xl bg-stone-50 p-5 text-left"><div className="flex justify-between gap-4"><span className="text-stone-500">{t('billing.plan')}</span><strong>{payment?.plan?.name?.ru || payment?.plan_id}</strong></div><div className="mt-3 flex justify-between gap-4 border-t border-stone-200 pt-3"><span className="text-stone-500">{t('billing.demoCharge')}</span><strong>0 ₸</strong></div></div><Button className="mt-7 w-full" onClick={() => navigate('/student/dashboard')}>{t('billing.startLearning')}<ArrowRight className="h-5 w-5" /></Button><p className="mt-5 text-xs font-semibold text-stone-500">{t('billing.demoSuccessDisclaimer')}</p></Card></div>;

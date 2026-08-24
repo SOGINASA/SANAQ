@@ -18,16 +18,14 @@ describe('DemoCheckoutPage', () => {
     window.sessionStorage.clear();
     billingApi.payment.mockResolvedValue({ data: { payment } });
     billingApi.confirmDemo.mockResolvedValue({ data: { payment: { ...payment, status: 'paid' } } });
-    jest.spyOn(window, 'open').mockImplementation(() => null);
   });
 
   afterEach(() => jest.restoreAllMocks());
 
-  test('opens Kaspi separately and clearly completes only the demo flow', async () => {
+  test('clearly completes the demo flow after returning from Kaspi', async () => {
+    window.sessionStorage.setItem('sanaq-demo-kaspi-payment-1', 'opened');
     render(<I18nContext.Provider value={{ locale: 'ru' }}><MemoryRouter initialEntries={['/student/billing/demo/payment-1']}><Routes><Route path="/student/billing/demo/:paymentId" element={<DemoCheckoutPage />} /></Routes></MemoryRouter></I18nContext.Provider>);
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Открыть Kaspi' }));
-    expect(window.open).toHaveBeenCalledWith('https://kaspi.kz/', '_blank', 'noopener,noreferrer');
     fireEvent.click(await screen.findByRole('button', { name: /Я вернулся/ }));
 
     await waitFor(() => expect(billingApi.confirmDemo).toHaveBeenCalledWith('payment-1'));

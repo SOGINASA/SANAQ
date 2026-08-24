@@ -72,5 +72,9 @@ export const useAuthStore = create((set) => ({
       set({ user: null, status: 'anonymous', error: null });
     }
   },
+  expireSession: () => {
+    tokenStorage.clear();
+    set({ user: null, status: 'anonymous', error: null });
+  },
   clearError: () => set({ error: null }),
 }));

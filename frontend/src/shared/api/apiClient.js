@@ -54,6 +54,7 @@ apiClient.interceptors.response.use(
         return apiClient(original);
       } catch (_refreshError) {
         tokenStorage.clear();
+        window.dispatchEvent(new CustomEvent('sanaq:session-expired'));
       }
     }
     throw toApiError(error);

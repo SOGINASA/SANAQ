@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { LoginForm } from '../../features/auth/LoginForm';
 import { useAuthStore } from '../../features/auth/authStore';
 import { Brand } from '../../components/layout/Header';
@@ -22,9 +22,15 @@ export function LoginPage() {
   const [demoLoading, setDemoLoading] = useState('');
   const showDemoLogin = process.env.REACT_APP_SHOW_DEMO_LOGIN === 'true' || process.env.NODE_ENV === 'development';
   const navigate = useNavigate();
+  const location = useLocation();
+  const destinationFor = (role) => {
+    const requested = location.state?.from;
+    if (role === 'student' && typeof requested === 'string' && requested.startsWith('/student/')) return requested;
+    return role === 'admin' ? '/admin/dashboard' : role === 'teacher' ? '/teacher/dashboard' : '/student/dashboard';
+  };
   const submit = async (form) => {
     setError('');
-    try { const result = await login(form); const role = result.data.user.role; navigate(role === 'admin' ? '/admin/dashboard' : role === 'teacher' ? '/teacher/dashboard' : '/student/dashboard'); }
+    try { const result = await login(form); navigate(destinationFor(result.data.user.role), { replace: true }); }
     catch (requestError) { setError(requestError.message); throw requestError; }
   };
   const demoLogin = async (account) => {
@@ -37,7 +43,7 @@ export function LoginPage() {
     setError('');
     const result = await loginWithPasskey();
     const role = result.data.user.role;
-    navigate(role === 'admin' ? '/admin/dashboard' : role === 'teacher' ? '/teacher/dashboard' : '/student/dashboard');
+    navigate(destinationFor(role), { replace: true });
   };
 
   return <main className="grid min-h-screen bg-canvas lg:grid-cols-2">

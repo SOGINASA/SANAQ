@@ -105,6 +105,9 @@ class Config:
 
 class DevelopmentConfig(Config):
     DEBUG = True
+    JWT_ACCESS_TOKEN_EXPIRES = timedelta(
+        minutes=int(os.environ.get("JWT_ACCESS_TOKEN_MINUTES", "480"))
+    )
 
 
 class TestingConfig(Config):

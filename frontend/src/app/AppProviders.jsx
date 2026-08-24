@@ -19,7 +19,12 @@ function AccessibilitySync({ children }) {
 
 function AuthSync({ children }) {
   const hydrate = useAuthStore((state) => state.hydrate);
+  const expireSession = useAuthStore((state) => state.expireSession);
   useEffect(() => { hydrate(); }, [hydrate]);
+  useEffect(() => {
+    window.addEventListener('sanaq:session-expired', expireSession);
+    return () => window.removeEventListener('sanaq:session-expired', expireSession);
+  }, [expireSession]);
   return children;
 }
 
