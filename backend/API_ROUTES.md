@@ -52,6 +52,9 @@
 | Метод | Маршрут | Доступ | Назначение |
 |---|---|---|---|
 | POST | `/auth/register` | public | Регистрация ученика или учителя |
+| GET | `/auth/google` | public | Начало входа через Google OAuth |
+| GET | `/auth/google/callback` | public | Callback Google OAuth |
+| POST | `/auth/google/exchange` | public | Обмен одноразового OAuth-кода на JWT-сессию |
 | POST | `/auth/login` | public | Вход по email/телефону и паролю |
 | POST | `/auth/refresh` | cookie | Обновление access token |
 | POST | `/auth/logout` | user | Отзыв refresh-сессии |

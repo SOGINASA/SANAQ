@@ -53,6 +53,12 @@ class User(db.Model):
     refresh_sessions = db.relationship(
         "RefreshSession", back_populates="user", cascade="all, delete-orphan"
     )
+    oauth_identities = db.relationship(
+        "OAuthIdentity", back_populates="user", cascade="all, delete-orphan"
+    )
+    oauth_login_codes = db.relationship(
+        "OAuthLoginCode", back_populates="user", cascade="all, delete-orphan"
+    )
 
     def set_password(self, password):
         self.password_hash = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
@@ -105,6 +111,37 @@ class RefreshSession(db.Model):
             "expires_at": utc_iso(self.expires_at),
             "is_active": self.revoked_at is None and expires_at > utc_now(),
         }
+
+
+class OAuthIdentity(db.Model):
+    __tablename__ = "oauth_identities"
+    __table_args__ = (
+        db.UniqueConstraint("provider", "subject", name="uq_oauth_identity_provider_subject"),
+    )
+
+    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = db.Column(db.String(36), db.ForeignKey("users.id"), nullable=False, index=True)
+    provider = db.Column(db.String(30), nullable=False)
+    subject = db.Column(db.String(255), nullable=False)
+    email = db.Column(db.String(254), nullable=False)
+    created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utc_now)
+    updated_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utc_now, onupdate=utc_now)
+
+    user = db.relationship("User", back_populates="oauth_identities")
+
+
+class OAuthLoginCode(db.Model):
+    __tablename__ = "oauth_login_codes"
+
+    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = db.Column(db.String(36), db.ForeignKey("users.id"), nullable=False, index=True)
+    code_hash = db.Column(db.String(64), unique=True, nullable=False, index=True)
+    is_new_user = db.Column(db.Boolean, nullable=False, default=False)
+    created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utc_now)
+    expires_at = db.Column(db.DateTime(timezone=True), nullable=False)
+    used_at = db.Column(db.DateTime(timezone=True))
+
+    user = db.relationship("User", back_populates="oauth_login_codes")
 
 
 class StudentProfile(db.Model):

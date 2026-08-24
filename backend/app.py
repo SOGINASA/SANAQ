@@ -15,6 +15,7 @@ from werkzeug.exceptions import HTTPException
 from config import DATABASE_DIR, get_config
 from models import User, db
 from utils.responses import api_error
+from services.google_oauth import init_google_oauth
 
 
 migrate = Migrate()
@@ -29,6 +30,7 @@ def create_app(config_object=None):
     db.init_app(app)
     migrate.init_app(app, db)
     jwt.init_app(app)
+    init_google_oauth(app)
     CORS(
         app,
         origins=app.config["CORS_ORIGINS"],

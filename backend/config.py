@@ -60,6 +60,12 @@ class Config:
 
     CORS_ORIGINS = _cors_origins()
 
+    FRONTEND_URL = os.environ.get("FRONTEND_URL", CORS_ORIGINS[0]).rstrip("/")
+    GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "")
+    GOOGLE_CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET", "")
+    GOOGLE_REDIRECT_URI = os.environ.get("GOOGLE_REDIRECT_URI", "")
+    OAUTH_LOGIN_CODE_EXPIRES = timedelta(minutes=2)
+
     JWT_SECRET_KEY = os.environ.get("JWT_SECRET_KEY", "sanaq-development-jwt-secret-key")
     JWT_ACCESS_TOKEN_EXPIRES = timedelta(minutes=30)
     JWT_REFRESH_TOKEN_EXPIRES = timedelta(days=30)

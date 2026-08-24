@@ -7,6 +7,7 @@ import { AboutPage } from '../../pages/public/AboutPage';
 import { AccessibilityPage } from '../../pages/public/AccessibilityPage';
 import { LoginPage } from '../../pages/auth/LoginPage';
 import { RegisterPage } from '../../pages/auth/RegisterPage';
+import { GoogleCallbackPage } from '../../pages/auth/GoogleCallbackPage';
 import { OnboardingPage } from '../../pages/student/OnboardingPage';
 import { DiagnosticPage } from '../../pages/student/DiagnosticPage';
 import { StudentDashboardPage } from '../../pages/student/StudentDashboardPage';
@@ -48,6 +49,7 @@ export function AppRouter() {
     </Route>
     <Route path="/login" element={<LoginPage />} />
     <Route path="/register" element={<RegisterPage />} />
+    <Route path="/auth/google/callback" element={<GoogleCallbackPage />} />
     <Route element={<ProtectedRoute />}>
       <Route element={<RoleRoute role="student" />}>
         <Route path="/student" element={<StudentLayout />}>

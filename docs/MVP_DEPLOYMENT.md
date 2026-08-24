@@ -1,5 +1,12 @@
 # SANAQ MVP: Docker deployment
 
+## Google OAuth production setup
+
+Добавьте `GOOGLE_CLIENT_ID` и `GOOGLE_CLIENT_SECRET` в серверный `.env`. В Google
+Cloud Console создайте OAuth client типа **Web application** и зарегистрируйте точный
+Authorized redirect URI: `https://sanaq.example.kz/api/v1/auth/google/callback`, заменив
+домен на значение `PUBLIC_ORIGIN`. OAuth client secret хранится только на сервере.
+
 Канонический production-like запуск выполняется из корня репозитория через
 `compose.yaml`. Compose поднимает три сервиса:
 

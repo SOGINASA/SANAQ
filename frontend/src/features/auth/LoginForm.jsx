@@ -3,6 +3,7 @@ import { Eye, EyeOff } from 'lucide-react';
 import { authApi } from './authApi';
 import { Button, Dialog, StatusToast } from '../../shared/ui';
 import { useI18n } from '../../shared/i18n/i18n';
+import { AuthDivider, GoogleAuthButton } from './GoogleAuthButton';
 
 export function LoginForm({ onSubmit }) {
   const { t } = useI18n();
@@ -30,6 +31,8 @@ export function LoginForm({ onSubmit }) {
 
   return <>
     <form onSubmit={submit} className="space-y-5">
+      <GoogleAuthButton />
+      <AuthDivider />
       <div><label className="field-label" htmlFor="email">Email</label><input id="email" type="email" autoComplete="email" required className="field-control" value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} /></div>
       <div><label className="field-label" htmlFor="password">{t('auth.password')}</label><div className="relative"><input id="password" type={show ? 'text' : 'password'} autoComplete="current-password" required minLength="6" className="field-control pr-14" value={form.password} onChange={(event) => setForm({ ...form, password: event.target.value })} /><button type="button" onClick={() => setShow((value) => !value)} className="absolute right-1 top-1 grid h-10 w-10 cursor-pointer place-items-center rounded-xl" aria-label={show ? t('auth.hidePassword') : t('auth.showPassword')}>{show ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}</button></div></div>
       <div className="flex flex-col items-start gap-3 text-sm min-[380px]:flex-row min-[380px]:items-center min-[380px]:justify-between"><label className="inline-flex cursor-pointer items-center gap-2"><input type="checkbox" className="h-5 w-5 accent-lavender-600" /> {t('auth.remember')}</label><button type="button" onClick={openRecovery} className="cursor-pointer break-words text-left font-bold text-lavender-700">{t('auth.forgot')}</button></div>

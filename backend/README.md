@@ -1,5 +1,17 @@
 # SANAQ Backend
 
+## Google OAuth
+
+Backend поддерживает Google OAuth 2.0 / OpenID Connect. Создайте в Google Cloud
+Console OAuth client типа **Web application** и добавьте точный callback
+`http://127.0.0.1:8000/api/v1/auth/google/callback` в Authorized redirect URIs.
+Заполните `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI` и
+`FRONTEND_URL` в `backend/.env`. Client secret никогда не должен попадать во frontend.
+
+Маршруты: `GET /api/v1/auth/google`, `GET /api/v1/auth/google/callback` и
+`POST /api/v1/auth/google/exchange`. Последний обменивает короткоживущий одноразовый
+код на штатную JWT-сессию SANAQ.
+
 ## Демо-аккаунты
 
 Команда `python3 -m flask --app app seed-demo` создаёт учебный контент, демонстрационный класс и три аккаунта с единым паролем `SanaqDemo2026!`:

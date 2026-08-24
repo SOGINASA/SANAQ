@@ -41,6 +41,18 @@ export const useAuthStore = create((set) => ({
       throw error;
     }
   },
+  completeGoogleLogin: async (code) => {
+    set({ status: 'loading', error: null });
+    try {
+      const result = await authApi.exchangeGoogleCode(code);
+      set({ user: result.data.user, status: 'authenticated', error: null });
+      return result;
+    } catch (error) {
+      tokenStorage.clear();
+      set({ user: null, status: 'anonymous', error });
+      throw error;
+    }
+  },
   logout: async () => {
     try {
       await authApi.logout();
