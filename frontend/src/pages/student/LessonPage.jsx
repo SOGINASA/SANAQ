@@ -135,7 +135,7 @@ export function LessonPage() {
           <p className="eyebrow">{module.title}</p>
           <div className="mt-3 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
             <div className="min-w-0"><h1 className="page-title break-words">{lesson?.title || t('lesson.fallbackTitle')}</h1><p className="mt-2 text-sm text-stone-500">{t('lesson.fullLessonMeta', { minutes: lesson?.guide?.estimated_minutes || 45, pages: lesson?.guide?.workbook?.pages || 5 })}</p></div>
-            <Button className="w-full sm:w-auto" variant="outline" loading={downloading} onClick={downloadWorkbook}><Download className="h-5 w-5" /> {t('lesson.downloadWorkbook')}</Button>
+            <Button className="w-full whitespace-nowrap sm:w-auto sm:min-w-[220px]" variant="outline" loading={downloading} onClick={downloadWorkbook}><Download className="h-5 w-5 shrink-0" /> {t('lesson.downloadWorkbook')}</Button>
           </div>
           <ProgressBar className="mt-5" value={progress} label={t('lesson.progress', { completed: completed.length, total: lessons.length })} />
         </div>
