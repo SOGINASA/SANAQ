@@ -10,6 +10,7 @@ from models import (
     OAuthLoginCode,
     PasskeyCredential,
     SkillPlanningMetadata,
+    WebAuthnCeremony,
     db,
 )
 
@@ -79,6 +80,7 @@ def ensure_runtime_schema():
         OAuthIdentity.__table__.create(bind=db.engine, checkfirst=True)
         OAuthLoginCode.__table__.create(bind=db.engine, checkfirst=True)
         PasskeyCredential.__table__.create(bind=db.engine, checkfirst=True)
+        WebAuthnCeremony.__table__.create(bind=db.engine, checkfirst=True)
         inspector = inspect(db.engine)
         tables = set(inspector.get_table_names())
     for table_name, definitions in RUNTIME_SCHEMA_COLUMNS.items():

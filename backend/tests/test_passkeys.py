@@ -1,7 +1,8 @@
+from datetime import timedelta
 from types import SimpleNamespace
 
 import routes.passkeys as passkey_routes
-from models import PasskeyCredential, db
+from models import PasskeyCredential, WebAuthnCeremony, db, utc_now
 from webauthn.helpers import bytes_to_base64url
 from webauthn.helpers.structs import CredentialDeviceType
 
@@ -17,6 +18,8 @@ def test_register_and_list_passkey(app, client, student, student_headers, monkey
     assert options["authenticatorSelection"]["authenticatorAttachment"] == "platform"
     assert options["authenticatorSelection"]["residentKey"] == "required"
     assert options["authenticatorSelection"]["userVerification"] == "required"
+    ceremony_id = options_response.get_json()["data"]["ceremony_id"]
+    assert ceremony_id
 
     monkeypatch.setattr(
         passkey_routes,
@@ -40,10 +43,15 @@ def test_register_and_list_passkey(app, client, student, student_headers, monkey
             "transports": ["internal"],
         },
     }
-    verification = client.post(
+    cookie_free_client = app.test_client()
+    verification = cookie_free_client.post(
         "/api/v1/auth/passkeys/registration/verify",
         headers=student_headers,
-        json={"credential": credential_payload, "name": "Windows Hello"},
+        json={
+            "credential": credential_payload,
+            "ceremony_id": ceremony_id,
+            "name": "Windows Hello",
+        },
     )
     assert verification.status_code == 201
     saved = verification.get_json()["data"]["credential"]
@@ -57,7 +65,7 @@ def test_register_and_list_passkey(app, client, student, student_headers, monkey
     replay = client.post(
         "/api/v1/auth/passkeys/registration/verify",
         headers=student_headers,
-        json={"credential": credential_payload},
+        json={"credential": credential_payload, "ceremony_id": ceremony_id},
     )
     assert replay.status_code == 400
     assert replay.get_json()["error"]["code"] == "PASSKEY_CHALLENGE_INVALID"
@@ -80,6 +88,8 @@ def test_passwordless_authentication_issues_session(app, client, student, monkey
     assert options.status_code == 200
     assert options.get_json()["data"]["options"]["allowCredentials"] == []
     assert options.get_json()["data"]["options"]["userVerification"] == "required"
+    ceremony_id = options.get_json()["data"]["ceremony_id"]
+    assert ceremony_id
 
     monkeypatch.setattr(
         passkey_routes,
@@ -102,9 +112,10 @@ def test_passwordless_authentication_issues_session(app, client, student, monkey
             "userHandle": bytes_to_base64url(student.id.encode("utf-8")),
         },
     }
-    login = client.post(
+    cookie_free_client = app.test_client()
+    login = cookie_free_client.post(
         "/api/v1/auth/passkeys/authentication/verify",
-        json={"credential": payload},
+        json={"credential": payload, "ceremony_id": ceremony_id},
     )
     assert login.status_code == 200
     assert login.get_json()["data"]["user"]["id"] == student.id
@@ -118,7 +129,62 @@ def test_passwordless_authentication_issues_session(app, client, student, monkey
 
     replay = client.post(
         "/api/v1/auth/passkeys/authentication/verify",
-        json={"credential": payload},
+        json={"credential": payload, "ceremony_id": ceremony_id},
+    )
+    assert replay.status_code == 400
+    assert replay.get_json()["error"]["code"] == "PASSKEY_CHALLENGE_INVALID"
+
+
+def test_expired_or_wrong_purpose_ceremony_is_rejected(
+    app,
+    client,
+    student_headers,
+):
+    registration = client.post(
+        "/api/v1/auth/passkeys/registration/options",
+        headers=student_headers,
+    )
+    ceremony_id = registration.get_json()["data"]["ceremony_id"]
+    with app.app_context():
+        ceremony = db.session.get(WebAuthnCeremony, ceremony_id)
+        ceremony.expires_at = utc_now() - timedelta(seconds=1)
+        db.session.commit()
+
+    expired = app.test_client().post(
+        "/api/v1/auth/passkeys/registration/verify",
+        headers=student_headers,
+        json={"credential": {"id": "unused"}, "ceremony_id": ceremony_id},
+    )
+    assert expired.status_code == 400
+    assert expired.get_json()["error"]["code"] == "PASSKEY_CHALLENGE_INVALID"
+
+    authentication = client.post("/api/v1/auth/passkeys/authentication/options")
+    wrong_purpose = client.post(
+        "/api/v1/auth/passkeys/registration/verify",
+        headers=student_headers,
+        json={
+            "credential": {"id": "unused"},
+            "ceremony_id": authentication.get_json()["data"]["ceremony_id"],
+        },
+    )
+    assert wrong_purpose.status_code == 400
+    assert wrong_purpose.get_json()["error"]["code"] == "PASSKEY_CHALLENGE_INVALID"
+
+
+def test_deployed_client_without_ceremony_id_keeps_cookie_fallback(client):
+    options = client.post("/api/v1/auth/passkeys/authentication/options")
+    assert options.status_code == 200
+
+    first_attempt = client.post(
+        "/api/v1/auth/passkeys/authentication/verify",
+        json={"credential": {"id": "missing-credential"}},
+    )
+    assert first_attempt.status_code == 401
+    assert first_attempt.get_json()["error"]["code"] == "PASSKEY_NOT_FOUND"
+
+    replay = client.post(
+        "/api/v1/auth/passkeys/authentication/verify",
+        json={"credential": {"id": "missing-credential"}},
     )
     assert replay.status_code == 400
     assert replay.get_json()["error"]["code"] == "PASSKEY_CHALLENGE_INVALID"

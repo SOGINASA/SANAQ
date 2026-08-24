@@ -62,6 +62,9 @@ class User(db.Model):
     passkey_credentials = db.relationship(
         "PasskeyCredential", back_populates="user", cascade="all, delete-orphan"
     )
+    webauthn_ceremonies = db.relationship(
+        "WebAuthnCeremony", back_populates="user", cascade="all, delete-orphan"
+    )
 
     def set_password(self, password):
         self.password_hash = bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
@@ -173,6 +176,19 @@ class PasskeyCredential(db.Model):
             "created_at": utc_iso(self.created_at),
             "last_used_at": utc_iso(self.last_used_at),
         }
+
+
+class WebAuthnCeremony(db.Model):
+    __tablename__ = "webauthn_ceremonies"
+
+    id = db.Column(db.String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
+    purpose = db.Column(db.String(20), nullable=False, index=True)
+    challenge = db.Column(db.String(1024), nullable=False)
+    user_id = db.Column(db.String(36), db.ForeignKey("users.id"), index=True)
+    created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=utc_now)
+    expires_at = db.Column(db.DateTime(timezone=True), nullable=False, index=True)
+
+    user = db.relationship("User", back_populates="webauthn_ceremonies")
 
 
 class StudentProfile(db.Model):

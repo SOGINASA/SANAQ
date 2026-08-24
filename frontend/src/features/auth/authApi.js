@@ -14,22 +14,22 @@ export const authApi = {
   login: async (payload) =>
     saveAccessToken(await apiRequest({ method: 'POST', url: '/auth/login', data: payload })),
   loginWithPasskey: async () => {
-    const challenge = await apiRequest({ method: 'POST', url: '/auth/passkeys/authentication/options' });
-    const credential = await getPasskeyCredential(challenge.data.options);
+    const ceremony = await apiRequest({ method: 'POST', url: '/auth/passkeys/authentication/options' });
+    const credential = await getPasskeyCredential(ceremony.data.options);
     return saveAccessToken(await apiRequest({
       method: 'POST',
       url: '/auth/passkeys/authentication/verify',
-      data: { credential },
+      data: { credential, ceremony_id: ceremony.data.ceremony_id },
     }));
   },
   passkeys: () => apiRequest({ method: 'GET', url: '/auth/passkeys' }),
   addPasskey: async (name) => {
-    const challenge = await apiRequest({ method: 'POST', url: '/auth/passkeys/registration/options' });
-    const credential = await createPasskeyCredential(challenge.data.options);
+    const ceremony = await apiRequest({ method: 'POST', url: '/auth/passkeys/registration/options' });
+    const credential = await createPasskeyCredential(ceremony.data.options);
     return apiRequest({
       method: 'POST',
       url: '/auth/passkeys/registration/verify',
-      data: { credential, name },
+      data: { credential, ceremony_id: ceremony.data.ceremony_id, name },
     });
   },
   removePasskey: (credentialId) => apiRequest({

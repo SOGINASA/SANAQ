@@ -1,5 +1,3 @@
-import time
-
 from flask import Blueprint, current_app, request, session
 from flask_jwt_extended import get_jwt_identity, jwt_required
 from webauthn import (
@@ -19,39 +17,68 @@ from webauthn.helpers.structs import (
     UserVerificationRequirement,
 )
 
-from models import PasskeyCredential, User, db, utc_now
+from models import PasskeyCredential, User, WebAuthnCeremony, db, utc_now
 from routes.auth import issue_auth_response
 from utils.responses import api_error, success
 
 
 passkeys_bp = Blueprint("passkeys", __name__)
-_REGISTRATION_SESSION_KEY = "passkey_registration_challenge"
-_AUTHENTICATION_SESSION_KEY = "passkey_authentication_challenge"
+_REGISTRATION_PURPOSE = "registration"
+_AUTHENTICATION_PURPOSE = "authentication"
+
+
+def _legacy_session_key(purpose):
+    return f"webauthn_{purpose}_ceremony_id"
 
 
 def _enum_value(value):
     return value.value if hasattr(value, "value") else str(value)
 
 
-def _save_challenge(key, challenge, user_id=None):
-    session[key] = {
-        "challenge": bytes_to_base64url(challenge),
-        "issued_at": time.time(),
-        "user_id": user_id,
-    }
+def _save_challenge(purpose, challenge, user_id=None):
+    now = utc_now()
+    db.session.execute(
+        db.delete(WebAuthnCeremony).where(WebAuthnCeremony.expires_at <= now)
+    )
+    ceremony = WebAuthnCeremony(
+        purpose=purpose,
+        challenge=bytes_to_base64url(challenge),
+        user_id=user_id,
+        expires_at=now + current_app.config["WEBAUTHN_CHALLENGE_EXPIRES"],
+    )
+    db.session.add(ceremony)
+    db.session.commit()
+    # Temporary compatibility for an already deployed frontend that does not
+    # return ceremony_id yet. New clients do not depend on this cookie.
+    session[_legacy_session_key(purpose)] = ceremony.id
+    return ceremony.id
 
 
-def _consume_challenge(key, expected_user_id=None):
-    ceremony = session.pop(key, None)
-    if not ceremony or not ceremony.get("challenge"):
+def _consume_challenge(ceremony_id, purpose, expected_user_id=None):
+    legacy_ceremony_id = session.pop(_legacy_session_key(purpose), None)
+    if not isinstance(ceremony_id, str) or not ceremony_id:
+        ceremony_id = legacy_ceremony_id
+    if not isinstance(ceremony_id, str) or not ceremony_id:
         return None
-    if expected_user_id is not None and ceremony.get("user_id") != expected_user_id:
+
+    query = db.select(WebAuthnCeremony).where(
+        WebAuthnCeremony.id == ceremony_id,
+        WebAuthnCeremony.purpose == purpose,
+        WebAuthnCeremony.expires_at > utc_now(),
+    )
+    if expected_user_id is None:
+        query = query.where(WebAuthnCeremony.user_id.is_(None))
+    else:
+        query = query.where(WebAuthnCeremony.user_id == expected_user_id)
+
+    ceremony = db.session.scalar(query.with_for_update())
+    if not ceremony:
         return None
-    max_age = current_app.config["WEBAUTHN_CHALLENGE_EXPIRES"].total_seconds()
-    if time.time() - float(ceremony.get("issued_at", 0)) > max_age:
-        return None
+
+    db.session.delete(ceremony)
+    db.session.commit()
     try:
-        return base64url_to_bytes(ceremony["challenge"])
+        return base64url_to_bytes(ceremony.challenge)
     except (TypeError, ValueError):
         return None
 
@@ -107,8 +134,8 @@ def registration_options():
         ),
         exclude_credentials=exclude_credentials,
     )
-    _save_challenge(_REGISTRATION_SESSION_KEY, options.challenge, user.id)
-    return success({"options": options_to_json_dict(options)})
+    ceremony_id = _save_challenge(_REGISTRATION_PURPOSE, options.challenge, user.id)
+    return success({"options": options_to_json_dict(options), "ceremony_id": ceremony_id})
 
 
 @passkeys_bp.post("/registration/verify")
@@ -118,7 +145,11 @@ def verify_registration():
     user = db.session.get(User, user_id)
     data = request.get_json(silent=True) or {}
     credential_payload = data.get("credential")
-    expected_challenge = _consume_challenge(_REGISTRATION_SESSION_KEY, user_id)
+    expected_challenge = _consume_challenge(
+        data.get("ceremony_id"),
+        _REGISTRATION_PURPOSE,
+        user_id,
+    )
     if not user or not user.is_active:
         return api_error("USER_NOT_FOUND", "Пользователь не найден", 404)
     if not credential_payload or expected_challenge is None:
@@ -163,8 +194,8 @@ def authentication_options():
         rp_id=current_app.config["WEBAUTHN_RP_ID"],
         user_verification=UserVerificationRequirement.REQUIRED,
     )
-    _save_challenge(_AUTHENTICATION_SESSION_KEY, options.challenge)
-    return success({"options": options_to_json_dict(options)})
+    ceremony_id = _save_challenge(_AUTHENTICATION_PURPOSE, options.challenge)
+    return success({"options": options_to_json_dict(options), "ceremony_id": ceremony_id})
 
 
 @passkeys_bp.post("/authentication/verify")
@@ -172,7 +203,10 @@ def verify_authentication():
     data = request.get_json(silent=True) or {}
     credential_payload = data.get("credential") or {}
     credential_id = str(credential_payload.get("id", ""))
-    expected_challenge = _consume_challenge(_AUTHENTICATION_SESSION_KEY)
+    expected_challenge = _consume_challenge(
+        data.get("ceremony_id"),
+        _AUTHENTICATION_PURPOSE,
+    )
     stored = db.session.get(PasskeyCredential, credential_id) if credential_id else None
     if expected_challenge is None:
         return api_error("PASSKEY_CHALLENGE_INVALID", "Запрос биометрии истёк. Начните заново", 400)

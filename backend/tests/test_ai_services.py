@@ -85,7 +85,7 @@ def test_runtime_schema_creates_ai_tables_idempotently(app):
         ensure_runtime_schema()
         second_tables = set(inspect(db.engine).get_table_names())
 
-    assert {"users", "ai_conversations", "ai_messages"} <= first_tables
+    assert {"users", "ai_conversations", "ai_messages", "webauthn_ceremonies"} <= first_tables
     assert first_tables == second_tables
 
 
