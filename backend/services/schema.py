@@ -52,6 +52,20 @@ LEARNING_SCHEMA_COLUMNS = {
 }
 
 
+def _merge_schema_columns(*groups):
+    merged = {}
+    for group in groups:
+        for table_name, definitions in group.items():
+            merged.setdefault(table_name, {}).update(definitions)
+    return merged
+
+
+RUNTIME_SCHEMA_COLUMNS = _merge_schema_columns(
+    AI_SCHEMA_COLUMNS,
+    LEARNING_SCHEMA_COLUMNS,
+)
+
+
 def ensure_runtime_schema():
     """Create additive runtime tables and columns without touching existing data."""
     inspector = inspect(db.engine)
@@ -67,7 +81,7 @@ def ensure_runtime_schema():
         PasskeyCredential.__table__.create(bind=db.engine, checkfirst=True)
         inspector = inspect(db.engine)
         tables = set(inspector.get_table_names())
-    for table_name, definitions in {**AI_SCHEMA_COLUMNS, **LEARNING_SCHEMA_COLUMNS}.items():
+    for table_name, definitions in RUNTIME_SCHEMA_COLUMNS.items():
         if table_name not in tables:
             continue
         existing = {column["name"] for column in inspector.get_columns(table_name)}
