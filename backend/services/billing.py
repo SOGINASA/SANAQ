@@ -105,7 +105,7 @@ def create_payment(user_id, plan_id, idempotency_key):
     db.session.add(payment)
     db.session.flush()
     payment.checkout_url = (
-        f"{current_app.config['FRONTEND_URL']}/student/billing/demo/{payment.id}"
+        f"/student/billing/demo/{payment.id}"
         if mode == "demo"
         else current_app.config["KASPI_PAYMENT_URL"]
     )

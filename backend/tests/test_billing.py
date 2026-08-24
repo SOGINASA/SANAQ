@@ -19,6 +19,7 @@ def test_demo_checkout_is_idempotent_and_activates_subscription(client, app, stu
     payment = first.get_json()["data"]["payment"]
     assert payment["id"] == second.get_json()["data"]["payment"]["id"]
     assert payment["provider_mode"] == "demo"
+    assert payment["checkout_url"] == f"/student/billing/demo/{payment['id']}"
 
     confirmed = client.post(
         f"/api/v1/billing/payments/{payment['id']}/demo-confirm",
