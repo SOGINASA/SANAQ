@@ -11,7 +11,7 @@ function SettingButton({ active, icon: Icon, title, description, onClick }) {
 
 const triggerPosition = {
   app: 'bottom-[calc(5.75rem+env(safe-area-inset-bottom))] right-3 sm:right-4 lg:bottom-6 lg:right-6',
-  assistant: 'right-3 top-[calc(4.5rem+env(safe-area-inset-top))] sm:right-4 lg:right-6 lg:top-6',
+  assistant: 'right-3 top-[calc(4.5rem+env(safe-area-inset-top))] sm:right-4 lg:bottom-6 lg:right-6 lg:top-auto',
   public: 'bottom-4 right-3 sm:bottom-6 sm:right-6',
 };
 

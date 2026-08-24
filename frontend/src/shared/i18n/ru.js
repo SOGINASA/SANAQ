@@ -64,6 +64,7 @@ export const ru = {
 };
 
 Object.assign(ru.practice, { beforeAfter: 'Было → стало' });
+Object.assign(ru.classWorkspace, { errorsTab: 'Карта ошибок' });
 ru.common = { ...(ru.common || {}), retry: 'Повторить' };
 Object.assign(ru.lesson, { feedbackTitle: 'Насколько понятен урок?', feedbackDescription: 'Ответ поможет учителю улучшить объяснение.', feedbackSaved: 'Спасибо, ответ сохранён', feedback: { clear: 'Всё понятно', too_hard: 'Слишком сложно', need_example: 'Нужен ещё пример', too_easy: 'Слишком легко' } });
 Object.assign(ru.errorMap, { viewResults: 'Посмотреть результаты', assignAgain: 'Назначить ещё раз', status: { assigned: 'Назначено', in_progress: 'В процессе', completed: 'Завершено' } });

@@ -64,6 +64,7 @@ export const kk = {
 };
 
 Object.assign(kk.practice, { beforeAfter: 'Бұрын → қазір' });
+Object.assign(kk.classWorkspace, { errorsTab: 'Қателер картасы' });
 kk.common = { ...(kk.common || {}), retry: 'Қайталау' };
 Object.assign(kk.lesson, { feedbackTitle: 'Сабақ қаншалықты түсінікті?', feedbackDescription: 'Жауап мұғалімге түсіндіруді жақсартуға көмектеседі.', feedbackSaved: 'Рақмет, жауап сақталды', feedback: { clear: 'Бәрі түсінікті', too_hard: 'Тым қиын', need_example: 'Тағы бір мысал керек', too_easy: 'Тым оңай' } });
 Object.assign(kk.errorMap, { viewResults: 'Нәтижелерді көру', assignAgain: 'Қайта тағайындау', status: { assigned: 'Тағайындалды', in_progress: 'Орындалуда', completed: 'Аяқталды' } });

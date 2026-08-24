@@ -64,6 +64,7 @@ export const en = {
 };
 
 Object.assign(en.practice, { beforeAfter: 'Before → after' });
+Object.assign(en.classWorkspace, { errorsTab: 'Error map' });
 en.common = { ...(en.common || {}), retry: 'Retry' };
 Object.assign(en.lesson, { feedbackTitle: 'How clear was this lesson?', feedbackDescription: 'Your answer helps the teacher improve the explanation.', feedbackSaved: 'Thanks, your answer was saved', feedback: { clear: 'Everything is clear', too_hard: 'Too difficult', need_example: 'I need another example', too_easy: 'Too easy' } });
 Object.assign(en.errorMap, { viewResults: 'View results', assignAgain: 'Assign again', status: { assigned: 'Assigned', in_progress: 'In progress', completed: 'Completed' } });

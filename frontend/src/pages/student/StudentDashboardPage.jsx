@@ -313,15 +313,15 @@ export function StudentDashboardPage() {
         </div>
 
         <aside className="grid content-start gap-5">
-          <Card className="p-5">
+          <Card className="min-w-0 overflow-hidden p-5">
             <p className="eyebrow">{t('studentDashboard.liveProgress')}</p><p className="mt-4 text-5xl font-extrabold tabular-nums">{mastery}%</p>
             <ProgressBar className="mt-4" value={mastery} />
             <dl className="mt-5 grid gap-3 text-sm"><div className="flex justify-between"><dt className="text-stone-500">{t('studentDashboard.mastered')}</dt><dd className="font-extrabold">{progress?.mastered_skills || 0}/{progress?.total_skills || 0}</dd></div><div className="flex justify-between"><dt className="text-stone-500">{t('studentDashboard.gapsTitle')}</dt><dd className="font-extrabold">{progress?.weak_skills || 0}</dd></div></dl>
           </Card>
-          <Card className="p-5">
-            <p className="eyebrow">{t('studentDashboard.knowledgeMap')}</p>
+          <Card className="min-w-0 overflow-hidden p-5">
+            <p className="break-words eyebrow">{t('studentDashboard.knowledgeMap')}</p>
             <div className="mt-5 grid gap-4">
-              {knowledgeMap?.nodes?.length ? knowledgeMap.nodes.slice(0, 4).map((node) => <div key={node.id}><div className="flex justify-between gap-3 text-sm"><strong className="min-w-0 truncate">{localize(node.name)}</strong><span className="shrink-0 text-stone-500">{Math.round(node.mastery * 100)}%</span></div><ProgressBar className="mt-2" value={Math.round(node.mastery * 100)} tone={node.mastery >= 0.8 ? 'mint' : 'violet'} /></div>) : <p className="text-sm text-stone-500">{t('studentDashboard.mapAfterDiagnostic')}</p>}
+              {knowledgeMap?.nodes?.length ? knowledgeMap.nodes.slice(0, 4).map((node) => <div key={node.id} className="min-w-0"><div className="flex min-w-0 items-start justify-between gap-3 text-sm"><strong className="min-w-0 flex-1 break-words leading-5 [overflow-wrap:anywhere]">{localize(node.name)}</strong><span className="shrink-0 text-stone-500">{Math.round(node.mastery * 100)}%</span></div><ProgressBar className="mt-2" value={Math.round(node.mastery * 100)} tone={node.mastery >= 0.8 ? 'mint' : 'violet'} /></div>) : <p className="break-words text-sm text-stone-500">{t('studentDashboard.mapAfterDiagnostic')}</p>}
             </div>
             {knowledgeMap?.nodes?.length > 4 && <Button className="mt-5 w-full" size="sm" variant="ghost" onClick={() => navigate('/student/knowledge-map')}>{t('studentDashboard.openMap')}</Button>}
           </Card>

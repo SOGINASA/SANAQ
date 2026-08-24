@@ -147,9 +147,13 @@
 .stagger-grid > *:nth-child(6) { animation-delay: 350ms; }
 
 /* Knowledge map: every lane grows like a small constellation. */
-.constellation-lane { position: relative; }
+.constellation-lane {
+  position: relative;
+  min-width: 0;
+}
 .constellation-track {
   position: relative;
+  min-width: 0;
   padding-left: 22px;
 }
 .constellation-track::before {
@@ -165,7 +169,23 @@
 }
 .constellation-node {
   position: relative;
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  overflow-wrap: anywhere;
   animation: sanaq-node-arrive 560ms cubic-bezier(.22,1,.36,1) var(--node-delay, 0ms) both;
+}
+.constellation-node strong {
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow-wrap: anywhere;
+}
+.constellation-node span {
+  flex-shrink: 0;
+}
+.constellation-node p {
+  max-width: 100%;
+  overflow-wrap: anywhere;
 }
 .constellation-node::before {
   content: '';

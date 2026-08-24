@@ -155,6 +155,7 @@ export function ClassDetailsPage() {
   const tabs = [
     { value: 'feed', label: t('classWorkspace.feedTab') },
     { value: 'students', label: t('classWorkspace.studentsTab', { count: students.length }) },
+    { value: 'errors', label: t('classWorkspace.errorsTab') },
     { value: 'analytics', label: t('classWorkspace.analyticsTab') },
   ];
 
@@ -187,6 +188,8 @@ export function ClassDetailsPage() {
       </div>}
 
       {activeTab === 'students' && <Card className="mt-6 p-5 sm:p-8"><div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"><div><p className="eyebrow">{t('classWorkspace.participants')}</p><h2 className="mt-2 text-2xl font-extrabold">{t('classDetails.students')}</h2></div><label className="relative block"><span className="sr-only">{t('classDetails.search')}</span><Search className="absolute left-4 top-3.5 h-5 w-5 text-stone-400" /><input value={search} onChange={(event) => setSearch(event.target.value)} className="field-control pl-11 sm:w-72" placeholder={t('classDetails.searchPlaceholder')} /></label></div><div className="mt-5"><StudentTable students={students} search={search} /></div></Card>}
+
+      {activeTab === 'errors' && <Card className="mt-6 min-w-0 p-5 sm:p-8"><p className="eyebrow">{t('errorMap.eyebrow')}</p><h2 className="mt-2 text-2xl font-extrabold">{t('errorMap.title')}</h2><p className="mt-2 max-w-3xl text-sm text-stone-500">{t('errorMap.description')}</p><div className="mt-6"><ClassErrorMap data={errorMap} onAssign={openCorrectiveAssignment} /></div></Card>}
 
       {activeTab === 'analytics' && <div className="mt-6 grid gap-6 lg:grid-cols-2"><Card className="min-w-0 p-6 sm:p-8"><h2 className="text-2xl font-extrabold">{t('classDetails.mastery')}</h2><div className="mt-7"><ClassHeatmap students={students} /></div></Card><Card className="p-6 sm:p-8"><p className="eyebrow">{t('classDetails.priority')}</p><h2 className="mt-2 text-2xl font-extrabold">{priority?.name || t('classDetails.noData')}</h2><p className="mt-4 text-stone-600">{t('classDetails.priorityText', { mastery: Math.round((priority?.mastery || 0) * 100), count: priority?.students_below_threshold || 0 })}</p><div className="mt-7 grid grid-cols-2 gap-3"><div className="rounded-2xl bg-lavender-100 p-4"><p className="font-display text-2xl font-semibold">{analytics?.average_mastery || 0}%</p><p className="text-sm text-stone-600">{t('classDetails.average')}</p></div><div className="rounded-2xl bg-mint-100 p-4"><p className="font-display text-2xl font-semibold">{analytics?.active_students || 0}</p><p className="text-sm text-stone-600">{t('classDetails.active')}</p></div></div></Card><Card className="min-w-0 p-6 sm:p-8 lg:col-span-2"><p className="eyebrow">{t('errorMap.eyebrow')}</p><h2 className="mt-2 text-2xl font-extrabold">{t('errorMap.title')}</h2><p className="mt-2 text-sm text-stone-500">{t('errorMap.description')}</p><div className="mt-6"><ClassErrorMap data={errorMap} onAssign={openCorrectiveAssignment} /></div></Card></div>}
 
