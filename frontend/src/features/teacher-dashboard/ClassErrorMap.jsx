@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { AlertTriangle, ArrowRight, ChevronDown, ClipboardPlus } from 'lucide-react';
+import { AlertTriangle, ArrowRight, CheckCircle2, ChevronDown, ClipboardPlus, Clock3 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useI18n } from '../../shared/i18n/i18n';
 
@@ -36,8 +36,9 @@ export function ClassErrorMap({ data, onAssign }) {
             <p className="text-sm leading-6 text-stone-600">{item.description}</p>
             {item.blocked_skill_count > 0 && <p className="mt-3 text-xs font-bold text-danger-700">{t('errorMap.blocks', { count: item.blocked_skill_count })}</p>}
             {item.recommended_task_prompt && <div className="mt-4 rounded-2xl bg-paper p-4"><span className="text-xs font-bold uppercase tracking-wider text-stone-400">{t('errorMap.microTask')}</span><p className="mt-2 text-sm font-bold">{item.recommended_task_prompt}</p></div>}
+            {item.correction && <div className="mt-4 rounded-2xl border border-stone-200 bg-paper p-4"><div className="flex flex-wrap items-center justify-between gap-2"><span className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-bold ${item.correction.state === 'completed' ? 'bg-mint-100 text-mint-700' : item.correction.state === 'in_progress' ? 'bg-warning-100 text-warning-700' : 'bg-lavender-100 text-lavender-700'}`}>{item.correction.state === 'completed' ? <CheckCircle2 className="h-4 w-4" /> : <Clock3 className="h-4 w-4" />}{t(`errorMap.status.${item.correction.state}`)}</span><strong className="text-sm">{item.correction.completed_students}/{item.correction.total_students}</strong></div><div className="mt-3 h-2 overflow-hidden rounded-full bg-stone-100"><div className="h-full rounded-full bg-mint-500" style={{ width: `${item.correction.progress || 0}%` }} /></div></div>}
             <div className="mt-4 flex flex-wrap gap-2">{item.students.map((student) => <button type="button" key={student.id} onClick={() => navigate(`/teacher/students/${student.id}`)} className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-paper px-3 text-sm font-bold shadow-sm transition hover:ring-2 hover:ring-lavender-300">{student.name}<ArrowRight className="h-4 w-4" /></button>)}</div>
-            {item.recommended_task_id && <button type="button" onClick={() => onAssign?.(item)} className="mt-5 inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-xl bg-ink px-4 text-sm font-bold text-white transition hover:bg-lavender-700"><ClipboardPlus className="h-4 w-4" />{t('errorMap.assign')}</button>}
+            {item.recommended_task_id && <button type="button" onClick={() => onAssign?.(item)} className="mt-5 inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-xl bg-ink px-4 text-sm font-bold text-white transition hover:bg-lavender-700"><ClipboardPlus className="h-4 w-4" />{t(item.correction ? 'errorMap.assignAgain' : 'errorMap.assign')}</button>}
           </div>}
         </section>;
       })}

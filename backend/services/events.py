@@ -14,6 +14,8 @@ ALLOWED_EVENTS = {
     "curriculum_state_viewed", "study_plan_generated",
     "pathnet_shadow_scored", "pathnet_shadow_failed",
     "learning_path_ranked",
+    "lesson_feedback_submitted", "learning_path_settings_changed",
+    "learning_path_recalculated",
 }
 SENSITIVE_KEYS = {"answer", "password", "token", "access_token", "refresh_token"}
 REQUIRED_PROPERTIES = {

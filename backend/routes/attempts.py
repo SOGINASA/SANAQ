@@ -307,6 +307,8 @@ def complete_attempt(attemptId):
     result = _result_payload(attempt)
     result["adaptation"].update({"application": application})
     result["mastery_change"] = round(state.mastery - previous, 2)
+    result["mastery_before"] = round(previous, 2)
+    result["mastery_after"] = round(state.mastery, 2)
     result["knowledge_map_changes"] = [{
         "skill_id": task.skill_id,
         "mastery": round(state.mastery, 2),

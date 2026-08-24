@@ -7,6 +7,7 @@ from models import (
     KnowledgeState,
     LearningPath,
     PrerequisiteEdge,
+    ProductEvent,
     StudentProfile,
     Subject,
     Topic,
@@ -138,6 +139,11 @@ def recalculate_learning_path(pathId):
         diagnostic_id=path.diagnostic_id,
         path=path,
     )
+    record_learning_event(path.student_id, "learning_path_recalculated", {
+        "path_id": path.id,
+        "goal_id": path.goal_id,
+        "pace": path.pace,
+    })
     db.session.commit()
     return success({"learning_path": serialize_path(path)})
 
@@ -185,8 +191,39 @@ def update_learning_path(pathId):
             path.target_date = date.fromisoformat(data["target_date"]) if data["target_date"] else None
         except (TypeError, ValueError):
             return api_error("VALIDATION_ERROR", "Дата должна быть в формате YYYY-MM-DD", 422)
+    record_learning_event(path.student_id, "learning_path_settings_changed", {
+        "path_id": path.id,
+        "changed_fields": sorted(key for key in data if key in {
+            "goal_id", "pace", "weekday_minutes", "weekend_minutes", "target_date"
+        }),
+        "pace": path.pace,
+        "target_date": path.target_date.isoformat() if path.target_date else None,
+    })
     db.session.commit()
     return success({"learning_path": serialize_path(path)})
+
+
+@learning_paths_bp.get("/learning-paths/<pathId>/history")
+@jwt_required(locations=["headers"])
+def learning_path_history(pathId):
+    path, error = _path_or_error(pathId, allow_teacher=True)
+    if error:
+        return error
+    events = db.session.scalars(
+        db.select(ProductEvent).where(
+            ProductEvent.user_id == path.student_id,
+            ProductEvent.event_name.in_({
+                "attempt_completed", "learning_path_settings_changed",
+                "learning_path_recalculated",
+            }),
+        ).order_by(ProductEvent.occurred_at.desc()).limit(12)
+    ).all()
+    return success({"items": [{
+        "id": event.id,
+        "type": event.event_name,
+        "properties": event.properties or {},
+        "occurred_at": event.occurred_at.isoformat(),
+    } for event in events]})
 
 
 @learning_paths_bp.get("/students/me/knowledge-map")

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { AlertTriangle, ArrowLeft, ArrowRight, BookOpenText, CheckCircle2, Circle, Download, FileText, Lightbulb, ListChecks, Play } from 'lucide-react';
-import { Button, Card, ProgressBar } from '../../shared/ui';
+import { Button, Card, PageSkeleton, ProgressBar } from '../../shared/ui';
 import { SpeechControls } from '../../features/accessibility';
 import { contentApi } from '../../shared/api/contentApi';
 import { assessmentsApi } from '../../features/assessments/assessmentsApi';
@@ -27,9 +27,12 @@ export function LessonPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [downloading, setDownloading] = useState(false);
+  const [lessonFeedback, setLessonFeedback] = useState('');
+  const [feedbackSaving, setFeedbackSaving] = useState(false);
 
   const loadLesson = async (lessonId) => {
     setLoading(true); setError('');
+    setLessonFeedback('');
     try {
       const [response, historyResponse] = await Promise.all([contentApi.lesson(lessonId), assessmentsApi.history()]);
       const loadedLesson = response.data.lesson;
@@ -112,7 +115,16 @@ export function LessonPage() {
     return `/student/task/${taskId}?${query.toString()}`;
   };
 
-  if (loading && !module) return <div className="mx-auto max-w-5xl py-16 text-center font-bold">{t('lesson.loading')}</div>;
+  const submitFeedback = async (value) => {
+    setFeedbackSaving(true); setError('');
+    try {
+      await contentApi.lessonFeedback(lesson.id, { value });
+      setLessonFeedback(value);
+    } catch (requestError) { setError(requestError.message); }
+    finally { setFeedbackSaving(false); }
+  };
+
+  if (loading && !module) return <PageSkeleton cards={3} label={t('lesson.loading')} />;
 
   return <div className="mx-auto max-w-5xl animate-rise">
     <button onClick={() => navigate(searchParams.get('path') ? `/student/path?path=${searchParams.get('path')}` : '/student/path')} className="mb-5 inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-xl px-2 font-bold text-stone-600"><ArrowLeft className="h-5 w-5" /> {t('lesson.back')}</button>
@@ -140,6 +152,7 @@ export function LessonPage() {
 
           {lessonTasks.length > 0 && <section className="rounded-3xl bg-stone-100 p-4 sm:p-6"><div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-2xl font-extrabold">{t('lesson.practiceTitle')}</h2><p className="mt-1 text-sm text-stone-500">{t('lesson.taskProgress', { completed: completedLessonTasks, total: lessonTasks.length })}</p></div><span className={`rounded-full px-3 py-1.5 text-xs font-bold ${allLessonTasksComplete ? 'bg-mint-100 text-mint-700' : 'bg-paper text-stone-600'}`}>{t(allLessonTasksComplete ? 'lesson.allReady' : 'lesson.completeAll')}</span></div><div className="mt-5 grid gap-3">{lessonTasks.map((taskItem, index) => { const done = completedTaskIds.includes(taskItem.id); return <button key={taskItem.id} type="button" onClick={() => navigate(practiceUrl(taskItem.id))} className={`flex min-h-16 w-full cursor-pointer items-center gap-3 rounded-2xl border p-3 text-left transition sm:p-4 ${done ? 'border-mint-200 bg-mint-100' : 'border-stone-200 bg-paper hover:border-lavender-300'}`}><span className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl ${done ? 'bg-mint-700 text-white' : 'bg-lavender-100 text-lavender-700'}`}>{done ? <CheckCircle2 className="h-5 w-5" /> : <Play className="h-4 w-4" />}</span><span className="min-w-0 flex-1"><strong className="block">{t('lesson.taskNumber', { number: index + 1 })}</strong><span className="mt-0.5 block break-words text-sm leading-5 text-stone-500">{taskItem.prompt}</span></span><span className="hidden shrink-0 text-sm font-bold sm:block">{t(done ? 'lesson.ready' : 'lesson.start')}</span></button>; })}</div></section>}
           {!allLessonTasksComplete && <p className="flex items-start gap-2 rounded-2xl bg-amber-50 p-4 text-sm font-semibold text-amber-900"><Circle className="mt-0.5 h-4 w-4 shrink-0" /> {t('lesson.practiceRequired')}</p>}
+          <Card className="p-5 sm:p-6"><h2 className="text-lg font-extrabold">{t('lesson.feedbackTitle')}</h2><p className="mt-1 text-sm text-stone-500">{t('lesson.feedbackDescription')}</p><div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">{['clear', 'too_hard', 'need_example', 'too_easy'].map((value) => <button key={value} type="button" disabled={feedbackSaving} onClick={() => submitFeedback(value)} className={`min-h-11 rounded-xl border px-3 text-sm font-bold transition ${lessonFeedback === value ? 'border-mint-500 bg-mint-100 text-mint-700' : 'border-stone-200 bg-paper hover:border-lavender-300'}`}>{t(`lesson.feedback.${value}`)}</button>)}</div>{lessonFeedback && <p className="mt-3 flex items-center gap-2 text-sm font-bold text-mint-700"><CheckCircle2 className="h-4 w-4" />{t('lesson.feedbackSaved')}</p>}</Card>
           <div className="flex flex-col-reverse gap-3 sm:flex-row sm:flex-wrap sm:justify-end"><Button onClick={completeLesson} disabled={!allLessonTasksComplete || (completed.includes(lesson.id) && lessonIndex === lessons.length - 1)}>{completed.includes(lesson.id) ? t('lesson.completed') : lessonIndex < lessons.length - 1 ? t('lesson.nextLesson') : t('lesson.markComplete')} <CheckCircle2 className="h-5 w-5" /></Button></div>
         </div>}
       </article>

@@ -2,10 +2,11 @@ import uuid
 from urllib.parse import quote
 
 from flask import Blueprint, Response, request
-from flask_jwt_extended import get_jwt, jwt_required
+from flask_jwt_extended import get_jwt, get_jwt_identity, jwt_required
 
 from models import LearningModule, Lesson, Skill, Task, db
 from services.lesson_guides import build_lesson_guide
+from services.events import record_learning_event
 from services.workbooks import render_workbook
 from utils.localization import localized
 from utils.localization import requested_locale
@@ -15,6 +16,23 @@ from utils.decorators import roles_required
 
 content_bp = Blueprint("content", __name__)
 MAX_EDITOR_PAYLOAD_BYTES = 2 * 1024 * 1024
+
+
+@content_bp.post("/lessons/<lessonId>/feedback")
+@roles_required("student")
+def submit_lesson_feedback(lessonId):
+    lesson = db.session.get(Lesson, lessonId)
+    if not lesson:
+        return api_error("LESSON_NOT_FOUND", "Lesson not found", 404)
+    value = (request.get_json(silent=True) or {}).get("value")
+    if value not in {"clear", "too_hard", "need_example", "too_easy"}:
+        return api_error("VALIDATION_ERROR", "Unsupported feedback value", 422)
+    record_learning_event(get_jwt_identity(), "lesson_feedback_submitted", {
+        "lesson_id": lesson.id,
+        "value": value,
+    })
+    db.session.commit()
+    return success({"feedback": {"lesson_id": lesson.id, "value": value}})
 
 
 def task_payload(task, editor=False):

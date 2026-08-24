@@ -9,6 +9,7 @@ export const learningPathApi = {
   get: (pathId) => apiRequest({ method: 'GET', url: `/learning-paths/${pathId}` }),
   nextStep: (pathId) =>
     apiRequest({ method: 'GET', url: `/learning-paths/${pathId}/next-step` }),
+  history: (pathId) => apiRequest({ method: 'GET', url: `/learning-paths/${pathId}/history` }),
   update: (pathId, payload) =>
     apiRequest({ method: 'PATCH', url: `/learning-paths/${pathId}`, data: payload }),
   recalculate: (pathId) =>

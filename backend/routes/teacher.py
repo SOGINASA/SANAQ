@@ -528,6 +528,18 @@ def class_error_map(classId):
         seen_at = answer.answered_at.isoformat()
         if item["last_seen_at"] is None or seen_at > item["last_seen_at"]:
             item["last_seen_at"] = seen_at
+    corrective_assignments = db.session.scalars(
+        db.select(Assignment).where(
+            Assignment.class_id == classroom.id,
+            Assignment.assignment_kind == "corrective_micro",
+        ).order_by(Assignment.created_at.desc())
+    ).all()
+    corrective_by_skill = {}
+    for assignment in corrective_assignments:
+        assigned_task = db.session.get(Task, assignment.task_id) if assignment.task_id else None
+        if assigned_task and assigned_task.skill_id not in corrective_by_skill:
+            corrective_by_skill[assigned_task.skill_id] = assignment
+
     items = []
     for item in aggregates.values():
         affected = list(item.pop("students").values())
@@ -549,6 +561,17 @@ def class_error_map(classId):
         item["recommended_task_id"] = recommended_task.id if recommended_task else None
         item["recommended_task_prompt"] = localized(recommended_task.prompt) if recommended_task else None
         item["recommended_lesson_id"] = recommended_task.lesson_id if recommended_task else None
+        correction = corrective_by_skill.get(item["skill_id"])
+        if correction:
+            correction_payload = _assignment_payload(correction, include_students=True)
+            correction_payload["state"] = (
+                "completed" if correction_payload["total_students"] and
+                correction_payload["completed_students"] == correction_payload["total_students"]
+                else "in_progress" if correction_payload["started_students"] else "assigned"
+            )
+            item["correction"] = correction_payload
+        else:
+            item["correction"] = None
         items.append(item)
     items.sort(key=lambda item: (-item["student_count"], -item["error_count"], item["title"]))
     return success({

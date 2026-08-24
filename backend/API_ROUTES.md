@@ -126,6 +126,7 @@
 | POST | `/learning-paths/:pathId/recalculate` | owner/system | Перестроить маршрут через общий сервис ранжирования |
 | GET | `/learning-paths/:pathId/next-step` | owner | Рекомендуемый шаг и версия применённого ranking |
 | PATCH | `/learning-paths/:pathId` | owner | Цель, темп, дата экзамена |
+| GET | `/learning-paths/:pathId/history` | owner/teacher | История событий, повлиявших на маршрут |
 
 Статусы узла: `locked`, `available`, `learning`, `mastered`, `review_due`. Уровень освоения хранить числом `0..1`, но показывать ученику понятную подпись.
 
@@ -136,6 +137,7 @@
 | GET | `/modules` | user | Фильтр по предмету, классу, теме, языку |
 | GET | `/modules/:moduleId` | user | Модуль и список уроков |
 | GET | `/lessons/:lessonId` | user | Теория, примеры и доступные задания |
+| POST | `/lessons/:lessonId/feedback` | student | Оценить понятность урока |
 | GET | `/lessons/:lessonId/workbook.pdf` | user | Брендированный пятистраничный A4-воркбук урока |
 | GET | `/modules/:moduleId/workbook.pdf` | user | Единый PDF-воркбук по урокам модуля |
 | POST | `/modules` | teacher/admin | Создать модуль |
