@@ -15,7 +15,7 @@ function AccessibilitySync({ children }) {
   return children;
 }
 
-// qwefqwerцйуайцуefйцвцуацу
+// qwefqwerцйуайцуefйцвцуацуwefwe
 
 function AuthSync({ children }) {
   const hydrate = useAuthStore((state) => state.hydrate);
