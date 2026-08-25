@@ -8,9 +8,9 @@ class TaskValidationError(ValueError):
 def _require_localized(value, field):
     if not isinstance(value, dict) or any(
         not isinstance(value.get(locale), str) or not value[locale].strip()
-        for locale in ("ru", "kk")
+        for locale in ("ru", "kk", "en")
     ):
-        raise TaskValidationError(f"{field} must contain non-empty ru and kk")
+        raise TaskValidationError(f"{field} must contain non-empty ru, kk and en")
 
 
 def _fraction(value):
@@ -41,7 +41,12 @@ def _validate_math(payload):
         values = spec["values"]
         expected = Fraction(sum(values), len(values))
     elif kind == "concept_choice":
-        if payload["acceptable_answers"][0] not in payload["options"]:
+        option_answers = {
+            text
+            for option in payload["options"]
+            for text in (option.values() if isinstance(option, dict) else [option])
+        }
+        if not set(payload["acceptable_answers"]) & option_answers:
             raise TaskValidationError("concept answer must be one of the options")
         return
     else:
@@ -65,10 +70,15 @@ def validate_generated_task(payload):
     ):
         raise TaskValidationError("acceptable_answers must be a non-empty string list")
     options = payload.get("options")
-    if not isinstance(options, list) or len(options) != len(set(options)):
+    option_values = [tuple(sorted(option.items())) if isinstance(option, dict) else option for option in options or []]
+    if not isinstance(options, list) or len(option_values) != len(set(option_values)):
         raise TaskValidationError("options must be a unique list")
     if payload["task_type"] == "single_choice" and (
-        len(options) < 2 or not any(answer in options for answer in answers)
+        len(options) < 2 or not any(
+            answer == localized for option in options
+            for localized in (option.values() if isinstance(option, dict) else [option])
+            for answer in answers
+        )
     ):
         raise TaskValidationError("single_choice requires options containing the answer")
     _validate_math(payload)

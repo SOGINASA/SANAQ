@@ -34,6 +34,6 @@ test('rejects an invalid users payload instead of inventing an empty list', asyn
   apiRequest.mockResolvedValue({ data: {} });
 
   await expect(adminApi.allUsers({ role: 'teacher' })).rejects.toThrow(
-    'Backend вернул некорректный список пользователей',
+    'INVALID_USER_LIST',
   );
 });

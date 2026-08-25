@@ -274,7 +274,7 @@ def _explanation_content(task, mode):
     if mode == "short":
         return explanation.split(".")[0].strip() + "."
     if mode == "steps":
-        return {"title": "Разберём по шагам", "steps": [localized(task.hint), explanation]}
+        return {"title": localized({"ru": "Разберём по шагам", "kk": "Қадамдап талдайық", "en": "Let's work through it step by step"}), "steps": [localized(task.hint), explanation]}
     return {
         "title": "Связь с жизненной ситуацией",
         "example": "Представьте, что большое выражение нужно разложить на простые детали, как набор конструктора.",

@@ -16,11 +16,11 @@ def _linear_equation(rng, difficulty):
     c = a * solution + b
     answer = _number(Fraction(c - b, a))
     return {
-        "prompt": {"ru": f"Решите уравнение: {a}x + {b} = {c}", "kk": f"Теңдеуді шешіңіз: {a}x + {b} = {c}"},
+        "prompt": {"ru": f"Решите уравнение: {a}x + {b} = {c}", "kk": f"Теңдеуді шешіңіз: {a}x + {b} = {c}", "en": f"Solve the equation: {a}x + {b} = {c}"},
         "task_type": "short_answer", "difficulty": difficulty, "options": [],
         "acceptable_answers": [answer],
-        "hint": {"ru": "Перенесите свободный член и разделите обе части на коэффициент при x.", "kk": "Бос мүшені көшіріп, екі бөлікті x коэффициентіне бөліңіз."},
-        "explanation": {"ru": f"{a}x = {c - b}, поэтому x = {answer}.", "kk": f"{a}x = {c - b}, сондықтан x = {answer}."},
+        "hint": {"ru": "Перенесите свободный член и разделите обе части на коэффициент при x.", "kk": "Бос мүшені көшіріп, екі бөлікті x коэффициентіне бөліңіз.", "en": "Move the constant term and divide both sides by the coefficient of x."},
+        "explanation": {"ru": f"{a}x = {c - b}, поэтому x = {answer}.", "kk": f"{a}x = {c - b}, сондықтан x = {answer}.", "en": f"{a}x = {c - b}, therefore x = {answer}."},
         "validator_payload": {"kind": "linear_equation", "a": a, "b": b, "c": c},
     }
 
@@ -34,17 +34,19 @@ def _quadratic(rng, difficulty, discriminant=False):
         answer = str(b * b - 4 * c)
         prompt_ru = f"Найдите дискриминант: x² + ({b})x + ({c}) = 0"
         prompt_kk = f"Дискриминантты табыңыз: x² + ({b})x + ({c}) = 0"
+        prompt_en = f"Find the discriminant: x² + ({b})x + ({c}) = 0"
         spec = {"kind": "discriminant", "a": 1, "b": b, "c": c}
     else:
         answer = ";".join(map(str, sorted((root_1, root_2))))
         prompt_ru = f"Найдите корни: x² + ({b})x + ({c}) = 0. Запишите через ;"
         prompt_kk = f"Түбірлерін табыңыз: x² + ({b})x + ({c}) = 0. ; арқылы жазыңыз"
+        prompt_en = f"Find the roots: x² + ({b})x + ({c}) = 0. Separate them with ;"
         spec = {"kind": "quadratic_roots", "root_1": root_1, "root_2": root_2}
     return {
-        "prompt": {"ru": prompt_ru, "kk": prompt_kk}, "task_type": "short_answer",
+        "prompt": {"ru": prompt_ru, "kk": prompt_kk, "en": prompt_en}, "task_type": "short_answer",
         "difficulty": difficulty, "options": [], "acceptable_answers": [answer],
-        "hint": {"ru": "Используйте дискриминант или разложение на множители.", "kk": "Дискриминантты немесе көбейткіштерге жіктеуді қолданыңыз."},
-        "explanation": {"ru": f"Коэффициенты построены по корням {root_1} и {root_2}.", "kk": f"Коэффициенттер {root_1} және {root_2} түбірлері бойынша құрылды."},
+        "hint": {"ru": "Используйте дискриминант или разложение на множители.", "kk": "Дискриминантты немесе көбейткіштерге жіктеуді қолданыңыз.", "en": "Use the discriminant or factor the expression."},
+        "explanation": {"ru": f"Коэффициенты построены по корням {root_1} и {root_2}.", "kk": f"Коэффициенттер {root_1} және {root_2} түбірлері бойынша құрылды.", "en": f"The coefficients were built from the roots {root_1} and {root_2}."},
         "validator_payload": spec,
     }
 
@@ -54,11 +56,11 @@ def _power(rng, difficulty):
     exponent = rng.randint(2, 2 + difficulty)
     answer = str(base ** exponent)
     return {
-        "prompt": {"ru": f"Вычислите {base}^{exponent}", "kk": f"{base}^{exponent} мәнін есептеңіз"},
+        "prompt": {"ru": f"Вычислите {base}^{exponent}", "kk": f"{base}^{exponent} мәнін есептеңіз", "en": f"Calculate {base}^{exponent}"},
         "task_type": "short_answer", "difficulty": difficulty, "options": [],
         "acceptable_answers": [answer],
-        "hint": {"ru": "Умножьте основание само на себя нужное число раз.", "kk": "Негізді өзіне қажетті рет көбейтіңіз."},
-        "explanation": {"ru": f"Ответ: {answer}.", "kk": f"Жауабы: {answer}."},
+        "hint": {"ru": "Умножьте основание само на себя нужное число раз.", "kk": "Негізді өзіне қажетті рет көбейтіңіз.", "en": "Multiply the base by itself the required number of times."},
+        "explanation": {"ru": f"Ответ: {answer}.", "kk": f"Жауабы: {answer}.", "en": f"Answer: {answer}."},
         "validator_payload": {"kind": "integer_power", "base": base, "exponent": exponent},
     }
 
@@ -68,32 +70,32 @@ def _mean(rng, difficulty):
     answer = _number(Fraction(sum(values), len(values)))
     joined = ", ".join(map(str, values))
     return {
-        "prompt": {"ru": f"Найдите среднее арифметическое: {joined}", "kk": f"Арифметикалық ортаны табыңыз: {joined}"},
+        "prompt": {"ru": f"Найдите среднее арифметическое: {joined}", "kk": f"Арифметикалық ортаны табыңыз: {joined}", "en": f"Find the arithmetic mean: {joined}"},
         "task_type": "short_answer", "difficulty": difficulty, "options": [],
         "acceptable_answers": [answer],
-        "hint": {"ru": "Сложите значения и разделите на их количество.", "kk": "Мәндерді қосып, олардың санына бөліңіз."},
-        "explanation": {"ru": f"Сумма {sum(values)}, количество {len(values)}, ответ {answer}.", "kk": f"Қосындысы {sum(values)}, саны {len(values)}, жауабы {answer}."},
+        "hint": {"ru": "Сложите значения и разделите на их количество.", "kk": "Мәндерді қосып, олардың санына бөліңіз.", "en": "Add the values and divide by how many values there are."},
+        "explanation": {"ru": f"Сумма {sum(values)}, количество {len(values)}, ответ {answer}.", "kk": f"Қосындысы {sum(values)}, саны {len(values)}, жауабы {answer}.", "en": f"The sum is {sum(values)}, the count is {len(values)}, so the answer is {answer}."},
         "validator_payload": {"kind": "arithmetic_mean", "values": values},
     }
 
 
 def _concept(skill, distractors, difficulty):
-    correct = skill["name"]["ru"]
+    correct = skill["name"]
     fallback = [
-        {"name": {"ru": "Только переписать условие"}},
-        {"name": {"ru": "Угадать ответ без решения"}},
-        {"name": {"ru": "Пропустить проверку результата"}},
+        {"name": {"ru": "Только переписать условие", "kk": "Тек шартты қайта жазу", "en": "Only rewrite the problem"}},
+        {"name": {"ru": "Угадать ответ без решения", "kk": "Шешімсіз жауапты болжау", "en": "Guess without solving"}},
+        {"name": {"ru": "Пропустить проверку результата", "kk": "Нәтижені тексермеу", "en": "Skip checking the result"}},
     ]
     options = [correct] + [
-        item["name"]["ru"] for item in (distractors or fallback)[:3]
-        if item["name"]["ru"] != correct
+        item["name"] for item in (distractors or fallback)[:3]
+        if item["name"]["ru"] != correct["ru"]
     ]
     return {
-        "prompt": {"ru": "Какой навык соответствует текущей учебной цели?", "kk": "Қай дағды ағымдағы оқу мақсатына сәйкес келеді?"},
+        "prompt": {"ru": "Какой навык соответствует текущей учебной цели?", "kk": "Қай дағды ағымдағы оқу мақсатына сәйкес келеді?", "en": "Which skill matches the current learning goal?"},
         "task_type": "single_choice", "difficulty": difficulty, "options": options,
-        "acceptable_answers": [correct],
-        "hint": {"ru": "Сопоставьте формулировку с названием изучаемого навыка.", "kk": "Тұжырымды оқылатын дағды атауымен салыстырыңыз."},
-        "explanation": {"ru": f"Тек «{correct}» соответствует выбранному навыку.", "kk": f"Таңдалған дағдыға «{skill['name']['kk']}» сәйкес келеді."},
+        "acceptable_answers": list(dict.fromkeys(correct.values())),
+        "hint": {"ru": "Сопоставьте формулировку с названием изучаемого навыка.", "kk": "Тұжырымды оқылатын дағды атауымен салыстырыңыз.", "en": "Match the wording to the name of the skill being studied."},
+        "explanation": {"ru": f"Тек «{correct['ru']}» соответствует выбранному навыку.", "kk": f"Таңдалған дағдыға «{correct['kk']}» сәйкес келеді.", "en": f"Only “{correct['en']}” matches the selected skill."},
         "validator_payload": {"kind": "concept_choice"},
     }
 

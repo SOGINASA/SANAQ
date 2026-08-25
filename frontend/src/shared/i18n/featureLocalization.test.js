@@ -30,4 +30,19 @@ describe('localization coverage for content, analytics, and AI features', () => 
     const source = fs.readFileSync(path.join(__dirname, '..', '..', relativePath), 'utf8');
     expect(source).not.toMatch(/[А-Яа-яЁёҚқҒғҢңӘәӨөҰұҮүІіҺһ]/);
   });
+
+  test('production UI code has no hardcoded Cyrillic copy outside localization data', () => {
+    const sourceRoot = path.join(__dirname, '..', '..');
+    const visit = (directory) => fs.readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+      const absolute = path.join(directory, entry.name);
+      if (entry.isDirectory()) {
+        if (absolute === __dirname || absolute === path.join(sourceRoot, 'shared', 'data')) return [];
+        return visit(absolute);
+      }
+      if (!/\.(?:js|jsx)$/.test(entry.name) || /\.test\.(?:js|jsx)$/.test(entry.name)) return [];
+      return [absolute];
+    });
+    const offenders = visit(sourceRoot).filter((file) => /[А-Яа-яЁёҚқҒғҢңӘәӨөҰұҮүІіҺһ]/.test(fs.readFileSync(file, 'utf8')));
+    expect(offenders.map((file) => path.relative(sourceRoot, file))).toEqual([]);
+  });
 });

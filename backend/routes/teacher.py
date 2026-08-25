@@ -151,7 +151,7 @@ def _student_rows(classroom):
             "progress": round(mastery * 100), "mastery": round(mastery, 2),
             "streak": active_days,
             "risk": "stable" if mastery >= 0.7 else "attention" if mastery >= 0.4 else "risk",
-            "focus": localized(weakest.name) if weakest else "Диагностика не пройдена",
+            "focus": localized(weakest.name) if weakest else localized({"ru": "Диагностика не пройдена", "kk": "Диагностика өткізілмеген", "en": "Diagnostic not completed"}),
             "skills": [{
                 "id": skill.id, "name": localized(skill.name),
                 "mastery": round(by_skill.get(skill.id).mastery, 2) if by_skill.get(skill.id) else 0,

@@ -6,7 +6,7 @@ const users = ({ search = '', role = '', page = 1, pageSize = 20 } = {}) => apiR
   params: { search, role, page, page_size: pageSize },
 });
 
-const allUsers = async ({ search = '', role = '' } = {}) => {
+const allUsers = async ({ search = '', role = '', invalidMessage = 'INVALID_USER_LIST' } = {}) => {
   const pageSize = 100;
   let page = 1;
   let items = [];
@@ -15,7 +15,7 @@ const allUsers = async ({ search = '', role = '' } = {}) => {
     response = await users({ search, role, page, pageSize });
     const pageItems = response.data.items;
     if (!Array.isArray(pageItems) || !Number.isInteger(response.data.total)) {
-      throw new Error('Backend вернул некорректный список пользователей');
+      throw new Error(invalidMessage);
     }
     items = items.concat(pageItems);
     if (!pageItems.length) break;

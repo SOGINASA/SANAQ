@@ -31,18 +31,37 @@ class CurriculumValidationError(ValueError):
     pass
 
 
+def _english_catalog_name(identifier):
+    """Create a stable English label for curriculum entries authored before EN support."""
+    if identifier == "mathematics":
+        return "Mathematics"
+    parts = re.sub(r"^math-g\d+-", "", identifier).split("-")
+    acronyms = {"gcd": "GCD", "lcm": "LCM", "3d": "3D"}
+    return " ".join(acronyms.get(part, part.capitalize()) for part in parts)
+
+
+def _complete_english_catalog(payload):
+    subject = payload.get("subject", {})
+    subject.setdefault("name", {}).setdefault("en", _english_catalog_name(subject.get("id", "mathematics")))
+    for topic in payload.get("topics", []):
+        topic.setdefault("name", {}).setdefault("en", _english_catalog_name(topic.get("id", "topic")))
+        for skill in topic.get("skills", []):
+            skill.setdefault("name", {}).setdefault("en", _english_catalog_name(skill.get("id", "skill")))
+
+
 def _localized_name(value, path):
     if not isinstance(value, dict) or not all(
         isinstance(value.get(locale), str) and value[locale].strip()
-        for locale in ("ru", "kk")
+        for locale in ("ru", "kk", "en")
     ):
-        raise CurriculumValidationError(f"{path}.name must contain non-empty ru and kk")
-    return {locale: value[locale].strip() for locale in ("ru", "kk")}
+        raise CurriculumValidationError(f"{path}.name must contain non-empty ru, kk and en")
+    return {locale: value[locale].strip() for locale in ("ru", "kk", "en")}
 
 
 def load_math_curriculum(path=CURRICULUM_PATH):
     with Path(path).open(encoding="utf-8") as source:
         payload = json.load(source)
+    _complete_english_catalog(payload)
     validate_math_curriculum(payload)
     return payload
 
@@ -52,6 +71,7 @@ def _skill_value(payload, topic, skill, field):
 
 
 def validate_math_curriculum(payload):
+    _complete_english_catalog(payload)
     if payload.get("subject", {}).get("id") != "mathematics":
         raise CurriculumValidationError("subject.id must be mathematics")
     if payload.get("grades") != [7, 8, 9, 10, 11, 12]:
@@ -287,6 +307,7 @@ def seed_curriculum_learning_content(path=CURRICULUM_PATH, commit=True):
             description={
                 "ru": f"Теория, примеры и практика по теме «{topic_name['ru']}».",
                 "kk": f"«{topic_name['kk']}» тақырыбы бойынша теория, мысалдар және практика.",
+                "en": f"Theory, examples, and practice for {topic_name['en']}.",
             },
             grade=topic["grade"],
             status="published",
@@ -300,10 +321,12 @@ def seed_curriculum_learning_content(path=CURRICULUM_PATH, commit=True):
             theory={
                 "ru": f"Разберём основные правила темы «{topic_name['ru']}» и применим их по шагам.",
                 "kk": f"«{topic_name['kk']}» тақырыбының негізгі ережелерін қарастырып, оларды қадамдап қолданамыз.",
+                "en": f"We will review the main rules of {topic_name['en']} and apply them step by step.",
             },
             example={
                 "ru": "Сначала определите известные данные, выберите правило и проверьте полученный ответ.",
                 "kk": "Алдымен белгілі деректерді анықтап, ережені таңдаңыз және алынған жауапты тексеріңіз.",
+                "en": "First identify the known values, choose the appropriate rule, and verify the result.",
             },
             order_index=topic["order"],
         )
@@ -322,17 +345,19 @@ def seed_curriculum_learning_content(path=CURRICULUM_PATH, commit=True):
             if skill_index < len(authored_practice):
                 prompt, answer = authored_practice[skill_index]
                 generated.update({
-                    "prompt": {"ru": prompt, "kk": prompt},
+                    "prompt": {"ru": prompt, "kk": prompt, "en": generated["prompt"]["en"]},
                     "task_type": "short_answer",
                     "options": [],
                     "acceptable_answers": _authored_answer_variants(answer),
                     "hint": {
                         "ru": "Назовите правило, выполните преобразования по строкам и проверьте ответ.",
                         "kk": "Ережені атап, түрлендірулерді жолмен орындап, жауапты тексеріңіз.",
+                        "en": "Name the rule, show one transformation per line, and check the answer.",
                     },
                     "explanation": {
                         "ru": f"После последовательного решения получаем: {answer}.",
                         "kk": f"Қадамдық шешімнен кейінгі жауап: {answer}.",
+                        "en": f"Following the steps gives the answer: {answer}.",
                     },
                 })
             task_id = f"task-{skill['id']}"
