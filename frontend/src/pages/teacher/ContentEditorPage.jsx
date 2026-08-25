@@ -167,7 +167,7 @@ export function ContentEditorPage() {
     finally { setLoading(false); }
   };
 
-  if (initialLoading) return <PageSkeleton layout="form" label="Loading content editor" />;
+  if (initialLoading) return <PageSkeleton layout="form" label={t('editor.loading')} />;
 
   return <div className="mx-auto max-w-6xl animate-rise pb-12">
     <button onClick={() => navigate(contentBase)} className="mb-5 inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-xl px-2 font-bold text-stone-600 transition hover:bg-stone-100"><ArrowLeft className="h-5 w-5" /> {t('editor.back')}</button>

@@ -1,13 +1,16 @@
 import { cn } from '../lib/cn';
+import { useI18n } from '../i18n/i18n';
 
 export function Skeleton({ className, lines = 1, ...props }) {
   return <div className={cn('skeleton-stack space-y-3', className)} aria-hidden="true" {...props}>{Array.from({ length: lines }, (_, index) => <div key={index} className={cn('skeleton-shape h-4 rounded-full bg-stone-200', index === lines - 1 && lines > 1 && 'w-2/3')} />)}</div>;
 }
 
-export function PageSkeleton({ className, layout = 'cards', cards = 3, label = 'Загрузка данных' }) {
+export function PageSkeleton({ className, layout = 'cards', cards = 3, label }) {
+  const { t } = useI18n();
+  const accessibleLabel = label || t('common.loading');
   return (
-    <div className={cn('content-skeleton mx-auto w-full max-w-6xl', className)} role="status" aria-label={label}>
-      <span className="sr-only">{label}</span>
+    <div className={cn('content-skeleton mx-auto w-full max-w-6xl', className)} role="status" aria-label={accessibleLabel}>
+      <span className="sr-only">{accessibleLabel}</span>
       <div className="skeleton-shape h-3 w-28 rounded-full bg-lavender-200" />
       <div className="skeleton-shape mt-4 h-10 w-full max-w-lg rounded-2xl bg-stone-200" />
       <div className="skeleton-shape mt-3 h-4 w-full max-w-2xl rounded-full bg-stone-200" />
